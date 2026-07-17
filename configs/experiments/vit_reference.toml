@@ -1,0 +1,87 @@
+# Jummah ImageNet-32/CIFAR-sized ViT reference: d384, depth6, heads6, MLP1536, patch4.
+[study]
+name = "vit-reference-confirmation"
+output_dir = "results"
+[model]
+adapter = "transformer"
+profile = "custom"
+[dataset]
+name = "cifar10"
+root = "data"
+download = false
+validation_fraction = 0.1
+split_seed = 42
+augmentation = "strong"
+[search]
+sampler = "explicit"
+trials = 1
+seed = 42
+[execution]
+device = "auto"
+precision = "auto"
+reproducibility = "balanced"
+[objectives.validation_accuracy]
+direction = "maximize"
+[parameters.embed_dim]
+enabled = false
+fixed = 384
+[parameters.depth]
+enabled = false
+fixed = 6
+[parameters.heads]
+enabled = false
+fixed = 6
+[parameters.mlp_ratio]
+enabled = false
+fixed = 4.0
+[parameters.patch_kernel]
+enabled = false
+fixed = 4
+[parameters.patch_stride]
+enabled = false
+fixed = 4
+[parameters.optimizer]
+enabled = false
+fixed = "adamw"
+[parameters.learning_rate]
+enabled = false
+fixed = 0.0005
+[parameters.weight_decay]
+enabled = false
+fixed = 0.05
+[parameters.batch_size]
+enabled = false
+fixed = 128
+[parameters.scheduler]
+enabled = false
+fixed = "cosine"
+[parameters.warmup_epochs]
+enabled = false
+fixed = 5
+[[explicit.configurations]]
+embed_dim = 384
+depth = 6
+heads = 6
+mlp_ratio = 4.0
+patch_kernel = 4
+patch_stride = 4
+optimizer = "adamw"
+learning_rate = 0.0005
+weight_decay = 0.05
+batch_size = 128
+scheduler = "cosine"
+warmup_epochs = 5
+[stages.proxy]
+enabled = true
+trials = 1
+epochs = 1
+max_train_steps = 50
+top_k = 1
+[stages.halving]
+enabled = false
+[stages.full]
+enabled = true
+top_k = 1
+epochs = 200
+seeds = [7, 21, 42]
+evaluate_test = false

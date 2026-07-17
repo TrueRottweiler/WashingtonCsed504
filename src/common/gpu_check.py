@@ -335,7 +335,7 @@ def get_device(verbose: bool = True, config_multigpu: bool = True):
                 print(f"  PyTorch  : {torch.__version__}")
                 print("  Device   : MPS - Apple Silicon GPU (unified memory)")
             return device
-        except Exception:
+        except (RuntimeError, OSError):
             pass  # fall through to CPU
 
     device = torch.device("cpu")
@@ -522,7 +522,7 @@ def preflight_check(required_data: list[tuple[str, str]] | None = None,
             assert b.shape == (sz, sz), "unexpected output shape"
             del a, b
             torch.cuda.empty_cache()
-        except Exception as exc:
+        except (RuntimeError, AssertionError) as exc:
             errors.append(f"FP16 smoke-test failed on {torch.cuda.get_device_name(0)}: {exc}")
 
     if required_data:
@@ -587,7 +587,7 @@ def _main() -> None:
     for _stream in (sys.stdout, sys.stderr):
         try:
             _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-        except Exception:
+        except (AttributeError, OSError, ValueError):
             pass
 
     parser = argparse.ArgumentParser(

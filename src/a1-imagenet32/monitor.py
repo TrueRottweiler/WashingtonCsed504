@@ -24,6 +24,8 @@ import subprocess
 import sys
 import time
 
+import psutil
+
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
@@ -36,7 +38,7 @@ from rich.text import Text
 UNICODE = True
 try:
     sys.stdout.reconfigure(encoding='utf-8')
-except Exception:
+except (AttributeError, OSError, ValueError):
     UNICODE = False
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -112,21 +114,26 @@ def gpus():
                          'mem_tot': float(mt) / 1024, 'pw': float(pd), 'pw_max': float(pl),
                          'temp': float(t)})
         return rows
-    except Exception:
+    except (FileNotFoundError, subprocess.SubprocessError, ValueError, IndexError):
         return []
 
 
 def live_tags():
-    """Which models have a train.py process actually running right now?"""
+    """Return model tags for live ``train.py`` processes on any supported OS."""
+    tags: set[str] = set()
     try:
-        out = subprocess.run(
-            ['powershell', '-NoProfile', '-Command',
-             "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
-             "Where-Object { $_.CommandLine -match 'train.py' } | ForEach-Object { $_.CommandLine }"],
-            capture_output=True, text=True, timeout=8).stdout
-        return {m.group(1) for m in re.finditer(r'--model\s+(\S+)', out)}
-    except Exception:
+        processes = psutil.process_iter(attrs=("cmdline",))
+        for process in processes:
+            cmdline = process.info.get("cmdline") or []
+            command = " ".join(str(part) for part in cmdline)
+            if "train.py" not in command:
+                continue
+            match = re.search(r"--model\s+(\S+)", command)
+            if match:
+                tags.add(match.group(1))
+    except (psutil.Error, OSError):
         return set()
+    return tags
 
 
 def bar(frac, width=18, color='white'):

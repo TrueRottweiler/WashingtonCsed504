@@ -50,3 +50,20 @@ ruff check .
 ## Questions
 
 Post questions in the course discussion board or open a GitHub Issue in this repository.
+
+## Experiment-framework changes
+
+For changes under `src/cv_search/`:
+
+1. Add or update focused tests under `tests/unit`, `tests/integration`, or `tests/smoke`.
+2. Run:
+   ```bash
+   python -m ruff check src/cv_search tests
+   python -m ruff format --check src/cv_search tests
+   python -m compileall -q src tests
+   OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=src pytest -q tests/unit
+   OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=src pytest -q tests/integration
+   ```
+3. Use a new study name when dataset splits, preprocessing, evaluation semantics, or architecture definitions change.
+4. Do not commit datasets, checkpoints, `results/`, local environments, study databases, credentials, or machine-specific paths.
+5. Label synthetic smoke outputs as pipeline verification rather than model performance.

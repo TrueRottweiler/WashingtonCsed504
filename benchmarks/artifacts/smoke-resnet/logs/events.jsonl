@@ -1,0 +1,10 @@
+{"adapter": "cnn", "device": "cpu", "event": "study_initialized", "profile": "simple", "study": "smoke-resnet", "timestamp_utc": "2026-07-17T19:19:31.462557+00:00"}
+{"calibration_skipped": true, "device": "cpu", "event": "runtime_preview", "search_space_size": null, "timestamp_utc": "2026-07-17T19:19:31.462853+00:00"}
+{"elapsed_seconds": 1.7738752200002637, "event": "trial_finished", "stage": "proxy", "status": "completed", "timestamp_utc": "2026-07-17T19:19:34.848527+00:00", "trial_id": "proxy-00000", "validation_accuracy": 0.0}
+{"elapsed_seconds": 1.1559935979998954, "event": "trial_finished", "stage": "proxy", "status": "completed", "timestamp_utc": "2026-07-17T19:19:36.358193+00:00", "trial_id": "proxy-00001", "validation_accuracy": 0.0}
+{"elapsed_seconds": 0.0149402810002357, "event": "trial_finished", "rung": 0, "stage": "halving", "status": "promoted", "timestamp_utc": "2026-07-17T19:19:37.230207+00:00", "trial_id": "halving-r0-proxy-00001", "validation_accuracy": 0.0}
+{"elapsed_seconds": 0.012985415999992256, "event": "trial_finished", "rung": 0, "stage": "halving", "status": "pruned", "timestamp_utc": "2026-07-17T19:19:37.230875+00:00", "trial_id": "halving-r0-proxy-00000", "validation_accuracy": 0.0}
+{"elapsed_seconds": 5.138100286000281, "event": "trial_finished", "stage": "full", "status": "completed", "timestamp_utc": "2026-07-17T19:19:42.645140+00:00", "trial_id": "full-0-seed-7", "validation_accuracy": 0.125}
+{"event": "study_finalized", "executions": 5, "pareto_trials": 1, "result_directory": "results/smoke-resnet", "timestamp_utc": "2026-07-17T19:19:45.507090+00:00"}
+{"adapter": "cnn", "device": "cpu", "event": "study_initialized", "profile": "simple", "study": "smoke-resnet", "timestamp_utc": "2026-07-17T19:20:25.875252+00:00"}
+{"calibration_skipped": false, "device": "cpu", "event": "runtime_preview", "search_space_size": null, "timestamp_utc": "2026-07-17T19:20:29.714478+00:00"}

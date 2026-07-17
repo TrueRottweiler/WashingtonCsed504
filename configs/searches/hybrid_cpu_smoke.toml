@@ -1,0 +1,103 @@
+[study]
+name = "hybrid-cpu-smoke"
+output_dir = "results"
+mode = "continuous"
+
+[model]
+adapter = "cnn"
+profile = "custom"
+
+[dataset]
+name = "fake"
+train_examples = 32
+validation_examples = 9
+test_examples = 7
+image_size = 32
+num_classes = 10
+split_seed = 17
+
+[search]
+sampler = "explicit"
+trials = 2
+seed = 11
+
+[execution]
+device = "cpu"
+precision = "fp32"
+parallel_mode = "hybrid"
+trial_concurrency = 2
+ddp_processes = 2
+num_workers = 0
+num_workers_total = 0
+intraop_threads = 1
+interop_threads = 1
+batch_size_scope = "global"
+distributed_backend = "gloo"
+distributed_timeout_seconds = 120
+worker_timeout_seconds = 180
+persistent_trial_workers = true
+compile = false
+
+[objectives.validation_accuracy]
+direction = "maximize"
+
+[[explicit.configurations]]
+width_multiplier = 0.125
+stage_blocks = "1,1,1,1"
+optimizer = "sgd"
+learning_rate = 0.01
+weight_decay = 0.0
+momentum = 0.9
+nesterov = false
+batch_size = 8
+scheduler = "none"
+warmup_epochs = 0
+gradient_accumulation = 1
+gradient_clip = 0.0
+early_stopping_patience = 0
+label_smoothing = 0.0
+
+[[explicit.configurations]]
+width_multiplier = 0.125
+stage_blocks = "1,1,1,1"
+optimizer = "sgd"
+learning_rate = 0.02
+weight_decay = 0.0
+momentum = 0.9
+nesterov = false
+batch_size = 8
+scheduler = "none"
+warmup_epochs = 0
+gradient_accumulation = 1
+gradient_clip = 0.0
+early_stopping_patience = 0
+label_smoothing = 0.0
+
+[stages.proxy]
+enabled = true
+trials = 2
+resource = "steps"
+max_train_steps = 1
+max_validation_batches = 2
+data_fraction = 1.0
+top_k = 1
+
+[stages.proxy.execution]
+parallel_mode = "parallel_trials"
+trial_concurrency = 2
+
+[stages.halving]
+enabled = false
+
+[stages.full]
+enabled = true
+top_k = 1
+epochs = 1
+seeds = [7]
+evaluate_test = false
+
+[stages.full.execution]
+parallel_mode = "ddp"
+ddp_processes = 2
+trial_concurrency = 1
+batch_size_scope = "global"

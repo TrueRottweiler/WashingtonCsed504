@@ -1,0 +1,67 @@
+{
+  "calibration_trials": 3,
+  "seconds_per_step": {
+    "low": 0.14336131799973373,
+    "central": 0.641215640000155,
+    "high": 0.9040948619999654
+  },
+  "proxy_seconds": {
+    "low": 0.28672263599946746,
+    "central": 1.28243128000031,
+    "high": 1.8081897239999307
+  },
+  "halving_seconds": {
+    "low": 0.28672263599946746,
+    "central": 1.28243128000031,
+    "high": 1.8081897239999307
+  },
+  "confirmation_seconds": {
+    "low": 0.14336131799973373,
+    "central": 0.641215640000155,
+    "high": 0.9040948619999654
+  },
+  "total_sequential_seconds": {
+    "low": 0.7168065899986686,
+    "central": 3.206078200000775,
+    "high": 4.520474309999827
+  },
+  "total_parallel_seconds": {
+    "low": 0.7168065899986686,
+    "central": 3.206078200000775,
+    "high": 4.520474309999827
+  },
+  "peak_memory_mb": {
+    "low": 0.0,
+    "central": 0.0,
+    "high": 0.0
+  },
+  "storage_mb": {
+    "low": 18.752593994140625,
+    "central": 170.50112915039062,
+    "high": 266.3294982910156
+  },
+  "estimated_gpu_hours": {
+    "low": 0.0,
+    "central": 0.0,
+    "high": 0.0
+  },
+  "estimated_cpu_hours": {
+    "low": 0.00019911294166629685,
+    "central": 0.000890577277777993,
+    "high": 0.0012556873083332852
+  },
+  "estimated_cost_usd": {
+    "low": 0.0,
+    "central": 0.0,
+    "high": 0.0
+  },
+  "confidence": "low",
+  "uncertainty_factors": [
+    "architecture-dependent throughput",
+    "data-loader and augmentation cost",
+    "compilation startup overhead",
+    "thermal throttling and shared-runtime contention",
+    "pruning and early-stopping rates",
+    "checkpoint filesystem performance"
+  ]
+}

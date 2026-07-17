@@ -1,0 +1,103 @@
+[study]
+name = "vit-cifar10-default"
+mode = "continuous"
+output_dir = "results"
+
+[model]
+adapter = "transformer"
+profile = "simple"
+
+[dataset]
+name = "cifar10"
+root = "data"
+download = false
+validation_fraction = 0.1
+split_seed = 42
+augmentation = "strong"
+
+[search]
+sampler = "tpe"
+trials = 12
+seed = 42
+concurrency = 1
+
+[execution]
+device = "auto"
+precision = "auto"
+reproducibility = "balanced"
+compile = false
+channels_last = false
+parallel_mode = "auto"
+trial_concurrency = "auto"
+gpus_per_trial = 1
+batch_size_scope = "global"
+learning_rate_scaling = "none"
+distributed_backend = "auto"
+cpu_core_reserve = 2
+num_workers_total = 8
+
+[objectives.validation_accuracy]
+enabled = true
+direction = "maximize"
+weight = 1.0
+
+[objectives.wall_clock_seconds]
+enabled = true
+direction = "minimize"
+weight = 0.25
+
+[objectives.peak_memory_mb]
+enabled = true
+direction = "minimize"
+weight = 0.15
+
+[objectives.examples_processed]
+enabled = true
+direction = "minimize"
+weight = 0.10
+
+[objectives.monetary_cost_usd]
+enabled = false
+direction = "minimize"
+weight = 0.10
+
+[constraints]
+max_search_runtime_seconds = 0
+max_search_gpu_hours = 0
+max_search_cpu_hours = 0
+max_search_cost_usd = 0
+max_memory_mb = 0
+min_validation_accuracy = 0
+minimum_free_disk_gb = 1
+
+[cost]
+gpu_hour_usd = 0.0
+cpu_hour_usd = 0.0
+storage_gb_month_usd = 0.0
+
+[selection]
+policy = "weighted_pareto"
+
+[stages.proxy]
+enabled = true
+trials = 12
+epochs = 3
+max_train_steps = 600
+max_validation_batches = 10
+data_fraction = 1.0
+top_k = 6
+
+[stages.halving]
+enabled = true
+resource = "epochs"
+budgets = [5, 15, 30]
+reduction_factor = 2
+minimum_candidates = 2
+continue_checkpoints = true
+
+[stages.full]
+enabled = true
+top_k = 2
+epochs = 100
+seeds = [7, 21, 42]
+evaluate_test = false

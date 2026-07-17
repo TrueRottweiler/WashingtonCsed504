@@ -1,0 +1,53 @@
+{
+  "date": "2026-07-17",
+  "classification": "measured CPU synthetic-data smoke test",
+  "environment": {
+    "operating_system": "Linux-4.4.0-x86_64-with-glibc2.41",
+    "python_version": "3.13.5",
+    "pytorch_version": "2.10.0+cpu",
+    "torchvision_version": "0.25.0+cpu",
+    "cuda_available": false,
+    "gpu_count": 0,
+    "mps_available": false,
+    "cpu_model": "x86_64",
+    "physical_cpu_cores": 56,
+    "logical_cpu_cores": 56,
+    "system_ram_total_gb": 4.0
+  },
+  "studies": {
+    "smoke-resnet": {
+      "executions": 5,
+      "completed_or_promoted": 4,
+      "pruned": 1,
+      "failed_or_rejected": 0,
+      "optimization_steps": 12,
+      "examples_processed": 112,
+      "observed_execution_seconds_sum": 8.095894801000668,
+      "predicted_sequential_seconds_central": 3.206078200000775,
+      "absolute_error_seconds": 4.889816600999893,
+      "absolute_percentage_error": 60.39871714236581,
+      "underestimated": true,
+      "max_peak_cpu_memory_mb": 1040.51953125,
+      "max_parameter_count": 11173962,
+      "max_checkpoint_size_mb": 128.0169448852539,
+      "note": "Accuracy is random-data pipeline output and is not a model-quality benchmark."
+    },
+    "smoke-vit": {
+      "executions": 5,
+      "completed_or_promoted": 4,
+      "pruned": 1,
+      "failed_or_rejected": 0,
+      "optimization_steps": 12,
+      "examples_processed": 112,
+      "observed_execution_seconds_sum": 1.1293993340004818,
+      "predicted_sequential_seconds_central": 0.5167420849988957,
+      "absolute_error_seconds": 0.612657249001586,
+      "absolute_percentage_error": 54.24629097588299,
+      "underestimated": true,
+      "max_peak_cpu_memory_mb": 826.71484375,
+      "max_parameter_count": 546186,
+      "max_checkpoint_size_mb": 6.328578948974609,
+      "note": "Accuracy is random-data pipeline output and is not a model-quality benchmark."
+    }
+  }
+}

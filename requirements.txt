@@ -1,2 +1,7 @@
-# Requirements for UW CSED 504
-# Add course-specific dependencies below as needed.
+# Cross-platform framework dependencies. Install PyTorch/Torchvision with the wheel
+# appropriate for your CPU, CUDA, or Apple-Silicon environment when needed.
+numpy>=1.26
+matplotlib>=3.8
+psutil>=5.9
+optuna>=4.0,<5
+pytest>=8

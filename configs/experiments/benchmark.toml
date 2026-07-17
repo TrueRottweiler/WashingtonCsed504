@@ -1,0 +1,5 @@
+[benchmark]
+calibration_steps = 10
+repetitions = 3
+models = ["cnn", "transformer"]
+configs = ["configs/searches/smoke_resnet.toml", "configs/searches/smoke_vit.toml"]

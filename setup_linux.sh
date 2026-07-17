@@ -36,12 +36,15 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # -- Step 4: scientific Python stack (pip -> OpenBLAS, no second libiomp) -------
 echo "Installing scientific Python stack..."
 pip install numpy pandas matplotlib seaborn scikit-learn tqdm \
-    jupyter ipykernel pillow imageio
+    jupyter ipykernel pillow imageio psutil optuna pytest rich pyarrow
 
 # -- Step 5: CV and NLP extras -------------------------------------------------
 echo "Installing CV and NLP extras..."
 pip install torchmetrics transformers datasets accelerate \
     sentencepiece protobuf "huggingface_hub[hf_xet]"
+
+echo "Installing the repository package..."
+pip install -e . --no-deps
 
 # -- Step 6: register Jupyter kernel -------------------------------------------
 echo "Registering Jupyter kernel..."

@@ -1,0 +1,67 @@
+[study]
+name = "smoke-vit"
+output_dir = "results"
+mode = "continuous"
+[model]
+adapter = "transformer"
+profile = "simple"
+[dataset]
+name = "fake"
+train_examples = 64
+validation_examples = 24
+test_examples = 24
+image_size = 32
+num_classes = 10
+split_seed = 42
+[search]
+sampler = "random"
+trials = 2
+seed = 42
+concurrency = 1
+[execution]
+device = "cpu"
+precision = "fp32"
+num_workers = 0
+intraop_threads = 1
+interop_threads = 1
+compile = false
+reproducibility = "balanced"
+[objectives.validation_accuracy]
+enabled = true
+direction = "maximize"
+weight = 1.0
+[objectives.wall_clock_seconds]
+enabled = true
+direction = "minimize"
+weight = 0.1
+[selection]
+policy = "weighted_pareto"
+[parameters.warmup_epochs]
+enabled = false
+type = "fixed"
+fixed = 0
+[parameters.batch_size]
+enabled = false
+type = "fixed"
+fixed = 8
+[stages.proxy]
+enabled = true
+trials = 2
+epochs = 1
+max_train_steps = 1
+max_validation_batches = 1
+data_fraction = 1.0
+top_k = 2
+[stages.halving]
+enabled = true
+resource = "steps"
+budgets = [1]
+reduction_factor = 2
+minimum_candidates = 1
+continue_checkpoints = true
+[stages.full]
+enabled = true
+top_k = 1
+epochs = 1
+seeds = [7]
+evaluate_test = false

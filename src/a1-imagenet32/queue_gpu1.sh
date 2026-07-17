@@ -1,5 +1,7 @@
 #!/bin/bash
-P="C:/Users/truer/.conda/envs/uw-csed504/python.exe"
+P="${PYTHON_BIN:-python}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
 # 1. the parameter-matched ViT, now properly regularized
 "$P" -W ignore train.py --model vit      --gpu 1 --epochs 60 --batch 512 > logs/vit.log 2>&1
 # 2. ResNet-50, with zero_init_residual + grad clipping to cure the NaN

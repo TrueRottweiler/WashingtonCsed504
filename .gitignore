@@ -232,3 +232,17 @@ src/a1-cv/cifar10_resnet18.pt
 src/a1-imagenet32/archive/
 src/a1-imagenet32/data/
 src/a1-imagenet32/runs/
+
+# Hyperparameter-search generated artifacts
+results/
+data/
+*.pt
+*.pth
+*.ckpt
+study.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local benchmark scratch data (reports under benchmarks/ remain tracked)
+benchmarks/tmp/

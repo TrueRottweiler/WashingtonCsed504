@@ -1,0 +1,74 @@
+# Repository baseline: CIFAR-adapted ResNet-18 (3x3/stride-1 stem, no max pool).
+[study]
+name = "resnet-reference-confirmation"
+output_dir = "results"
+[model]
+adapter = "cnn"
+profile = "custom"
+[dataset]
+name = "cifar10"
+root = "data"
+download = false
+validation_fraction = 0.1
+split_seed = 42
+augmentation = "basic"
+[search]
+sampler = "explicit"
+trials = 1
+seed = 42
+[execution]
+device = "auto"
+precision = "auto"
+reproducibility = "balanced"
+channels_last = true
+[objectives.validation_accuracy]
+direction = "maximize"
+[parameters.optimizer]
+enabled = false
+fixed = "sgd"
+[parameters.learning_rate]
+enabled = false
+fixed = 0.1
+[parameters.weight_decay]
+enabled = false
+fixed = 0.0005
+[parameters.momentum]
+enabled = false
+fixed = 0.9
+[parameters.nesterov]
+enabled = false
+fixed = true
+[parameters.batch_size]
+enabled = false
+fixed = 128
+[parameters.scheduler]
+enabled = false
+fixed = "cosine"
+[parameters.warmup_epochs]
+enabled = false
+fixed = 0
+[parameters.label_smoothing]
+enabled = false
+fixed = 0.0
+[[explicit.configurations]]
+optimizer = "sgd"
+learning_rate = 0.1
+weight_decay = 0.0005
+momentum = 0.9
+nesterov = true
+batch_size = 128
+scheduler = "cosine"
+[stages.proxy]
+enabled = true
+trials = 1
+epochs = 1
+max_train_steps = 50
+top_k = 1
+[stages.halving]
+enabled = false
+[stages.full]
+enabled = true
+top_k = 1
+epochs = 100
+seeds = [7, 21, 42]
+evaluate_test = false

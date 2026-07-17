@@ -39,13 +39,16 @@ conda install -y pytorch torchvision torchaudio -c pytorch
 
 # Install core scientific Python stack
 echo "Installing scientific Python packages..."
-conda install -y numpy pandas matplotlib seaborn scikit-learn jupyter ipykernel tqdm pillow
+conda install -y numpy pandas matplotlib seaborn scikit-learn jupyter ipykernel tqdm pillow psutil pytest rich pyarrow
 
 # Install HuggingFace NLP stack + CV extras via pip — conda versions lag behind and have
 # dependency conflicts with some HuggingFace packages.  torchmetrics and imageio are kept
 # in sync with setup_windows.ps1 so both platforms have the same packages for the assignments.
 echo "Installing NLP / HuggingFace + CV packages..."
-pip install torchmetrics imageio transformers datasets accelerate sentencepiece protobuf "huggingface_hub[hf_xet]"
+pip install torchmetrics imageio transformers datasets accelerate sentencepiece protobuf optuna "huggingface_hub[hf_xet]"
+
+echo "Installing the repository package..."
+pip install -e . --no-deps
 
 # Register kernel for Jupyter / VS Code
 echo "Registering Jupyter kernel..."
