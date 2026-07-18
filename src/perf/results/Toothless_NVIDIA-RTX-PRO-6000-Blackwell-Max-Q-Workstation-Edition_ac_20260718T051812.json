@@ -119,6 +119,6 @@
   "mfu": 0.7802956902441218,
   "t_startup_s": 16.450445299968123
  },
- "actual_total_s": null,
- "notes": "collect.py; synthetic-data calibration; recipe = cifar100_hf_train.ipynb section 4"
+ "actual_total_s": 68.4,
+ "notes": "collect.py; synthetic-data calibration; recipe = cifar100_hf_train.ipynb section 4 | actual 68.4s from real nbconvert 40-epoch run 2026-07-18; pred err -13.1%"
 }
