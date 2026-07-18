@@ -124,7 +124,7 @@ Write-Host 'Installing PyTorch with CUDA 12.8 (Blackwell-compatible)...' -Foregr
 Write-Host 'Installing scientific Python stack...' -ForegroundColor Green
 & $condaExe run -n $ENV_NAME pip install `
     numpy pandas matplotlib seaborn scikit-learn tqdm `
-    jupyter ipykernel pillow imageio
+    jupyter ipykernel pillow imageio psutil
 
 # -- Step 5: CV and NLP extras -------------------------------------------------------------------
 Write-Host 'Installing CV and NLP extras...' -ForegroundColor Green
