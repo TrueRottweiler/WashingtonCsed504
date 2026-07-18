@@ -1,0 +1,124 @@
+{
+ "schema": 1,
+ "timestamp": "2026-07-18T05:18:12+00:00",
+ "fingerprint": {
+  "hostname": "Toothless",
+  "os": "Windows 11",
+  "python": "3.12.13",
+  "torch": "2.11.0+cu128",
+  "device_type": "cuda",
+  "cpu": "AMD64 Family 25 Model 24 Stepping 1, AuthenticAMD",
+  "cpu_cores_logical": 48,
+  "ram_gb": 383.4,
+  "cpu_cores_physical": 24,
+  "power_plugged": null,
+  "battery_percent": null,
+  "power_plan": "Lenovo Default",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "gpu_sm": "sm_120",
+  "gpu_vram_gb": 95.6,
+  "gpu_sm_count": 188,
+  "cuda": "12.8",
+  "driver": "596.72",
+  "gpu_power_default_w": 300.0,
+  "gpu_power_max_w": 325.0,
+  "gpu_max_clock_mhz": 3090.0,
+  "backend_flags": {
+   "float32_matmul_precision": "high",
+   "cudnn_benchmark": true,
+   "cudnn_deterministic": false,
+   "matmul_tf32": true,
+   "cudnn_tf32": true
+  }
+ },
+ "probes": {
+  "matmul_tflops": {
+   "gemm_n": 8192,
+   "fp16": 209.35671383919703,
+   "bf16": 253.83190755508576,
+   "tf32": 138.0231797078448,
+   "fp32": 51.93544564726022
+  },
+  "sustained": {
+   "dtype": "float16",
+   "burst_tflops": 217.16701441058547,
+   "sustained_tflops": 152.17544188271992,
+   "sustained_min_tflops": 128.4571947665399,
+   "sustained_max_tflops": 169.3356431343017
+  },
+  "membw": {
+   "tensor_mb": 256,
+   "copy_gbps": 1185.1555650914188,
+   "triad_gbps": 1085.2532041647607
+  },
+  "launch_overhead_us": 10.560509999049827,
+  "h2d": {
+   "size_mb": 256,
+   "pinned_gbps": 55.15543930051073,
+   "pageable_gbps": 10.159269986733356,
+   "small_1mb_ms": 0.02518900000723079
+  },
+  "cpu": {
+   "python_loop_mops": 23.76071251859218,
+   "torch_fp32_gflops": 1578.5177040338979,
+   "torch_threads": 24
+  }
+ },
+ "workload": {
+  "name": "resnet18-cifar100-bf16cl",
+  "n_train": 50000,
+  "n_val": 10000,
+  "batch_size": 512,
+  "epochs": 40,
+  "drop_last": true,
+  "evals_per_epoch": 1,
+  "steps_per_epoch": 97,
+  "params": 11220132,
+  "fwd_flops_per_img": 1110937600.0,
+  "train_flops_per_img": 3329273856.0,
+  "flops_per_step": 1704588214272.0,
+  "total_train_flops": 6613802271375360.0
+ },
+ "calibration": {
+  "t_step_s": 0.014355413334366554,
+  "t_step_min_s": 0.012503187031349639,
+  "t_step_max_s": 0.016482029060574988,
+  "window_means_s": [
+   0.013920073333429173,
+   0.014355413334366554,
+   0.014367453332912799
+  ],
+  "warmup_s": 6.88110769999912,
+  "soak_block_rates": [
+   35.24861461623884,
+   54.399724844625894,
+   65.22638284404357,
+   65.49574374787865,
+   69.41094932337226,
+   69.48040586189235,
+   69.59845034872164
+  ],
+  "soak_converged": true,
+  "soak_steps": 6570,
+  "backend_flags": {
+   "float32_matmul_precision": "high",
+   "cudnn_benchmark": true,
+   "cudnn_deterministic": false,
+   "matmul_tf32": true,
+   "cudnn_tf32": true
+  },
+  "t_eval_s": 0.09335109998937696,
+  "peak_vram_gb": 1.658846378326416
+ },
+ "prediction": {
+  "t_step_s": 0.014355413334366554,
+  "epoch_s": 1.4858261934229327,
+  "total_s": 75.88349303688543,
+  "total_human": "76 s",
+  "throughput_img_s": 33425.17464010234,
+  "mfu": 0.7802956902441218,
+  "t_startup_s": 16.450445299968123
+ },
+ "actual_total_s": 68.4,
+ "notes": "collect.py; synthetic-data calibration; recipe = cifar100_hf_train.ipynb section 4 | actual 68.4s from real nbconvert 40-epoch run 2026-07-18; pred err -13.1%"
+}
