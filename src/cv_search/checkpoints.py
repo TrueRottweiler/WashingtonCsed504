@@ -26,14 +26,33 @@ def random_state() -> dict[str, Any]:
     return state
 
 
+def _as_cpu_byte_tensor(value: Any) -> torch.Tensor:
+    """Return an RNG-state tensor in the format required by PyTorch setters."""
+    if isinstance(value, torch.Tensor):
+        return (
+            value.detach()
+            .to(device="cpu", dtype=torch.uint8)
+            .contiguous()
+        )
+    return torch.as_tensor(
+        value,
+        dtype=torch.uint8,
+        device="cpu",
+    ).contiguous()
+
+
 def restore_random_state(state: dict[str, Any] | None) -> None:
     if not state:
         return
     random.setstate(state["python"])
     np.random.set_state(state["numpy"])
-    torch.set_rng_state(state["torch"])
+    torch.set_rng_state(_as_cpu_byte_tensor(state["torch"]))
     if torch.cuda.is_available() and "cuda" in state:
-        torch.cuda.set_rng_state_all(state["cuda"])
+        cuda_states = [
+            _as_cpu_byte_tensor(cuda_state)
+            for cuda_state in state["cuda"]
+        ]
+        torch.cuda.set_rng_state_all(cuda_states)
 
 
 def save_checkpoint(
@@ -88,5 +107,5 @@ def load_checkpoint(
         else:
             restore_random_state(payload.get("random_state"))
         return dict(payload.get("metadata", {}))
-    except (OSError, RuntimeError, KeyError, ValueError) as exc:
+    except (OSError, RuntimeError, TypeError, KeyError, ValueError) as exc:
         raise CheckpointError(f"cannot load checkpoint {path}: {exc}") from exc
