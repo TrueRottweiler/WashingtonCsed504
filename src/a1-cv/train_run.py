@@ -87,6 +87,8 @@ def main():
     p.add_argument('--resume', action='store_true')
     p.add_argument('--smoke-test', action='store_true', help='tiny subset, 2 epochs, then exit')
     p.add_argument('--tag', default=None, help='name for this run (default: model name)')
+    p.add_argument('--seed', type=int, default=42,
+                   help='RNG seed (default 42); vary it to repeat a run and measure the spread')
     p.add_argument('--strong-aug', dest='strong_aug', action='store_true', default=None,
                    help='mixup + CutMix + random erasing (default: ON for ViTs, OFF for CNNs)')
     p.add_argument('--no-strong-aug', dest='strong_aug', action='store_false')
@@ -140,13 +142,16 @@ def main():
     # Step 4: Pin this process to its one card and switch on the fast-math paths.
     # set_device is not optional: without it torch.cuda.synchronize() and the memory stats report
     # against device 0 even though our tensors live on cuda:N. TF32 is on for matmul and cudnn,
-    # benchmark is on so cudnn autotunes the (fixed) conv shapes, and seed 42 keeps runs comparable.
+    # benchmark is on so cudnn autotunes the (fixed) conv shapes, and the seed keeps runs comparable.
+    # Comparable is not identical: autotune picks kernels by timing, and some of those kernels reduce
+    # in a non-deterministic order, so two runs at the same seed still land a few tenths apart. That
+    # spread is real and worth measuring rather than hiding, which is what --seed is for.
     device = torch.device(f'cuda:{args.gpu}')
     torch.cuda.set_device(device)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
-    torch.manual_seed(42)
+    torch.manual_seed(args.seed)
 
 
     # Step 5: Choose the autocast dtype, bf16 where the hardware has it and fp16 as the fallback.
