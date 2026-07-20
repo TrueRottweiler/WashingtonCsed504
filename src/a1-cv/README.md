@@ -153,6 +153,7 @@ as each finishes. It ships with the two batches that make up this study:
 python train_fleet.py --queue cifar       # the four CIFAR models        (~30 min on two GPUs)
 python train_fleet.py --queue imagenet    # the four ImageNet-32 models   (several hours)
 python train_fleet.py --queue seeds       # both headline models, 80 epochs x 3 seeds (~5 h)
+python train_fleet.py --queue overnight   # the above plus both capacity models  (~12 h)
 ```
 
 `cifar` trains `resnet18` and `vit` on both CIFAR-10 and CIFAR-100; `imagenet` trains `resnet18`,

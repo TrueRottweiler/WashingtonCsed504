@@ -14,6 +14,7 @@ Usage (pick a preset batch of models to train, or a custom one):
     python train_fleet.py --queue cifar          # train the four CIFAR models on both cards (~30 min)
     python train_fleet.py --queue imagenet       # train the four ImageNet-32 models (several hours)
     python train_fleet.py --queue seeds          # both headline models, 80 epochs x 3 seeds (~5 h)
+    python train_fleet.py --queue overnight      # the above plus both capacity models (~12 h)
     python train_fleet.py --queue cifar --smoke  # prove the wiring first (~1 min), then it exits
     python train_fleet.py --dataset cifar100 --models resnet18 vit --epochs 40   # a custom batch
     python train_fleet.py --data-parallel --models vit_base   # one model split across both cards (see below)
@@ -93,6 +94,23 @@ QUEUES = {
     'seeds':    [('imagenet32', 'resnet18', 80, 1), ('imagenet32', 'vit', 80, 1),
                  ('imagenet32', 'resnet18', 80, 2), ('imagenet32', 'vit', 80, 2),
                  ('imagenet32', 'resnet18', 80, 3), ('imagenet32', 'vit', 80, 3)],
+
+    # Everything the ImageNet-32 study still has open, sized for a long night: about 24 GPU-hours,
+    # which packs into roughly 12 hours of wall clock across two cards.
+    #
+    # It is the seeds queue plus the two capacity models at the same 80-epoch budget. Those two are
+    # here because both bigger models scored *below* their smaller siblings at 40 epochs -- ViT-Base
+    # has eight times the parameters of our ViT and came in 1.5 points under it. That looks like
+    # under-training rather than a real ceiling, and doubling the budget is the cheapest way to find
+    # out. They carry seed 1 so they take _s1 tags and cannot overwrite the 40-epoch originals we
+    # still want to compare against.
+    #
+    # Ordered longest job first. ViT-Base alone is about ten hours, so if it started late it would set
+    # the finish time on its own; launching it immediately lets the shorter runs fill the other card.
+    'overnight': [('imagenet32', 'vit_base', 80, 1), ('imagenet32', 'resnet50', 80, 1),
+                  ('imagenet32', 'vit', 80, 1), ('imagenet32', 'vit', 80, 2),
+                  ('imagenet32', 'vit', 80, 3), ('imagenet32', 'resnet18', 80, 1),
+                  ('imagenet32', 'resnet18', 80, 2), ('imagenet32', 'resnet18', 80, 3)],
 }
 
 
