@@ -13,7 +13,7 @@ next" part.
 Usage (pick a preset batch of models to train, or a custom one):
     python train_fleet.py --queue cifar          # train the four CIFAR models on both cards (~30 min)
     python train_fleet.py --queue imagenet       # train the four ImageNet-32 models (several hours)
-    python train_fleet.py --queue seeds          # repeat the two headline models at 3 seeds (~3 h)
+    python train_fleet.py --queue seeds          # both headline models, 80 epochs x 3 seeds (~5 h)
     python train_fleet.py --queue cifar --smoke  # prove the wiring first (~1 min), then it exits
     python train_fleet.py --dataset cifar100 --models resnet18 vit --epochs 40   # a custom batch
     python train_fleet.py --data-parallel --models vit_base   # one model split across both cards (see below)
@@ -74,15 +74,25 @@ QUEUES = {
     'imagenet': [('imagenet32', 'resnet18', None), ('imagenet32', 'vit', None),
                  ('imagenet32', 'resnet50', None), ('imagenet32', 'vit_base', None)],
 
-    # The two headline models trained again under three seeds each. A spec's optional fourth element
-    # is the seed, and those runs take their own _sN tags so a repeat lands beside the original
-    # instead of overwriting it. This is what lets the crossover be quoted with a spread rather than
-    # a single number: the gap we report is about 1.3 points, and two runs of the same configuration
-    # already differ by roughly 0.7, so one run per arm cannot settle whether the gap is real.
+    # The two headline models trained again at a longer budget, three seeds each. One queue settles
+    # two open questions at once, which is why it is worth a night.
+    #
+    # The spread question. The gap we report is about 1.3 points, and two runs of the same
+    # configuration already differ by roughly 0.7, so one run per arm cannot say whether it is real.
+    #
+    # The budget question, which matters more. Both headline runs end on their best epoch. That looks
+    # like we stopped them early, but it is mostly the cosine schedule annealing to zero: accuracy
+    # always jumps as the learning rate dies, so the last epoch is nearly always the best one. The one
+    # controlled test we have says the extra epochs buy very little (resnet18 gained 0.2 points going
+    # from 40 to 60) -- but that test ran with gradient clipping, and the CNN we actually quote runs
+    # without it. The headline configuration has never had an epoch control at all.
+    #
+    # 80 epochs is not simply more of the same: the cosine is spread across whatever budget it is
+    # given, so a longer run decays more slowly the whole way and is a genuinely different schedule.
     # Interleaved CNN, ViT, CNN, ViT so the two cards stay evenly loaded as the queue drains.
-    'seeds':    [('imagenet32', 'resnet18', 40, 1), ('imagenet32', 'vit', 40, 1),
-                 ('imagenet32', 'resnet18', 40, 2), ('imagenet32', 'vit', 40, 2),
-                 ('imagenet32', 'resnet18', 40, 3), ('imagenet32', 'vit', 40, 3)],
+    'seeds':    [('imagenet32', 'resnet18', 80, 1), ('imagenet32', 'vit', 80, 1),
+                 ('imagenet32', 'resnet18', 80, 2), ('imagenet32', 'vit', 80, 2),
+                 ('imagenet32', 'resnet18', 80, 3), ('imagenet32', 'vit', 80, 3)],
 }
 
 
