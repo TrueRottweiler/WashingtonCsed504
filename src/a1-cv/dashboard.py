@@ -160,19 +160,18 @@ def live_tags():
             # and leave the repeat looking STOPPED for the whole night.
             mt = re.search(r'--tag\s+(\S+)', line)
             if mt:
-                tags.add(mt.group(1))
-                continue
+                base = mt.group(1)
+            else:
+                mm = re.search(r'--model\s+(\S+)', line)
+                if not mm:
+                    continue
 
-            mm = re.search(r'--model\s+(\S+)', line)
-            if not mm:
-                continue
+                model = mm.group(1)
+                md = re.search(r'--dataset\s+(\S+)', line)
+                dataset = md.group(1) if md else 'imagenet32'
+                base = model if dataset == 'imagenet32' else f'{dataset}_{model}'
 
-            model = mm.group(1)
-            md = re.search(r'--dataset\s+(\S+)', line)
-            dataset = md.group(1) if md else 'imagenet32'
-            base = model if dataset == 'imagenet32' else f'{dataset}_{model}'
-
-            # A smoke test writes under its own smoke- name, so mirror that here too.
+            # The smoke prefix goes on last, whichever way the stem was found, mirroring train_run.py.
             tags.add(f'smoke-{base}' if '--smoke-test' in line else base)
         return tags
     except Exception:

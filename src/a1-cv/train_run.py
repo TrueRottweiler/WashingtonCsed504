@@ -116,8 +116,14 @@ def main():
     # ImageNet-32 runs keep their bare model name (resnet18, vit, ...) so they stay back-compatible
     # with the published results; CIFAR runs are prefixed with the dataset, so cifar100_vit never
     # collides with the ImageNet vit in runs/ or on the dashboard.
+    #
+    # The smoke prefix is applied last, after any --tag, so it cannot be escaped. The fleet passes an
+    # explicit --tag for seed repeats, and without this a '--tag vit_s1 --smoke-test' would have
+    # written its throwaway 2-epoch history straight into the real vit_s1 files.
     base = args.model if args.dataset == 'imagenet32' else f'{args.dataset}_{args.model}'
-    tag = args.tag or (f'smoke-{base}' if args.smoke_test else base)
+    tag = args.tag or base
+    if args.smoke_test:
+        tag = f'smoke-{tag}'
 
 
     # Step 3: Decide strong augmentation by model family when the flag was left unset.
