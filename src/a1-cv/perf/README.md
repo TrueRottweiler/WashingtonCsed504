@@ -16,8 +16,9 @@ estimation needs measurement, not spec sheets.
 
 | file | what it is |
 |---|---|
-| `training_time_estimator.ipynb` | run this on every machine (plugged in!) — probes, estimates, calibrates, validates, saves a record |
-| `perfkit.py` | the measurement/estimation library the notebook drives |
+| `training_time_estimator.ipynb` | run this on every machine (plugged in) — probes, estimates, calibrates, validates, saves a record |
+| `collect.py` | the same collection run headless, no Jupyter needed — handy over SSH or on a machine without a browser |
+| `perfkit.py` | the measurement/estimation library both of the above drive |
 | `results/*.json` | one record per (machine, power-state, workload) run — commit these; estimates compound as the database grows |
 
 ## The three tiers (accuracy stated honestly)
