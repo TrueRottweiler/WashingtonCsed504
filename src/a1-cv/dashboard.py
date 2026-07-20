@@ -258,7 +258,7 @@ def render(t0):
                   Text(f"{d['mem']:5.1f}/{d['mem_tot']:.0f}GB"),
                   Text(f"{d['pw']:3.0f}/{d['pw_max']:.0f}W"),
                   Text(f"{d['temp']:.0f}C", style=hot))
-    blocks.append(Panel(g, title='[bold]hardware', border_style='grey37', padding=(0, 1)))
+    blocks.append(Panel(g, title='[bold]hardware', border_style='gray37', padding=(0, 1)))
 
     # Step 2: Build one card per model. For every tag we know about, whether it has a JSONL on
     # disk or is live in `alive`, we build a self-contained multi-line card and stack it under the
@@ -285,7 +285,7 @@ def render(t0):
         # skip the rest; there are no metrics to draw for it this frame.
         if not rows:
             blocks.append(Panel(Text('starting...', style='yellow'),
-                                title=title, border_style='grey37', padding=(0, 1)))
+                                title=title, border_style='gray37', padding=(0, 1)))
             continue
 
         # Part B: Read the latest finished epoch off rows[-1]: current top-1, best top-1 and the
@@ -359,7 +359,7 @@ def render(t0):
             ('  predicted ', 'dim'), (f'{predicted:<6}', 'magenta'),
             ('  ', 'dim'), (f'{per_ep:.1f}s/ep', 'dim'))
         L5 = Text(sparkline(top1s, 60), style=col)
-        blocks.append(Panel(Group(L1, L2, L3, L4, L5), title=title, border_style='grey37', padding=(0, 1)))
+        blocks.append(Panel(Group(L1, L2, L3, L4, L5), title=title, border_style='gray37', padding=(0, 1)))
 
     blocks.append(Text('  ref: WRN-28-10 = 59.0% top-1 / 81.1% top-5 (Chrabaszcz 2017)  |  '
                        f'watching {_fmt(time.time()-t0)}  |  read-only, Ctrl+C safe', style='dim'))
