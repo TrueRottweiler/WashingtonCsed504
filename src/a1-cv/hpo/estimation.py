@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import math
 import statistics
 from dataclasses import asdict, dataclass
@@ -173,6 +174,273 @@ def estimate_search(
         assumptions=assumptions + (["monetary cost unavailable until required rates are provided"] if missing else []),
     )
 
+def _session_capacity(
+    limit: float | None,
+    per_session: float,
+) -> int | None:
+    """Return how many bounded sessions fit inside a limit."""
+
+    if limit is None or per_session <= 0:
+        return None
+
+    if limit <= 0:
+        return 0
+
+    # Continuous stopping is evaluated between sessions.
+    # Any positive budget therefore permits at least one session,
+    # which may overshoot the limit by up to one session.
+    return max(
+        1,
+        math.floor(limit / per_session),
+    )
+
+
+def estimate_continuous_capacity(
+    config: StudyConfig,
+    *,
+    train_examples: int,
+    validation_examples: int,
+    calibration_records: Sequence[Mapping[str, Any]],
+    representative_batch_size: int | None = None,
+) -> dict[str, Any]:
+    """
+    Estimate how much continuous-search work fits inside enabled budgets.
+
+    This is a capacity projection, not a fixed completion estimate.
+    Metric targets and stagnation rules cannot be predicted reliably
+    before the search begins.
+    """
+
+    if not config.continuous.enabled:
+        raise ValueError(
+            "continuous capacity estimation requires "
+            "config.continuous.enabled=True"
+        )
+
+    session_config = copy.deepcopy(config)
+    session_config.continuous.enabled = False
+
+    if config.mode == "proxy":
+        session_config.proxy.trials = 1
+        session_config.proxy.promote_top_k = 1
+        candidates_per_session = 1
+
+    elif config.mode == "full":
+        session_config.full.trials = 1
+        candidates_per_session = 1
+
+    else:
+        # run_continuous() launches one complete successive-halving
+        # session using proxy.trials initial candidates.
+        candidates_per_session = config.proxy.trials
+
+    session_estimate = estimate_search(
+        session_config,
+        train_examples=train_examples,
+        validation_examples=validation_examples,
+        calibration_records=calibration_records,
+        representative_batch_size=representative_batch_size,
+    )
+
+    candidate_caps: dict[str, dict[str, int | None]] = {}
+
+    def add_range_cap(
+        name: str,
+        limit: float | None,
+        estimate_range: EstimateRange,
+    ) -> None:
+        if limit is None:
+            return
+
+        candidate_caps[name] = {
+            "optimistic": (
+                None
+                if (
+                    capacity := _session_capacity(
+                        limit,
+                        estimate_range.optimistic,
+                    )
+                )
+                is None
+                else capacity * candidates_per_session
+            ),
+            "expected": (
+                None
+                if (
+                    capacity := _session_capacity(
+                        limit,
+                        estimate_range.expected,
+                    )
+                )
+                is None
+                else capacity * candidates_per_session
+            ),
+            "conservative": (
+                None
+                if (
+                    capacity := _session_capacity(
+                        limit,
+                        estimate_range.conservative,
+                    )
+                )
+                is None
+                else capacity * candidates_per_session
+            ),
+        }
+
+    continuous = config.continuous
+
+    add_range_cap(
+        "maximum_wall_time_hours",
+        (
+            None
+            if continuous.maximum_wall_time_hours is None
+            else continuous.maximum_wall_time_hours * 3600
+        ),
+        session_estimate.duration_seconds,
+    )
+
+    add_range_cap(
+        "maximum_gpu_hours",
+        continuous.maximum_gpu_hours,
+        session_estimate.gpu_hours,
+    )
+
+    add_range_cap(
+        "maximum_cpu_hours",
+        continuous.maximum_cpu_hours,
+        session_estimate.cpu_hours,
+    )
+
+    if continuous.maximum_cost_usd is not None:
+        if session_estimate.monetary_cost_usd is None:
+            candidate_caps[
+                "maximum_cost_usd"
+            ] = {
+                "optimistic": None,
+                "expected": None,
+                "conservative": None,
+            }
+        else:
+            add_range_cap(
+                "maximum_cost_usd",
+                continuous.maximum_cost_usd,
+                session_estimate.monetary_cost_usd,
+            )
+
+    if continuous.maximum_trials is not None:
+        candidate_caps["maximum_trials"] = {
+            "optimistic": continuous.maximum_trials,
+            "expected": continuous.maximum_trials,
+            "conservative": continuous.maximum_trials,
+        }
+
+    scenarios = (
+        "optimistic",
+        "expected",
+        "conservative",
+    )
+
+    candidate_capacity: dict[str, int | None] = {}
+
+    for scenario in scenarios:
+        available = [
+            values[scenario]
+            for values in candidate_caps.values()
+            if values[scenario] is not None
+        ]
+
+        candidate_capacity[scenario] = (
+            min(available)
+            if available
+            else None
+        )
+
+    session_capacity = {
+        scenario: (
+            None
+            if candidate_capacity[scenario] is None
+            else math.ceil(
+                candidate_capacity[scenario]
+                / candidates_per_session
+            )
+        )
+        for scenario in scenarios
+    }
+
+    expected_capacity = candidate_capacity["expected"]
+
+    limiting_conditions = []
+
+    if expected_capacity is not None:
+        limiting_conditions = [
+            name
+            for name, values in candidate_caps.items()
+            if values["expected"] == expected_capacity
+        ]
+
+    heuristic_stopping_conditions = []
+
+    if continuous.target_validation_metric is not None:
+        heuristic_stopping_conditions.append(
+            "target_validation_metric"
+        )
+
+    if (
+        continuous.stop_after_no_improvement_trials
+        is not None
+    ):
+        heuristic_stopping_conditions.append(
+            "no_improvement"
+        )
+
+    if continuous.pareto_stagnation_trials is not None:
+        heuristic_stopping_conditions.append(
+            "pareto_stagnation"
+        )
+
+    assumptions = [
+        "capacity is projected from one measured bounded session",
+        (
+            "continuous stopping is checked between sessions; "
+            "actual resource use may overshoot by one session"
+        ),
+        (
+            "target accuracy and stagnation stopping conditions "
+            "cannot be predicted before observations exist"
+        ),
+        (
+            "sampled optimizers, batch sizes, and architectures "
+            "can change session duration"
+        ),
+    ]
+
+    if (
+        continuous.maximum_cost_usd is not None
+        and session_estimate.monetary_cost_usd is None
+    ):
+        assumptions.append(
+            "cost capacity is unavailable because required "
+            "hourly or storage rates are missing"
+        )
+
+    return {
+        "mode": config.mode,
+        "continuous": True,
+        "classification": "budget capacity projection",
+        "candidates_per_session": candidates_per_session,
+        "session_estimate": session_estimate.to_dict(),
+        "candidate_capacity": candidate_capacity,
+        "session_capacity": session_capacity,
+        "capacity_by_limit": candidate_caps,
+        "likely_numeric_limiting_conditions": (
+            limiting_conditions
+        ),
+        "heuristic_stopping_conditions": (
+            heuristic_stopping_conditions
+        ),
+        "assumptions": assumptions,
+    }
 
 def compare_estimate(predicted_seconds: float, measured_seconds: Iterable[float]) -> dict[str, Any]:
     measured = [float(item) for item in measured_seconds]
