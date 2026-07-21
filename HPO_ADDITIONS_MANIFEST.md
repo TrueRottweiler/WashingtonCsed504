@@ -95,10 +95,6 @@ No original repository file is included. Existing-file modifications are represe
 | `src/a1-cv/hyperparameter_search_colab.ipynb` | Primary full Colab HPO notebook with hardware, calibration, modes, estimates, live execution, analysis, and export. | Required | Python, PyTorch; Colab optional; Optuna/PyYAML/pandas/psutil | `efb1620fe586f64319df7f2f3506959edb8dc26bfb2c949b3d3df38ed2c4d959` |
 | `src/a1-cv/pytest.ini` | HPO pytest markers and bounded test defaults. | Required | None beyond repository tooling | `1ad4b396475f313f4e656b41894432197bf362a4ba17fc5fd4c0b7274e551421` |
 
-## Copy behavior
-
-Extract the ZIP, then copy its repository-relative contents into the existing repository. Do not replace the repository with the ZIP contents. Apply files under `patches/` only after reviewing `HPO_EXISTING_FILE_PATCHES.md`.
-
 ## Excluded material
 
 The package excludes the authoritative repository itself, datasets, caches, virtual environments, compiled bytecode, checkpoints, SQLite studies, credentials, notebook autosaves, and generated experiment outputs.
