@@ -1,6 +1,6 @@
 # HPO Verification Report
 
-**Authoritative repository:** `WashingtonCsed504-main(7).zip`
+**Authoritative repository:** `WashingtonCsed504-main`
 **Verification date:** 2026-07-20
 **Packaging environment:** Linux, Python 3.13.5, PyTorch 2.10.0+cpu, 56 physical/logical CPU cores, 4 GiB container RAM, no CUDA or MPS.
 
