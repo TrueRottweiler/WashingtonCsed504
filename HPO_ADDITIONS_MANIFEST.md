@@ -2,7 +2,7 @@
 
 **Archive root:** repository-relative paths
 **File count before this manifest:** 86
-**Authoritative base:** `WashingtonCsed504-main(7).zip`
+**Authoritative base:** `WashingtonCsed504-main`
 
 No original repository file is included. Existing-file modifications are represented only as optional unified patches.
 
