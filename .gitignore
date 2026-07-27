@@ -237,6 +237,14 @@ src/a1-cv/weights/
 # ImageNet-32 prepared arrays live under data/imagenet32 -- 3.9 GB, regenerate with:
 #   python src/a1-cv/imagenet_prepare.py
 
+# a2-nlp: same policy as a1-cv. Datasets and checkpoints are regenerable (text_prepare.py /
+# train_run.py --resume); the small per-epoch results (runs/*.jsonl, runs/*_result.json) ARE
+# committed so the report notebooks render on a fresh clone.
+src/a2-nlp/data/
+src/a2-nlp/runs/**/*.pt
+src/a2-nlp/runs/smoke-*
+src/a2-nlp/logs/
+
 # Hyperparameter optimization runtime state (generated and resumable).
 hpo_outputs/
 src/a1-cv/hpo_outputs/
