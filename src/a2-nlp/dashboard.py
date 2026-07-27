@@ -129,9 +129,12 @@ def gpus():
 def live_tags():
     """Which A2 runs have a train_run.py process actually running right now?
 
-    Same tag reconstruction as a1's dashboard, with one addition: we require 'a2-nlp' in the
-    command line. Both assignments have a train_run.py, and without the path filter a live
-    a1-cv ImageNet run would show up here as a forever-'starting...' card.
+    Same tag reconstruction as a1's dashboard, with one addition: we must not claim a1-cv's
+    runs as ours (both assignments have a train_run.py). A fleet-launched child has the full
+    a2-nlp path in its command line, but a run started by hand from inside this folder says
+    just 'train_run.py' -- the path test alone once drew two live, resumed runs as STOPPED.
+    So we accept either signal: the a2-nlp path, or an --dataset that belongs to this
+    assignment (the two assignments' dataset names do not overlap).
     """
     try:
         out = subprocess.run(
@@ -142,7 +145,9 @@ def live_tags():
             capture_output=True, text=True, timeout=8).stdout
         tags = set()
         for line in out.splitlines():
-            if 'a2-nlp' not in line:
+            md = re.search(r'--dataset\s+(\S+)', line)
+            ours = 'a2-nlp' in line or (md and md.group(1) in PALETTE)
+            if not ours:
                 continue
             mt = re.search(r'--tag\s+(\S+)', line)
             if mt:
