@@ -22,11 +22,17 @@ The four builders and their jobs, mirroring the Part 1 table:
 gpt deliberately reuses the Part 1 ViT's dims (d=384, 6 layers, 6 heads): same backbone budget,
 different modality. The attention itself uses F.scaled_dot_product_attention rather than the
 hand-written version in hello_text.ipynb -- the notebook exists to show the mechanics, the
-factory exists to train fast, and SDPA picks the FlashAttention kernel when the hardware has it.
+factory exists to train fast, and SDPA dispatches to a fused kernel that never materializes the
+T x T score matrix. That fusion is the win worth having: the unfused math path measures 7.5x
+slower on a training-shaped batch.
+
+Which fused kernel you get varies by platform, so it is worth knowing what actually runs. The
+Windows wheels are built without the bundled FlashAttention -- can_use_flash_attention is False
+here whatever the enable flags say -- so this box runs the CUTLASS memory-efficient kernel.
+cuDNN ships its own flash kernel, it is available, and it measured 1.14x on attention alone but
+only 1.7% on a full step at seq_len 256, so the default stands rather than being pinned.
 """
 from __future__ import annotations
-
-import math
 
 import torch
 import torch.nn as nn
