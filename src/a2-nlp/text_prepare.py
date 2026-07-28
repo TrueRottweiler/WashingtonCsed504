@@ -4,14 +4,14 @@ text_prepare.py -- one-time download + tokenization of each corpus into flat tok
 This is the a2 counterpart of imagenet_prepare.py, and it exists for the same reason: tokenize
 exactly once, up front, so training never touches raw text, the tokenizer, or the datasets
 library again -- it just indexes into an array. The arrays are tiny by Part 1 standards
-(WikiText-103 tokenized is ~200 MB against ImageNet-32's 3.9 GB), so the GPU-resident trick
+(WikiText-103 tokenized is ~230 MB against ImageNet-32's 3.9 GB), so the GPU-resident trick
 carries over with room to spare.
 
 The dataset ladder, smallest to largest:
 
     shakespeare   ~1.1M chars    char-level     the smoke rung; continuity with CSED 503 A2/A4
-    wikitext2     ~2.4M tokens   16k BPE        the small benchmark rung
-    wikitext103   ~117M tokens   16k BPE        the headline rung (25x wikitext2's ladder step)
+    wikitext2     ~2.5M tokens   16k BPE        the small benchmark rung
+    wikitext103   ~124M tokens   16k BPE        the headline rung (49x wikitext2's ladder step)
 
 Tokenizer decisions, because a tokenizer bug silently invalidates every perplexity comparison:
 
@@ -26,7 +26,7 @@ Tokenizer decisions, because a tokenizer bug silently invalidates every perplexi
 Usage:
     python text_prepare.py --dataset shakespeare
     python text_prepare.py --dataset wikitext2
-    python text_prepare.py --dataset wikitext103     # downloads ~600 MB, tokenizes for a few min
+    python text_prepare.py --dataset wikitext103     # downloads ~310 MB, tokenizes for a few min
     python text_prepare.py --dataset all
     python text_prepare.py --dataset wikitext2 --force
 

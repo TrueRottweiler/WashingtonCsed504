@@ -26,16 +26,18 @@ Extra packages beyond the a1 stack (already in the workstation's `uw-csed504` en
 python text_prepare.py --dataset all
 ```
 
-Downloads and tokenizes all three rungs (shakespeare is instant; wikitext103 downloads ~600 MB
+Downloads and tokenizes all three rungs (shakespeare is instant; wikitext103 downloads ~310 MB
 and tokenizes for a few minutes, and also trains the shared 16k BPE both wikitext rungs use).
-Outputs land in `data/` (gitignored). Each rung prints a decoded sample at the end — **read it**;
-if it is not readable prose, do not train on it.
+Outputs land in `data/` (gitignored). The Hugging Face cache keeps both the parquet download and
+a decompressed Arrow copy, so budget ~850 MB there on top of the ~245 MB under `data/`.
+Each rung prints a decoded sample at the end — **read it**; if it is not readable prose, do not
+train on it.
 
 | rung | tokens (train) | tokenizer | role |
 |---|---|---|---|
 | `shakespeare` | ~1.0M chars | char-level | smoke rung; continuity with CSED 503 |
-| `wikitext2` | ~2.4M | shared 16k BPE | small benchmark rung |
-| `wikitext103` | ~117M | shared 16k BPE | the headline rung |
+| `wikitext2` | ~2.5M | shared 16k BPE | small benchmark rung |
+| `wikitext103` | ~124M | shared 16k BPE | the headline rung |
 
 ## Training
 
