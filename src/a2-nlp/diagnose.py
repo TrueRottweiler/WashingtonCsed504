@@ -89,7 +89,6 @@ def sweep_batches(corpus: str, preset: str, seq_len: int, gpu: int,
     and a new user should be able to run this before preparing anything.
     """
     import torch
-    import mlm_train as M
 
     device = torch.device(f'cuda:{gpu}')
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -261,9 +260,12 @@ def print_verdict(d: dict, env: dict) -> None:
 
 # -- cost ----------------------------------------------------------------------------------
 
-def project(corpus: str, tok_s: float, batch: int, seq_len: int,
-            preset: str, scale_to: str | None, rungs, passes: int) -> None:
-    """What the study costs on THIS machine, at the throughput just measured."""
+def project(tok_s: float, preset: str, scale_to: str | None, rungs, passes: int) -> float:
+    """What the study costs on THIS machine, at the throughput just measured.
+
+    Returns the GPU-hours for one language. Only throughput and model size enter the arithmetic:
+    the batch shape is already baked into tok_s, and the corpus only decides the rungs.
+    """
     import mlm_train as M
 
     scale = 1.0
@@ -338,8 +340,7 @@ def main():
     d = diagnose(rows, env, env['gpus'][args.gpu]['memory_gb'])
     print_verdict(d, env)
 
-    total = project(args.corpus, d['best_tok_s'], d['best_batch'], args.seq_len,
-                    args.preset, args.scale_to, args.rungs, args.passes)
+    total = project(d['best_tok_s'], args.preset, args.scale_to, args.rungs, args.passes)
     if env['n_gpu'] > 1:
         print(f'  {"on " + str(env["n_gpu"]) + " cards":>14}{"":>16}'
               f'{total / env["n_gpu"]:>12.2f}  wall-clock hours')

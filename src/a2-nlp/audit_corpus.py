@@ -58,19 +58,15 @@ def orthographic_consistency(words: list[str], top: int = 8) -> dict:
     marked = unmarked = 0
     split_words = []
     for bare, forms in by_bare.items():
-        if len(forms) < 2:
-            # Only one spelling: count it on whichever side it belongs.
-            only = next(iter(forms))
-            (marked if only != bare else unmarked).__int__()   # no-op, kept for clarity
-            if only != bare:
-                marked += forms[only]
-            else:
-                unmarked += forms[only]
-            continue
+        # One arithmetic for every case: anything spelled exactly like its mark-stripped form is
+        # unmarked, everything else is marked. A word with a single spelling falls out of this
+        # without a branch -- either bare_count is zero or it is the whole total.
         total = sum(forms.values())
         bare_count = forms.get(bare, 0)
         marked += total - bare_count
         unmarked += bare_count
+
+        # Report only words genuinely written both ways, and only if common enough to matter.
         if total > 50 and 0 < bare_count < total:
             split_words.append((bare, total, bare_count, forms.most_common(3)))
 
