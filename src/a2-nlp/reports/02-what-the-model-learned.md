@@ -102,24 +102,55 @@ use it.
 
 Two limits are visible in the corpus itself.
 
-### Tone marks are missing from ~94% of the text
+### Tone marks are dropped; letter marks are kept
 
-Yoruba is tonal: `ọkọ̀` (vehicle) and `ọkọ` (husband) differ by tone marks that carry meaning.
-The web corpus mostly drops them. Counted over 4,000 documents:
+Yoruba uses two different kinds of diacritic, and the corpus treats them very differently.
+Counting every combining mark across 1.97 million words (`audit_corpus.py`):
 
-| word | with tone marks | without | marked in |
-|---|---|---|---|
-| àwọn / awọn | 7,613 | 112,641 | 6.3% |
-| tí / ti | 8,958 | 131,570 | 6.4% |
-| ní / ni | 6,423 | 93,861 | 6.4% |
-| sí / si | 3,640 | 30,795 | 10.6% |
-| ṣé / se | 197 | 3,534 | 5.3% |
+| mark | what it does | occurrences |
+|---|---|---|
+| dot below — `ọ ẹ ṣ` | distinguishes **letters** (`ọ` is a different letter from `o`) | **701,331** |
+| acute — `á` | marks **high tone** | 140,712 |
+| grave — `à` | marks **low tone** | 112,236 |
 
-The tokenizer treats `àwọn` and `awọn` as **two different tokens** (verified — each encodes to a
-single, distinct id). So the model splits its statistics across two spellings of the same word
-and mostly learns the unmarked one. Nothing in the pipeline is broken; the source text is simply
-written that way. But it caps what any model trained on this corpus can know about tone, and it
-is worth stating in the report rather than discovering later.
+So the letter-distinguishing marks are largely written, and the **tone marks are largely not** —
+they appear about 2.8× less often. Yoruba is tonal, and tone carries meaning (`ọkọ̀` vehicle vs
+`ọkọ` husband), so this is a real loss of information in the source text.
+
+The effect on the model is that one word arrives as several tokens. Words seen in more than one
+spelling, from the same sample:
+
+| bare form | total uses | written bare | written with marks | spellings seen |
+|---|---|---|---|---|
+| `ti` | 105,743 | 98,618 | 7,125 | ti, tí, tì |
+| `awon` | 94,445 | 3,698 | 90,747 | awọn, àwọn, awon |
+| `ni` | 75,583 | 70,569 | 5,014 | ni, ní, nì |
+| `se` | 29,940 | 2,804 | 27,136 | ṣe, se, ṣẹ |
+
+Read `ti` and `awon` together and the pattern is clear: `awọn` keeps its dot (90,747 of 94,445
+uses) while `ti` loses its tone (98,618 of 105,743 uses are unmarked). Each spelling is a
+separate token, so the model learns them separately. Nothing in the pipeline is broken — the
+source text is written that way — but it caps what any model trained here can know about tone.
+
+*(An earlier draft of this note reported "6% of words carry their marks", from a hand-picked list
+of tone-marked pairs. That figure is right for tone marks specifically and wrong as a statement
+about diacritics in general: measured across all marks, 35.4% of word occurrences carry one. The
+table above is the version to quote.)*
+
+### The language-specific vocabulary is measurably a better fit
+
+Tokens per word on the same text — lower means the tokenizer fragments the language less, and
+fragmentation wastes the model's context window:
+
+| tokenizer | tokens per word |
+|---|---|
+| **this corpus' own 16k BPE** | **1.38** |
+| mmBERT (256k, multilingual) | 2.12 |
+| XLM-R (250k, multilingual) | 2.28 |
+
+XLM-R needs **65% more tokens** to write the same Yoruba. That is a direct, quantified argument
+for the group's thesis: a vocabulary built for one language buys real efficiency over one shared
+across a hundred, before any question of model quality.
 
 ### The corpus is a mixture, and part of it is machine-translated
 

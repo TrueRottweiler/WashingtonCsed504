@@ -27,6 +27,8 @@ And the masked-LM half, built to support the group's from-scratch-vs-transfer st
 | `mlm_train.py` | the HF model builders, the step-based pretraining loop, the cost estimator |
 | `mlm_run.py` | one process, one GPU, one cell of the (data × compute) grid |
 | `mlm_fleet.py` | that grid across both cards |
+| `diagnose.py` | **measure this machine**: GPUs, batch sweep, named bottleneck, projected cost |
+| `audit_corpus.py` | **measure this corpus**: enough text? consistent spelling? does the vocab fit? |
 | `explain_model.py` | ask a checkpoint to fill in blanks — what the model actually learned |
 | `nb_clean.py` | make an executed notebook render (see the note below) |
 | `py.sh` | run any of the above in the `uw-csed504` env, from this folder, with UTF-8 output |
@@ -153,6 +155,10 @@ progress bars leave `widget-view` outputs whose backing state does not survive a
 and those cells render as **"Could not render content"**; the cleaner drops the dead views (their
 `text/plain` fallback is kept), strips the ANSI codes transformers prints, and restores cell ids.
 It took `POC_v4_factory.ipynb` from 787 KB to 244 KB.
+
+`factory_diagnostics.ipynb` runs `diagnose.py` and `audit_corpus.py` with charts — the same
+analysis our reports contain, but computed for whatever machine and corpus you point it at.
+Run it first on a new box.
 
 Notebooks: `POC_v4_factory.ipynb` is the group's v3 proof-of-concept with its plumbing replaced
 by these calls (every change bracketed by `# BEGIN: factory` / `# END: factory`, with the code it

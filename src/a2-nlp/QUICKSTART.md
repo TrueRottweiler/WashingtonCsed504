@@ -58,7 +58,35 @@ that check has already caught one real problem for us.
 
 ---
 
-## 3. Know the cost before you spend it
+## 3. Find out what *your* machine can do
+
+Do this before tuning anything. Our numbers came from a two-card workstation and will not
+transfer; a batch size that saturates a 96 GB card starves a T4.
+
+```bash
+python diagnose.py --corpus yor --scale-to afriberta
+```
+
+It reports your GPUs, sweeps batch sizes with real training steps, stops at your memory wall,
+**names your bottleneck with the reasoning shown**, and projects the study cost from the
+throughput it just measured. Then use the batch it recommends.
+
+The same thing with charts: open **`factory_diagnostics.ipynb`**.
+
+And before trusting a corpus:
+
+```bash
+python audit_corpus.py --corpus yor --compare-tokenizer FacebookAI/xlm-roberta-base
+```
+
+Is there enough text for your rungs, is the language written consistently, is the corpus varied
+or the same page repeated, and does your vocabulary fit the language better than a multilingual
+one. (On Yoruba: our own 16k BPE needs 1.38 tokens per word against XLM-R's 2.28 — a 65%
+saving, which is a quantified argument for your thesis.)
+
+---
+
+## 4. Know the cost before you spend it
 
 ```python
 factory.estimate("yor", cells=[(2_000_000, 3_000), (32_000_000, 12_000)], preset="poc")
@@ -69,7 +97,7 @@ cell. Scale it to the size the real study needs with `scale_to="afriberta"`.
 
 ---
 
-## 4. Train
+## 5. Train
 
 ```python
 rec = factory.pretrain("yor", tokens=32_000_000, steps=12_000, seed=0)
@@ -93,10 +121,13 @@ python mlm_fleet.py --corpus yor --queue poc          # the whole 2x2 grid
 
 ---
 
-## 5. Two defaults we changed, and why you should care
+## 6. Two defaults we changed, and why you should care
 
-**Batch size is 128, not 64.** Measured 1.33× faster on identical work, and it saturates there —
-past 256 it gets *worse*. If you have a reason to change it, use `batch=`.
+**Batch size defaults to 128, not 64.** That is the knee on *our* hardware — 1.33× faster than
+64, and past 256 it gets *worse*. Yours will differ, so run `diagnose.py` (§3) and use what it
+recommends via `batch=` or `--batch`. Note it recommends the knee rather than the outright
+fastest: a larger batch buys a percent or two, costs memory, and takes proportionally fewer
+optimizer steps for the same work, which changes the optimization rather than just the speed.
 
 **Compute budgets are counted in tokens of updates, not steps.** This one matters for your
 science. `steps × batch × seq_len` is the work actually done, so 6,000 steps at batch 64 and
@@ -107,7 +138,7 @@ takes `--update-tokens` for exactly this reason; your old 6k/24k steps at batch 
 
 ---
 
-## 6. See what a checkpoint learned
+## 7. See what a checkpoint learned
 
 ```bash
 python explain_model.py --corpus yor
@@ -120,7 +151,7 @@ for the best run so far).
 
 ---
 
-## 7. Reading results
+## 8. Reading results
 
 ```python
 factory.results()          # one row per completed run
