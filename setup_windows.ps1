@@ -132,6 +132,43 @@ Write-Host 'Installing CV and NLP extras...' -ForegroundColor Green
     torchmetrics transformers datasets accelerate `
     sentencepiece protobuf 'huggingface_hub[hf_xet]'
 
+# -- Step 5b: extras for the group's from-scratch-vs-transfer study ------------------------------
+# seqeval provides entity-level F1 for the MasakhaNER gate; nothing else in the stack computes
+# it, and the gate's whole purpose is comparing against published numbers computed that way.
+Write-Host 'Installing NLP study extras...' -ForegroundColor Green
+& $condaExe run -n $ENV_NAME pip install seqeval
+
+# GlotLID, the language-ID model the corpus-contamination gate depends on, runs on fasttext.
+# fasttext ships source-only and needs two MSVC flags that its own setup.py does not pass,
+# which is why a plain "pip install fasttext-numpy2" fails on Windows and succeeds on Linux:
+#
+#   /std:c++17            src/dictionary.h uses std::string_view, which is C++17.  MSVC still
+#                         defaults to C++14, so the type is simply not declared and the build
+#                         dies with C2039 'string_view': is not a member of 'std'.  gcc and
+#                         clang default high enough that the gap never shows there.
+#   /Dssize_t=Py_ssize_t  fasttext_pybind.cc uses the POSIX type ssize_t, which MSVC does not
+#                         define at all.  Python.h already provides Py_ssize_t, so pointing one
+#                         at the other is enough.
+#
+# The CL environment variable is how MSVC takes extra flags without patching the package.
+# Note this is NOT a pybind11 incompatibility: it builds against stock pybind11 3.x, and pinning
+# to 2.x changes nothing.  Verified here against MSVC 14.51 -- the wheel builds, imports, and
+# trains a real model.
+#
+# The gate matters because langdetect has no Yoruba label at all and so reported a Yoruba corpus
+# as 40% Vietnamese; GlotLID covers 1,600+ languages and is what replaced it.
+Write-Host 'Installing fasttext (GlotLID runtime) with the two MSVC flags it needs...' -ForegroundColor Green
+$prevCL = $env:CL
+$env:CL = '/std:c++17 /Dssize_t=Py_ssize_t'
+try {
+    & $condaExe run -n $ENV_NAME pip install fasttext-numpy2
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'fasttext failed to build. The GlotLID gate can also run on Colab.' -ForegroundColor Yellow
+    }
+} finally {
+    $env:CL = $prevCL
+}
+
 # -- Step 6: register Jupyter kernel -------------------------------------------------------------
 Write-Host 'Registering Jupyter kernel...' -ForegroundColor Green
 & $condaExe run -n $ENV_NAME python -m ipykernel install `

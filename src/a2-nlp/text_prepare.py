@@ -75,17 +75,36 @@ def already_done(dataset: str) -> bool:
                for f in ('train_tokens.npy', 'val_tokens.npy', 'test_tokens.npy', 'stats.json'))
 
 
-def save_split(dataset: str, split: str, ids: np.ndarray) -> None:
-    # uint16 holds any id below 65,536; our largest vocab is 16,384. The assert is cheap and the
-    # bug it guards against (an id silently wrapping around) would poison every downstream number.
-    assert ids.max() < 65_536, f'{split}: token id {ids.max()} does not fit uint16'
-    np.save(os.path.join(out_dir(dataset), f'{split}_tokens.npy'), ids.astype(np.uint16))
+def disk_dtype(vocab_size: int):
+    """The narrowest unsigned type on disk that holds every id in this vocabulary.
+
+    On disk the ids are unsigned, so uint16 reaches 65,535 -- twice as far as the signed int16
+    the GPU-resident store uses, because torch has no unsigned type below int64. The two
+    thresholds therefore differ on purpose, and a vocabulary between 32,769 and 65,536 is stored
+    two bytes wide here and widened to int32 on upload. See text_data.resolve_store_dtype.
+    """
+    return np.uint16 if vocab_size - 1 <= 65_535 else np.uint32
+
+
+def save_split(dataset: str, split: str, ids: np.ndarray, vocab_size: int) -> None:
+    # Check the ids against the vocabulary rather than against the storage width. It is the
+    # stronger of the two invariants and it implies the other -- the width was chosen from
+    # vocab_size, so an id that fits the vocabulary always fits the type. The bug being guarded
+    # against, a tokenizer emitting an id past its own declared vocabulary, would otherwise
+    # surface much later as an embedding lookup out of range, or not at all.
+    dtype = disk_dtype(vocab_size)
+    assert ids.max() < vocab_size, (
+        f'{split}: token id {ids.max()} is outside the declared vocabulary of {vocab_size:,}')
+    np.save(os.path.join(out_dir(dataset), f'{split}_tokens.npy'), ids.astype(dtype))
 
 
 def save_stats(dataset: str, tokenizer: str, vocab_size: int, counts: dict,
                extra: dict | None = None) -> None:
+    # store_bytes is recorded so the cost estimator and the dashboard can size a corpus without
+    # loading its arrays; text_data still reads the real width off the array itself.
     stats = {'dataset': dataset, 'tokenizer': tokenizer, 'vocab_size': vocab_size,
-             'n_tokens': counts}
+             'n_tokens': counts,
+             'store_bytes': int(np.dtype(disk_dtype(vocab_size)).itemsize)}
     if extra:
         stats.update(extra)
     with open(os.path.join(out_dir(dataset), 'stats.json'), 'w') as f:
@@ -121,7 +140,7 @@ def prepare_shakespeare() -> None:
     # so anything downstream (generation, the notebooks) can decode without re-reading input.txt.
     vocab = sorted(set(text))
     stoi = {ch: i for i, ch in enumerate(vocab)}
-    ids = np.array([stoi[c] for c in text], dtype=np.uint16)
+    ids = np.array([stoi[c] for c in text], dtype=disk_dtype(len(vocab)))
 
     # A 90/5/5 split by position. Splitting a single continuous work by position means val and
     # test are later acts the model never saw -- the same held-out-text discipline as wikitext,
@@ -130,7 +149,7 @@ def prepare_shakespeare() -> None:
     a, b = int(n * 0.90), int(n * 0.95)
     splits = {'train': ids[:a], 'val': ids[a:b], 'test': ids[b:]}
     for split, arr in splits.items():
-        save_split('shakespeare', split, arr)
+        save_split('shakespeare', split, arr, len(vocab))
     save_stats('shakespeare', 'char', len(vocab),
                {s: int(len(v)) for s, v in splits.items()}, extra={'vocab': vocab})
 
@@ -178,26 +197,30 @@ def ensure_bpe_tokenizer():
     return tok
 
 
-def encode_split(tok, ds_split, chunk_lines: int = 20_000) -> np.ndarray:
+def encode_split(tok, ds_split, dtype, chunk_lines: int = 20_000) -> np.ndarray:
     """Encode one HF split into a flat id array, in chunks so the Rust encoder can parallelize.
 
     The rows of wikitext are lines with the trailing newline stripped, so we re-join each chunk
     with '\\n' and append one, which reconstructs the original text exactly across chunk
     boundaries. Encoding chunk-by-chunk (rather than one giant string) keeps memory flat and
     lets encode_batch fan out across cores.
+
+    dtype comes from the tokenizer's own vocabulary rather than being fixed at uint16: this is
+    the first place an id becomes a fixed-width integer, so narrowing here would truncate before
+    save_split's guard ever sees the value.
     """
     parts = []
     n = len(ds_split)
     t0 = time.time()
     for i in range(0, n, chunk_lines):
         chunk = '\n'.join(ds_split[i:i + chunk_lines]['text']) + '\n'
-        parts.append(np.array(tok.encode(chunk).ids, dtype=np.uint16))
+        parts.append(np.array(tok.encode(chunk).ids, dtype=dtype))
         if i // chunk_lines % 10 == 0:
             done = min(i + chunk_lines, n)
             print(f'\r  encoding {done:>10,}/{n:,} lines '
                   f'({done / max(1e-9, time.time() - t0):,.0f} lines/s)', end='', flush=True)
     print()
-    return np.concatenate(parts) if parts else np.array([], dtype=np.uint16)
+    return np.concatenate(parts) if parts else np.array([], dtype=dtype)
 
 
 def prepare_wikitext(dataset: str) -> None:
@@ -208,13 +231,15 @@ def prepare_wikitext(dataset: str) -> None:
     ds = load_dataset(*WIKITEXT[dataset])
 
     counts = {}
+    vocab_size = tok.get_vocab_size()
+    dtype = disk_dtype(vocab_size)
     for split, hf_split in (('train', 'train'), ('val', 'validation'), ('test', 'test')):
         print(f'  {dataset} {split}:')
-        ids = encode_split(tok, ds[hf_split])
-        save_split(dataset, split, ids)
+        ids = encode_split(tok, ds[hf_split], dtype)
+        save_split(dataset, split, ids, vocab_size)
         counts[split] = int(len(ids))
 
-    save_stats(dataset, 'bpe16k', tok.get_vocab_size(), counts,
+    save_stats(dataset, 'bpe16k', vocab_size, counts,
                extra={'tokenizer_path': os.path.relpath(BPE_PATH, HERE)})
     sanity_report(dataset, tok.decode)
 

@@ -244,6 +244,12 @@ src/a2-nlp/data/
 src/a2-nlp/runs/**/*.pt
 src/a2-nlp/runs/smoke-*
 src/a2-nlp/logs/
+# The masked-LM runs checkpoint as Hugging Face save_pretrained DIRECTORIES rather than a single
+# .pt, so the rule above does not catch them: one poc-scale cell is 106 MB of model.safetensors,
+# and the afriberta preset is several times that. Ignoring directories under runs/ keeps the
+# policy intact -- weights are regenerable, and runs/*.jsonl and runs/*_result.json, which are
+# files, still commit so the report notebooks render on a fresh clone.
+src/a2-nlp/runs/*/
 
 # Hyperparameter optimization runtime state (generated and resumable).
 hpo_outputs/
