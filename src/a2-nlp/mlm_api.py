@@ -54,6 +54,8 @@ compact = _train.compact
 prepare_corpus = _data.prepare_corpus
 probe_capacity = _data.probe_capacity
 load_tokenizer = _data.load_tokenizer
+load_shared_tokenizer = _data.load_shared_tokenizer
+tokenizer_fingerprint = _data.tokenizer_fingerprint
 sample_docs = _data.sample_docs
 MlmTokens = _data.MlmTokens
 

@@ -26,6 +26,7 @@ Prepared layout (data/<name>/, gitignored):
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -107,6 +108,40 @@ def collect_docs(lang: str, wiki: str | None = None, max_chars: int = 300_000_00
     raise RuntimeError(f'no corpus source worked for {lang}')
 
 
+def tokenizer_fingerprint(hf_tok) -> str:
+    """A short hash of the vocabulary itself -- the identity of the prediction task.
+
+    Two runs are only comparable if they scored the same task, and the task is set by the
+    vocabulary: a loss of 2.9 over 16,000 possible tokens means something different from a loss
+    of 2.9 over a different 16,000. Hashing the token-to-id mapping (rather than the file, which
+    carries incidental metadata) gives a value that is equal exactly when the task is.
+
+    Recorded in stats.json at prepare time and in every run record, so a mismatch between two
+    sets of numbers is visible instead of being a silent puzzle.
+    """
+    vocab = hf_tok.get_vocab()
+    blob = '\n'.join(f'{i}\t{t}' for t, i in sorted(vocab.items(), key=lambda kv: kv[1]))
+    return hashlib.sha256(blob.encode('utf-8')).hexdigest()[:12]
+
+
+def load_shared_tokenizer(spec: str, max_len: int):
+    """Load a tokenizer someone else built: a local directory, a tokenizer.json, or a hub id.
+
+    This is how a group shares one vocabulary without sharing 130 MB of token arrays. Each
+    person downloads their own text -- the streams will differ, because a web crawl does not
+    hand out identical documents -- but tokenizing them with the same vocabulary keeps the
+    perplexities comparable, which is the property that actually matters.
+    """
+    from transformers import AutoTokenizer, PreTrainedTokenizerFast
+
+    if os.path.isfile(spec) and spec.endswith('.json'):
+        return PreTrainedTokenizerFast(
+            tokenizer_file=spec, bos_token='<s>', eos_token='</s>', unk_token='<unk>',
+            pad_token='<pad>', mask_token='<mask>', cls_token='<s>', sep_token='</s>',
+            model_max_length=max_len)
+    return AutoTokenizer.from_pretrained(spec, model_max_length=max_len)
+
+
 def train_tokenizer(docs: list[str], vocab_size: int, max_len: int):
     """Train a byte-level BPE on this language's own text and wrap it for transformers.
 
@@ -157,7 +192,7 @@ def encode_docs(hf_tok, docs: list[str], vocab_size: int, batch: int = 2000) -> 
 def prepare_corpus(name: str, lang: str, wiki: str | None = None, vocab_size: int = 16_000,
                    max_len: int = 128, max_chars: int = 300_000_000, max_seconds: int = 300,
                    val_tokens: int = 500_000, sample_docs: int = 4000,
-                   force: bool = False) -> dict:
+                   tokenizer: str | None = None, force: bool = False) -> dict:
     """Collect, tokenize, and store one language once. Returns the stats dict.
 
     This is the step the POC repeats every session and the factory does exactly once. Re-running
@@ -166,19 +201,45 @@ def prepare_corpus(name: str, lang: str, wiki: str | None = None, vocab_size: in
 
     Validation is taken from the TAIL of the stream, matching the POC, so the held-out text is
     documents the pretraining pool never contains.
+
+    `tokenizer` is how a group stays comparable without sharing corpora. Left None, this trains a
+    fresh BPE on whatever text it collected -- and since two people streaming the same web source
+    do not receive identical documents, they get different vocabularies and their losses stop
+    meaning the same thing. Point it at a shared tokenizer instead (a directory, a tokenizer.json,
+    or a hub id) and everyone scores the same prediction task on their own text.
     """
     out = P.out_dir(name)
     if os.path.exists(os.path.join(out, 'stats.json')) and not force:
         print(f'{name}: already prepared (force=True to redo)')
-        return T.load_stats(name)
+        stats = T.load_stats(name)
+
+        # Corpora prepared before fingerprints existed have no record of which vocabulary they
+        # used, which makes them incomparable-by-inspection rather than genuinely incomparable.
+        # The tokenizer is sitting right there, so fill it in rather than forcing a re-prepare.
+        if 'tokenizer_fingerprint' not in stats:
+            try:
+                stats['tokenizer_fingerprint'] = tokenizer_fingerprint(load_tokenizer(name))
+                stats.setdefault('tokenizer_source', 'unknown (prepared before this was recorded)')
+                with open(os.path.join(out, 'stats.json'), 'w', encoding='utf-8') as f:
+                    json.dump(stats, f, indent=2)
+                print(f'  backfilled vocabulary fingerprint '
+                      f'{stats["tokenizer_fingerprint"]}')
+            except Exception as e:
+                print(f'  could not fingerprint the existing tokenizer: {repr(e)[:70]}')
+        return stats
 
     os.makedirs(out, exist_ok=True)
     print(f'{name}: collecting {lang}')
     docs, n_chars = collect_docs(lang, wiki, max_chars, max_seconds)
 
-    print(f'{name}: training a {vocab_size:,} BPE on its own text')
-    hf_tok = train_tokenizer(docs, vocab_size, max_len)
+    if tokenizer:
+        print(f'{name}: using the shared tokenizer at {tokenizer!r} (not training a new one)')
+        hf_tok = load_shared_tokenizer(tokenizer, max_len)
+    else:
+        print(f'{name}: training a {vocab_size:,} BPE on its own text')
+        hf_tok = train_tokenizer(docs, vocab_size, max_len)
     actual_vocab = hf_tok.backend_tokenizer.get_vocab_size()
+    fingerprint = tokenizer_fingerprint(hf_tok)
 
     ids = encode_docs(hf_tok, docs, actual_vocab)
     if len(ids) <= val_tokens * 2:
@@ -203,6 +264,8 @@ def prepare_corpus(name: str, lang: str, wiki: str | None = None, vocab_size: in
                  {'train': int(len(train_ids)), 'val': int(len(val_ids))},
                  extra={'lang': lang, 'chars': int(n_chars), 'docs': len(docs),
                         'chars_per_token': n_chars / len(ids),
+                        'tokenizer_fingerprint': fingerprint,
+                        'tokenizer_source': tokenizer or 'trained here',
                         'tokenizer_path': os.path.join('data', name, 'tokenizer')})
 
     # Read a sample back before anyone trains on it. Same discipline as the causal rungs: a
@@ -331,6 +394,9 @@ if __name__ == '__main__':
     p.add_argument('--val-tokens', type=int, default=500_000)
     p.add_argument('--sample-docs', type=int, default=4000,
                    help='raw documents kept aside for the language-ID gate')
+    p.add_argument('--tokenizer', default=None,
+                   help='reuse a shared tokenizer (dir, tokenizer.json, or hub id) instead of '
+                        'training a new one -- required for comparability across machines')
     p.add_argument('--force', action='store_true')
     a = p.parse_args()
     # Keyword arguments, not positional. Passing these positionally is what silently handed
@@ -340,5 +406,5 @@ if __name__ == '__main__':
     stats = prepare_corpus(name=a.name, lang=a.lang, wiki=a.wiki, vocab_size=a.vocab_size,
                            max_len=a.max_len, max_chars=a.max_chars,
                            max_seconds=a.max_seconds, val_tokens=a.val_tokens,
-                           sample_docs=a.sample_docs, force=a.force)
+                           sample_docs=a.sample_docs, tokenizer=a.tokenizer, force=a.force)
     print(json.dumps({k: v for k, v in stats.items() if k != 'vocab'}, indent=2))

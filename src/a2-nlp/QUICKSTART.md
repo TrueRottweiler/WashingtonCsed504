@@ -50,8 +50,26 @@ text_prepare.DATA_DIR = text_data.DATA_DIR = CACHE     # both modules resolve pa
 Then prepare — the first time it downloads and tokenizes, every time after it's instant:
 
 ```python
-stats = factory.prepare_corpus("yor", lang="yor_Latn", wiki="yo", vocab_size=16_000)
+stats = factory.prepare_corpus("yor", lang="yor_Latn", wiki="yo",
+                               tokenizer="tokenizers/yor-bpe16k")   # <- do not omit this
 ```
+
+**`tokenizer=` is the part that makes your numbers comparable with ours.** You download your own
+text — that is by design, and the corpus is far too large to pass around. But two people
+streaming FineWeb-2 do not receive identical documents, so if each of you trains a fresh BPE on
+whatever you collected, you end up with *different vocabularies* and a loss of 2.9 stops meaning
+the same thing on each machine. Pointing at the shared tokenizer keeps the prediction task
+identical while the text differs.
+
+Check you got it:
+
+```python
+factory.corpus_info("yor")["tokenizer_fingerprint"]     # should be '15abd33de5af'
+```
+
+Every training run records the vocabulary it scored against too, so if two sets of numbers ever
+disagree you can tell immediately whether you were measuring the same thing. See
+[`tokenizers/README.md`](tokenizers/README.md).
 
 It prints a decoded sample at the end. **Read it.** If it isn't recognisable Yoruba, stop there —
 that check has already caught one real problem for us.

@@ -213,7 +213,17 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     model.save_pretrained(out_dir)
     tokenizer.save_pretrained(out_dir)
 
+    # Which vocabulary this run scored against. Two runs are only comparable if these match --
+    # a loss of 2.9 over one 16,000-token vocabulary is not the same measurement as 2.9 over a
+    # different one, and without this recorded the difference is invisible.
+    try:
+        import mlm_data as _D
+        vocab_fp = _D.tokenizer_fingerprint(tokenizer)
+    except Exception:
+        vocab_fp = None
+
     record = {'tag': tag, 'path': out_dir, 'preset': preset, 'params': total_p,
+              'vocab_fingerprint': vocab_fp,
               'nonemb_params': nonemb_p, 'n_tokens': int(ds.n), 'steps': steps, 'batch': batch,
               'seq_len': ds.seq_len, 'lr': lr, 'seed': seed, 'passes': passes,
               'store_dtype': str(ds.store_dtype).replace('torch.', ''),

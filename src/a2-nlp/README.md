@@ -32,6 +32,7 @@ And the masked-LM half, built to support the group's from-scratch-vs-transfer st
 | `explain_model.py` | ask a checkpoint to fill in blanks — what the model actually learned |
 | `nb_clean.py` | make an executed notebook render (see the note below) |
 | `py.sh` | run any of the above in the `uw-csed504` env, from this folder, with UTF-8 output |
+| [`tokenizers/`](tokenizers/) | **shared vocabularies** — commit-sized, and what keeps everyone's numbers comparable |
 
 **Written up in [`reports/`](reports/):** what the group is asking and where the limits are, what
 the model actually learned, and the throughput investigation. Start with
