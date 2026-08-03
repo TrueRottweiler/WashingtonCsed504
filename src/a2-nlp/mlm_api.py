@@ -117,7 +117,8 @@ def estimate(name: str, cells: list[tuple[int, int]], preset: str = 'poc', batch
 
 
 def pretrain(name: str, tokens: int, steps: int, seed: int = 0, preset: str = 'poc',
-             batch: int = 128, seq_len: int = 128, lr: float = 5e-4, mlm_prob: float = 0.15,
+             batch: int = 128, seq_len: int = 128, lr: float | None = None,
+             mlm_prob: float = 0.15,
              gpu: int = 0, tag: str | None = None, store_dtype: str = 'auto',
              reuse: bool = True) -> dict:
     """Pretrain one grid cell and return its record.

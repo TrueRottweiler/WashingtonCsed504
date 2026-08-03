@@ -38,6 +38,31 @@ SIZE_PRESETS = {
                       intermediate_size=3072),
 }
 
+# Peak learning rate per preset. The poc value is well established by every run in the study;
+# the afriberta value is the best of what has been measured and is NOT a guarantee -- read on
+# before trusting it at that scale.
+#
+# What is solid: at afriberta scale (86M), 5e-4 and 1e-3 collapse the model outright. Validation
+# loss goes flat at ~6.76 from the first logged point and never moves. 3e-4 and 1e-4 descend
+# normally over 4,000 steps. That is why the first afriberta ladder came out worse at every rung
+# than the much smaller poc model.
+#
+# At 3e-4 over 4,000 steps it is reliable: three seeds landed at 5.614, 5.609 and 5.610.
+#
+# TWO conditions have to hold together, which is what made this confusing to diagnose. The rate
+# must be low enough -- 5e-4 collapsed the 64M cell despite that run having the longest warmup
+# of any -- AND the warmup must be long enough in absolute steps, since a 1,500-step run at the
+# safe 3e-4 collapsed on 90 warmup steps. MIN_WARMUP_STEPS below fixes the second condition so
+# short exploratory runs stop failing for a reason that has nothing to do with the experiment.
+#
+# The stall detector further down catches whatever still slips through, within a couple of
+# minutes rather than at the end. The 64M afriberta cell ran 69 minutes and produced a model
+# that had learned nothing.
+PRESET_LR = {'poc': 5e-4, 'afriberta': 3e-4}
+
+# Floor on warmup, in absolute steps -- see the schedule construction in pretrain().
+MIN_WARMUP_STEPS = 250
+
 
 def compact(n: int) -> str:
     """A short, collision-free rendering of a count: 327k, 2M, 32M, 1500.
@@ -117,7 +142,7 @@ def save_random_init(vocab_size, tokenizer, preset, max_len, out_dir) -> str:
 
 
 def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: int = 128,
-             lr: float = 5e-4, mlm_prob: float = 0.15, seed: int = 0, clip: float = 1.0,
+             lr: float | None = None, mlm_prob: float = 0.15, seed: int = 0, clip: float = 1.0,
              log_every: int | None = None, out_dir: str | None = None,
              val_batches=None, amp_dtype=None) -> dict:
     """Pretrain one grid cell and return its record.
@@ -132,6 +157,11 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     device = ds.device
     torch.manual_seed(seed)
 
+    # None means "whatever trains this preset" -- see PRESET_LR. An explicit value is honoured,
+    # including one known to collapse, because a sweep has to be able to ask for a bad rate.
+    if lr is None:
+        lr = PRESET_LR.get(preset, 5e-4)
+
     model = build_model(ds.vocab_size, tokenizer, preset, ds.seq_len).to(device)
     total_p, nonemb_p = n_params(model)
 
@@ -143,7 +173,14 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
 
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01,
                             betas=(0.9, 0.98), eps=1e-6)
-    sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps, pct_start=0.06)
+    # Warm up for a fraction of the run, but never fewer than MIN_WARMUP_STEPS. A flat 6% is
+    # fine for a long run and far too short for a brief one: a 1,500-step run got 90 warmup
+    # steps and collapsed at a learning rate that trains reliably (3/3 seeds) over 4,000 steps
+    # with 240. Short runs are exactly what people use to try things out, so the schedule has to
+    # survive them.
+    pct_start = min(0.25, max(0.06, MIN_WARMUP_STEPS / max(steps, 1)))
+    sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps,
+                                              pct_start=pct_start)
 
     if val_batches is None:
         val_batches = ds.fixed_val_batches(mlm_prob=mlm_prob)
@@ -156,6 +193,12 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     print(f'[{tag}] {total_p/1e6:.1f}M params ({nonemb_p/1e6:.1f}M non-emb) | '
           f'{ds.n/1e6:.0f}M tokens | {steps:,} steps x {tokens_per_step:,} tok = '
           f'{passes:.1f} passes | random-loss {random_loss:.2f}', flush=True)
+    # dashboard.py counts progress in "epochs" and reads the total off this line. Our epochs are
+    # logging intervals, so tell it how many there will be -- otherwise it falls back to a
+    # hardcoded 30 and every MLM run displays as 10/30 forever.
+    n_intervals = (steps + log_every - 1) // log_every
+    print(f'[{tag}] {n_intervals} epochs, batch {batch} x {ds.seq_len} tok '
+          f'(logging every {log_every:,} steps)', flush=True)
 
     gen = torch.Generator(device=device)
     gen.manual_seed(seed)
@@ -165,8 +208,10 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
         os.remove(jsonl)
 
     history, ema, best = [], None, float('inf')
+    stall_warned = False
     t0 = time.time()
     t_window = time.time()
+    last_log_step = 0
     model.train()
 
     for step, (xm, y) in enumerate(ds.masked_batches(batch, steps, mlm_prob, gen), start=1):
@@ -190,7 +235,12 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
 
         if step % log_every == 0 or step == steps:
             dt = time.time() - t_window
-            tok_s = log_every * tokens_per_step / max(dt, 1e-9)
+            # Count the steps this window ACTUALLY covered. The final window is whatever is left
+            # over when steps is not a multiple of log_every -- 9 steps out of 1,171 on one run --
+            # and assuming a full window there reported 24.4M tok/s for a model doing 189k.
+            window_steps = step - last_log_step
+            tok_s = window_steps * tokens_per_step / max(dt, 1e-9)
+            last_log_step = step
             vl = evaluate(model, val_batches)
             is_best = vl < best
             best = min(best, vl)
@@ -199,6 +249,19 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
                    'train': {'loss': ema, 'ppl': math.exp(min(20.0, ema)),
                              'sec': dt, 'tok_s': tok_s},
                    'val': {'loss': vl, 'ppl': math.exp(min(20.0, vl))}}
+            # Has this run learned anything yet? A collapsed MLM sits flat just below the
+            # uniform-prediction loss and stays there; it will not recover, and every further
+            # step is wasted. Warn loudly at the halfway mark rather than aborting, because a
+            # slow start is not the same as a dead one and only the operator can tell.
+            if history and step >= steps // 2 and not stall_warned:
+                moved = history[0]['val']['loss'] - vl
+                if moved < 0.15:
+                    stall_warned = True
+                    print(f'[{tag}] WARNING: val loss has moved only {moved:.3f} in '
+                          f'{step:,} steps (random-loss is {random_loss:.2f}). This run looks '
+                          f'collapsed rather than slow. At this model size try a lower peak '
+                          f'learning rate -- see PRESET_LR in mlm_train.py.', flush=True)
+
             history.append(row)
             with open(jsonl, 'a') as f:
                 f.write(json.dumps(row) + '\n')
@@ -230,6 +293,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
               'store_gb': ds.gb(), 'val_loss': val_loss, 'best_val_loss': best,
               'val_ppl': math.exp(min(20.0, val_loss)), 'random_loss': random_loss,
               'seconds': secs, 'tokens_per_s': steps * tokens_per_step / secs,
+              'lr_used': lr, 'stalled': stall_warned,
               'history': history}
     with open(os.path.join(RUNS, f'{tag}_result.json'), 'w') as f:
         json.dump(record, f, indent=2)
