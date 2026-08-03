@@ -17,19 +17,36 @@ projection.
 - **The small from-scratch model works.** 33.8M parameters, ten minutes on one card, and it
   matches mmBERT on topic classification (0.527 vs 0.537). It does *not* match on entity
   recognition (0.698 vs 0.848), so the easy task was flattering it.
-- **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7;
-  16× more text moves it by 0.08–0.61. Convenient, since text is what they've run out of.
+- **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7
+  against a measured seed spread of 0.049 — 45–56× the noise. More *text* does nothing measurable
+  until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
+  Convenient, since text is what they've run out of.
 - **The factory made the same work 2.07× faster** — 1.33× from batch size, the rest from using the
   second card at all — and the full study fits in 7.6 GPU-hours against a ~20 hour budget.
+
+## The one that changes the study plan
+
+**The recipe collapses at the model size the real study uses.** Run at AfriBERTa scale (86M), the
+old settings produced models that learned nothing — validation loss flat at 6.73 for 69 minutes —
+and the ladder came out *worse at every rung* than the four-times-smaller model. Two causes had to
+be fixed together: the peak learning rate (5e-4 collapses at that size; 3e-4 works) and the warmup
+length (a percentage warmup gives short runs far too few steps). With both fixed it is reliable
+across three seeds. Detail in [03-efficiency.md §6d](03-efficiency.md).
+
+Had the group run their study on the old settings, every cell would have produced a dead model,
+and "from-scratch pretraining doesn't work for Yoruba" would have looked like the answer.
 
 ## Two things not to quote yet
 
 - **XLM-R's 0.127 on topic classification** is almost certainly a fine-tuning failure, not a
   coverage result — the same model scores 0.843 on entity recognition. The group's headline
   contrast depends on this number and it needs re-running with more seeds.
-- **Everything is one seed per cell.** The differences between the four pretrained models are
-  currently smaller than the run-to-run wobble. `python mlm_fleet.py --corpus yor --queue seeds`
-  exists for this.
+- **The AfriBERTa ladder rows in `runs/` are collapsed runs**, kept as evidence for the finding
+  above. They are not results and the ladder needs re-running at the corrected settings.
+- **The downstream numbers are still unresolved.** Seeds have now been run on the pretraining
+  side (sd 0.049), and the pretraining differences clear it easily. But the four models score
+  0.448–0.527 on topic classification with overlapping CIs, so *which* grid cell fine-tunes best
+  is not yet answerable.
 
 ## Reproducing
 

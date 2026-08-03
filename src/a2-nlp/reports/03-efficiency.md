@@ -244,6 +244,101 @@ For the group's study design this is the actionable finding. Spending the budget
 Yoruba text buys little; spending it on more updates buys a lot — which is fortunate, because
 §8 shows unique Yoruba text is the resource they are about to run out of.
 
+## 6c. How much of that is noise? (seeds, finally)
+
+Every claim above was one run per cell until now. The headline cell was repeated at three seeds:
+
+| seed | val loss | wall-clock |
+|---|---|---|
+| 0 | 2.8793 | 7.7 min |
+| 1 | 2.9776 | 7.8 min |
+| 2 | 2.9874 | 7.6 min |
+| | **mean 2.948, sd 0.049, range 0.108** | |
+
+Holding each grid effect against that spread:
+
+| effect | size | × sd | verdict |
+|---|---|---|---|
+| compute, at 32M tokens | 2.747 | 56× | real |
+| compute, at 2M tokens | 2.208 | 45× | real |
+| data, at 197M updates | 0.614 | 13× | real |
+| **data, at 49M updates** | **0.075** | **1.5×** | **inside the noise** |
+
+This sharpens §6b rather than overturning it. The compute effects are so far outside the seed
+spread that no plausible amount of noise touches them. The data effect at *high* compute is real
+at 13× the spread. But the data effect at *low* compute — 0.075, which §6b called "nothing" —
+is now measurably nothing: it is smaller than the gap between two runs of the same configuration.
+
+So the precise claim is: **more unique text has no measurable effect until there is enough
+compute to use it.** That is a stronger statement than "data matters less", and it is the one to
+put in the report.
+
+Two caveats worth keeping honest. The spread was measured on one cell and is assumed to
+characterise the others; that is reasonable but not verified. And a re-run of seed 0 landed at
+2.8793 against the 2.886 recorded earlier — a difference of 0.007 at *identical* seed, from
+cuDNN autotune choosing different kernels. Single-seed figures quoted elsewhere in these reports
+are seed 0 and carry that much wobble on their own.
+
+## 6d. The recipe does not survive the model size the real study uses
+
+The most consequential result here, and it only appeared because we ran the study ladder at both
+scales instead of projecting the larger one from the smaller.
+
+| rung | POC 33.8M | AfriBERTa 86M | bigger is |
+|---|---|---|---|
+| 4M | 5.670 | 6.789 | +1.118 worse |
+| 16M | 3.008 | 5.509 | +2.501 worse |
+| 64M | **2.612** | 6.733 | +4.121 worse |
+
+A larger model, given the same budget of tokens-of-updates, came out **worse at every rung** —
+and the 64M cell finished worse than the 16M cell despite four times the steps. That is not slow
+learning. The 64M run's validation loss was flat at 6.73 for its entire 69 minutes: it never left
+the plateau where a model predicts unigram frequencies and stops.
+
+**Why this matters more than any speed number in this document.** The group's real study is
+planned at AfriBERTa scale. Run with the recipe as it stood, every cell would have produced a
+model that learned nothing, and the natural conclusion — "from-scratch pretraining does not work
+for Yoruba" — would have been an artifact of the optimizer settings.
+
+### Two conditions, which is why it looked random
+
+Diagnosing this took two rounds because *neither cause alone explains the pattern*.
+
+**The learning rate.** A sweep at 86M (16M tokens, 4,000 steps):
+
+| lr | val loss | trajectory |
+|---|---|---|
+| 1e-4 | 5.677 | 6.09 → 5.68, descending |
+| **3e-4** | **5.610** | 6.06 → 5.61, descending |
+| 5e-4 *(the old default)* | 6.759 | 6.79 → 6.76, **flat from step one** |
+| 1e-3 | 6.758 | 6.79 → 6.76, **flat from step one** |
+
+That explains the erratic ladder: at 5e-4 the 4M and 64M cells collapsed and the 16M cell
+happened to survive.
+
+**The warmup length.** Setting the per-preset rate to 3e-4 looked like the fix — and the first
+verification run at 3e-4 *collapsed anyway*. It ran 1,500 steps, and `pct_start=0.06` gave it 90
+warmup steps, where the 4,000-step run that trained had 240. A percentage warmup is fine for a
+long run and far too short for a brief one, which is exactly the kind people use to try things.
+
+With both conditions met the run is reliable — three seeds at 3e-4 over 4,000 steps landed at
+**5.614, 5.609, 5.610**. Re-running the config that had collapsed, with only the warmup floor
+added, took it from **6.763 to 5.783**.
+
+### What changed in the factory
+
+- `PRESET_LR` — peak learning rate per preset, measured. 5e-4 for poc, 3e-4 for afriberta.
+- `MIN_WARMUP_STEPS = 250` — a floor in absolute steps, so short runs stop failing for a reason
+  that has nothing to do with the experiment.
+- **A stall detector.** At the halfway mark, if validation loss has moved less than 0.15 from the
+  first logged point, the run prints a loud warning and records `stalled: true`. It cannot
+  prevent a collapse, but it turns a 69-minute silent failure into a two-minute one. It fired
+  correctly on the collapsed verification run.
+
+The three AfriBERTa ladder rows above are kept in `runs/` as the evidence for this finding.
+**They are collapsed runs and must not be quoted as results** — the ladder needs re-running at
+3e-4 before there are real numbers at that scale.
+
 ## 7. Bugs this investigation surfaced
 
 - **Colab path in the NER gate.** The v3→v4 notebook transform patched the hardcoded

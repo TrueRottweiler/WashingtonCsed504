@@ -195,14 +195,21 @@ Read across a row: more **training** moves the number by 2.2–2.7. Read down a 
 **text** moves it by 0.08 on the left and 0.61 on the right. **Training dominates** — and extra
 text only starts to help once there is enough training to use it.
 
+Repeating the best cell at three seeds puts a size on the noise: **sd 0.049, full range 0.108.**
+Against that, the training effects are 45–56× the spread and the text effect at high training is
+13×, so all of those are real. The text effect at *low* training — 0.075 — is **1.5× the
+spread, which is indistinguishable from noise.** The precise claim is therefore that more unique
+text does nothing measurable until there is enough training to use it.
+
 **Why this is convenient:** the scarce resource is Yoruba text (§2), and the grid says text is
 the *less* valuable axis at this budget. Spending on more training buys far more than scraping
 for more text would — fortunate, because there is no more text to scrape.
 
 > ### ⚠ Honest caveat
-> One run per cell. Everything above needs repeating with different random seeds before it goes
-> in a report — the differences between the four fine-tuned models are currently smaller than the
-> run-to-run wobble.
+> The seed spread above was measured on one cell (three seeds) and assumed to characterise the
+> others. The pretraining differences clear it comfortably. The **downstream** differences do
+> not: the four fine-tuned models score 0.448–0.527 on topic classification with overlapping
+> confidence intervals, so which grid cell fine-tunes best is still unresolved.
 
 ---
 

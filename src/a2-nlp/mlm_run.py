@@ -38,7 +38,8 @@ def main():
     p.add_argument('--batch', type=int, default=128,
                    help='sequences per step; 128 measured 1.33x the throughput of 64')
     p.add_argument('--seq-len', type=int, default=128)
-    p.add_argument('--lr', type=float, default=5e-4)
+    p.add_argument('--lr', type=float, default=None,
+                   help='peak LR; default is per-preset (see PRESET_LR) because 5e-4 collapses the afriberta preset')
     p.add_argument('--mlm-prob', type=float, default=0.15)
     p.add_argument('--seed', type=int, default=0)
     p.add_argument('--clip', type=float, default=1.0)
@@ -86,7 +87,18 @@ def main():
 
     ds = D.MlmTokens(device, args.corpus, 'train', seq_len=args.seq_len, subset=tokens,
                      store_dtype=args.store_dtype)
-    print(f'[{args.corpus}] {ds.n:,} tokens resident as '
+    tag = args.tag or M.cell_tag(args.corpus, ds.n, steps, args.seed, args.preset)
+    if args.smoke:
+        tag = f'smoke-{tag}'
+
+    # The header dashboard.py parses: it looks for "device cuda:N" and "dataset <name> |" to
+    # label a run and predict its finish time. Without them an MLM run showed up unlabelled --
+    # and the absent dataset took the whole dashboard down with a TypeError rather than simply
+    # going unpredicted. Keep the shape of these lines if you edit them.
+    print(f'[{tag}] device {device} ({torch.cuda.get_device_name(device)})')
+    print(f'[{tag}] dataset {args.corpus} | seq_len {args.seq_len} | batch {args.batch} | '
+          f'preset {args.preset}')
+    print(f'[{tag}] {ds.n:,} tokens resident as '
           f'{str(ds.store_dtype).replace("torch.", "")} ({ds.gb():.3f} GB), '
           f'vocab {ds.vocab_size:,}')
 
@@ -98,10 +110,6 @@ def main():
         print(f'{steps:,} steps = {cell["tokens_seen"]:,} tokens seen '
               f'({cell["passes"]:.1f} passes) -> {cell["hours"]:.2f} h\n')
         return
-
-    tag = args.tag or M.cell_tag(args.corpus, ds.n, steps, args.seed, args.preset)
-    if args.smoke:
-        tag = f'smoke-{tag}'
 
     val = D.MlmTokens(device, args.corpus, 'val', seq_len=args.seq_len,
                       store_dtype=args.store_dtype)

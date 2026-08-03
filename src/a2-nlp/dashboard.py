@@ -176,12 +176,20 @@ _N_TOKENS_CACHE = {}
 
 
 def _n_train_tokens(dataset):
-    """Train-split token count from the dataset's own stats.json, cached; None if not prepared."""
+    """Train-split token count from the dataset's own stats.json, cached; None if not prepared.
+
+    Returns None for an unknown dataset rather than raising. _run_meta yields None whenever a
+    log has no recognisable dataset header, and the whole dashboard is a read-only view of other
+    processes' output -- it should degrade to "no prediction" for a run it cannot parse, never
+    take the display down. It previously died with a TypeError from os.path.join(None).
+    """
+    if not dataset:
+        return None
     if dataset not in _N_TOKENS_CACHE:
         try:
-            s = json.load(open(os.path.join(HERE, 'data', dataset, 'stats.json')))
-            _N_TOKENS_CACHE[dataset] = s['n_tokens']['train']
-        except (OSError, KeyError, ValueError):
+            with open(os.path.join(HERE, 'data', dataset, 'stats.json')) as f:
+                _N_TOKENS_CACHE[dataset] = json.load(f)['n_tokens']['train']
+        except (OSError, KeyError, ValueError, TypeError):
             _N_TOKENS_CACHE[dataset] = None
     return _N_TOKENS_CACHE[dataset]
 
