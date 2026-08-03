@@ -10,3 +10,10 @@
 
 # PowerShell is Windows-side; CRLF is conventional there.
 *.ps1  text eol=crlf
+
+# Shared tokenizer artifacts are checked out byte-identical on every platform. They are
+# generated JSON, not source: nobody hand-edits them, diffs of them are meaningless, and
+# rewriting 79k line endings on a 1.1 MB file at every checkout is pure churn. (The vocabulary
+# fingerprint hashes the parsed token-to-id map, so line endings could never move it -- this is
+# about keeping the artifact stable, not about correctness.)
+src/a2-nlp/tokenizers/**/*.json -text

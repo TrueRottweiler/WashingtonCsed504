@@ -77,6 +77,8 @@ def main():
                    help='RNG seed (default 42); vary it to repeat a run and measure the spread')
     p.add_argument('--clip', type=float, default=1.0,
                    help='grad-norm clip for both families, 0 disables')
+    p.add_argument('--store-dtype', choices=['auto', 'int16', 'int32'], default='auto',
+                   help='width of the GPU-resident token store (default: narrowest that fits)')
     args = p.parse_args()
 
     # Name the run: <dataset>_<model>, with the smoke prefix applied last so it cannot be
@@ -114,10 +116,13 @@ def main():
     # is ~0.23 GB resident), so the interesting print is the token count, not the gigabytes.
     print(f'[{tag}] device {device} ({torch.cuda.get_device_name(device)})')
     t_load = time.time()
-    train_ds = T.GpuTokens(device, args.dataset, 'train', seq_len=args.seq_len, subset=subset)
-    val_ds = T.GpuTokens(device, args.dataset, 'val', seq_len=args.seq_len, subset=val_subset)
+    train_ds = T.GpuTokens(device, args.dataset, 'train', seq_len=args.seq_len, subset=subset,
+                           store_dtype=args.store_dtype)
+    val_ds = T.GpuTokens(device, args.dataset, 'val', seq_len=args.seq_len, subset=val_subset,
+                         store_dtype=args.store_dtype)
+    store = str(train_ds.store_dtype).replace('torch.', '')
     print(f'[{tag}] {args.dataset} resident on GPU: {train_ds.n:,} train + {val_ds.n:,} val tokens '
-          f'({train_ds.gb() + val_ds.gb():.2f} GB, vocab {train_ds.vocab_size:,} '
+          f'({train_ds.gb() + val_ds.gb():.2f} GB as {store}, vocab {train_ds.vocab_size:,} '
           f'{train_ds.tokenizer}) in {time.time()-t_load:.0f}s')
 
     # Build the model on-device. We print total AND backbone parameters: total is what the card
@@ -180,6 +185,7 @@ def main():
     json.dump({'tag': tag, 'dataset': args.dataset, 'model': args.model,
                'params': M.n_params(model), 'backbone_params': M.n_backbone_params(model),
                'epochs': epochs, 'batch': args.batch, 'seq_len': args.seq_len, 'lr': lr,
+               'store_dtype': store, 'store_gb': train_ds.gb() + val_ds.gb(),
                'best_ppl': best, 'seconds': total, 'history': history},
               open(os.path.join(OUT_DIR, f'{tag}_result.json'), 'w'), indent=2)
 

@@ -14,6 +14,13 @@ hello_text.ipynb, just built by slicing one window instead of stacking two.
 
 Validation walks the stream in order with non-overlapping windows instead, so evaluation is
 deterministic and every token is scored exactly once.
+
+The width of the resident store follows the vocabulary rather than being fixed. Our own rungs
+are narrow (65 characters, or a 16k BPE) and fit two bytes per token, but a factory that only
+ever holds int16 quietly caps every corpus it will accept at 32,768 types -- which rules out the
+multilingual checkpoints a transfer study wants to fine-tune, whose vocabularies run from about
+120k to 250k. resolve_store_dtype() picks the narrowest type that holds the ids, --store-dtype
+overrides it, and store_bench.py measures what the wider store costs.
 """
 from __future__ import annotations
 
@@ -24,6 +31,39 @@ import numpy as np
 import torch
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+
+# Torch has no unsigned integer type below int64, so the resident store has to be signed even
+# though token ids never are. That halves the reach of each width relative to the unsigned array
+# on disk: int16 tops out at 32,767 where the uint16 file holds 65,535.
+STORE_DTYPES = {'int16': torch.int16, 'int32': torch.int32}
+MAX_ID = {torch.int16: 32_767, torch.int32: 2_147_483_647}
+TORCH_TO_NUMPY = {torch.int16: np.int16, torch.int32: np.int32}
+
+
+def resolve_store_dtype(vocab_size: int, requested: str = 'auto') -> torch.dtype:
+    """Choose the resident integer width for a vocabulary, or check an explicit choice fits.
+
+    'auto' takes the narrowest width that holds every id, which is what all of the Part 2 runs
+    used and what keeps WikiText-103 at 0.23 GB rather than 0.46. An explicit 'int32' is always
+    accepted -- it costs memory but cannot truncate -- while an explicit 'int16' on a vocabulary
+    too large for it is refused. That refusal is the whole point of routing the decision through
+    here: a truncated id is not a crash, it is a different valid-looking token, and it would
+    poison every perplexity computed downstream without ever announcing itself.
+    """
+    if requested not in ('auto', *STORE_DTYPES):
+        raise ValueError(f"store_dtype must be 'auto', 'int16', or 'int32', got {requested!r}")
+
+    # Ids run 0..vocab_size-1, so it is the largest id that has to fit, not the count.
+    largest_id = vocab_size - 1
+    if requested == 'auto':
+        return torch.int16 if largest_id <= MAX_ID[torch.int16] else torch.int32
+
+    dtype = STORE_DTYPES[requested]
+    if largest_id > MAX_ID[dtype]:
+        raise ValueError(
+            f'vocab of {vocab_size:,} needs ids up to {largest_id:,}, which does not fit '
+            f'{requested} (max {MAX_ID[dtype]:,}). Use --store-dtype int32 or auto.')
+    return dtype
 
 
 def load_stats(dataset: str) -> dict:
@@ -36,7 +76,8 @@ def load_stats(dataset: str) -> dict:
     if not os.path.exists(p):
         raise FileNotFoundError(
             f'{p} not found -- run: python text_prepare.py --dataset {dataset}')
-    return json.load(open(p))
+    with open(p, encoding='utf-8') as f:
+        return json.load(f)
 
 
 class GpuTokens:
@@ -47,7 +88,8 @@ class GpuTokens:
     """
 
     def __init__(self, device: torch.device, dataset: str, split: str = 'train',
-                 seq_len: int = 256, subset: int | None = None):
+                 seq_len: int = 256, subset: int | None = None,
+                 store_dtype: str = 'auto'):
         stats = load_stats(dataset)
         arr = np.load(os.path.join(DATA_DIR, dataset, f'{split}_tokens.npy'), mmap_mode='r')
 
@@ -57,13 +99,13 @@ class GpuTokens:
         if subset is not None and subset < len(arr):
             arr = arr[:subset]
 
-        # Upload once, as int16. The prepared files are uint16 (torch has no uint16 tensor), and
-        # every vocab in the study is <= 16,384, so the values fit int16 exactly; the guard makes
-        # sure that stays true if a bigger vocabulary ever shows up. Embedding lookups need int64
-        # indices, but we pay that cast per batch in epoch() -- holding the resident copy at 2
-        # bytes per token instead of 8 is the same cheap-form trade as a1 keeping uint8 pixels.
-        assert stats['vocab_size'] <= 32_767, 'vocab too large for the int16 resident store'
-        self.t = torch.from_numpy(np.ascontiguousarray(arr).astype(np.int16)).to(device)
+        # Upload once, in the narrowest signed type the vocabulary allows (see the module
+        # docstring and resolve_store_dtype). Embedding lookups need int64 indices, but we pay
+        # that cast per batch in epoch() -- holding the resident copy at 2 or 4 bytes per token
+        # instead of 8 is the same cheap-form trade as a1 keeping uint8 pixels.
+        self.store_dtype = resolve_store_dtype(stats['vocab_size'], store_dtype)
+        self.t = torch.from_numpy(
+            np.ascontiguousarray(arr).astype(TORCH_TO_NUMPY[self.store_dtype])).to(device)
 
         self.device = device
         self.seq_len = seq_len
@@ -73,9 +115,14 @@ class GpuTokens:
         if self.n < seq_len + 2:
             raise ValueError(f'{dataset}/{split}: only {self.n} tokens, need > seq_len+1')
 
+    @property
+    def bytes_per_token(self) -> int:
+        """Resident width in bytes -- 2 for int16, 4 for int32."""
+        return self.t.element_size()
+
     def gb(self) -> float:
-        """VRAM this split occupies, in GB -- 2 bytes per resident token."""
-        return self.t.numel() * 2 / 1e9
+        """VRAM this split occupies, in GB, at whichever width the store settled on."""
+        return self.t.numel() * self.bytes_per_token / 1e9
 
     def _gather(self, starts: torch.Tensor):
         """Slice seq_len+1 tokens at each start offset and split into (input, shifted target).

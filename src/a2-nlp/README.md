@@ -16,9 +16,62 @@ the full study design; this README is *how to run it*.
 | `train_run.py` | one process, one GPU, one model (`train_run.py`) |
 | `train_fleet.py` | the two-card scheduler with preset queues (`train_fleet.py`) |
 | `dashboard.py` | the live read-only dashboard (`dashboard.py`) |
+| `store_bench.py` | what the wide (int32) resident token store costs, measured |
+
+And the masked-LM half, built to support the group's from-scratch-vs-transfer study:
+
+| file | job |
+|---|---|
+| `mlm_api.py` | **the published interface** — the only module the group's notebook imports |
+| `mlm_data.py` | collect + tokenize a language once; the GPU-resident stream and BERT masking |
+| `mlm_train.py` | the HF model builders, the step-based pretraining loop, the cost estimator |
+| `mlm_run.py` | one process, one GPU, one cell of the (data × compute) grid |
+| `mlm_fleet.py` | that grid across both cards |
+| `diagnose.py` | **measure this machine**: GPUs, batch sweep, named bottleneck, projected cost |
+| `audit_corpus.py` | **measure this corpus**: enough text? consistent spelling? does the vocab fit? |
+| `explain_model.py` | ask a checkpoint to fill in blanks — what the model actually learned |
+| `nb_clean.py` | make an executed notebook render (see the note below) |
+| `py.sh` | run any of the above in the `uw-csed504` env, from this folder, with UTF-8 output |
+| [`tokenizers/`](tokenizers/) | **shared vocabularies** — commit-sized, and what keeps everyone's numbers comparable |
+
+**Written up in [`reports/`](reports/):** what the group is asking and where the limits are, what
+the model actually learned, and the throughput investigation. Start with
+[reports/01-what-were-building.md](reports/01-what-were-building.md).
 
 Extra packages beyond the a1 stack (already in the workstation's `uw-csed504` env):
-`datasets`, `tokenizers`.
+`datasets`, `tokenizers`, `transformers`, `seqeval`, `fasttext-numpy2`.
+
+`fasttext` (the GlotLID language-ID runtime) is source-only and needs two MSVC flags its own
+setup.py does not pass — `/std:c++17` (it uses `std::string_view`; MSVC still defaults to C++14)
+and `/Dssize_t=Py_ssize_t` (it uses the POSIX `ssize_t`, which MSVC does not define). Supply them
+through `CL` and it builds against stock pybind11:
+
+```bash
+CL="/std:c++17 /Dssize_t=Py_ssize_t" pip install fasttext-numpy2
+```
+
+`setup_windows.ps1` does this for you.
+
+## The token store is as wide as the vocabulary needs
+
+`text_data.resolve_store_dtype` picks the narrowest signed type that holds the ids: `int16` for
+everything in this study (char-level, and the 16k BPE), `int32` once a vocabulary passes 32,768
+types — which is every multilingual checkpoint (mBERT ≈ 120k, XLM-R ≈ 250k). `--store-dtype`
+forces either. An explicit `int16` on a vocabulary too large for it raises rather than wrapping,
+because a truncated id is not a crash: it is a different, perfectly valid-looking token that
+would quietly poison every perplexity downstream.
+
+Measured with `store_bench.py` on wikitext103/gpt, 5 interleaved repeats:
+
+| width | store | peak | step tok/s |
+|---|---|---|---|
+| int16 | 0.248 GB | 9.07 GB | 773 k |
+| int32 | 0.495 GB | 9.32 GB | 774 k |
+
+So the wide store costs **exactly 2× the token stream and no measurable throughput**. Quote the
+step column, not the gather column: gather timing on this box is bimodal (≈470–820 M tok/s) at
+*both* widths, and a single unrepeated measurement of it will show a 1.5× difference that is
+pure noise. That is what `--repeat` and the printed spread are for.
 
 ## One-time data preparation
 
@@ -75,3 +128,45 @@ number comes from these console runs, whose history lands in `runs/*.jsonl` and
   of the finding.
 - **Grad clipping defaults ON for both families here** (unlike Part 1's per-family clip). It is
   standard practice in both families' canonical LM recipes, so it cannot tilt the race.
+
+## The masked-LM side (the group's study)
+
+One-time corpus preparation, then the grid. A corpus is addressed by *name* everywhere — in the
+notebook, in the console runner, and on the other card — so a number from a notebook and a number
+from an overnight run are comparable by construction.
+
+```bash
+# collect, tokenize, and cache one language (reads a decoded sample back -- check it)
+python mlm_data.py --name yor --lang yor_Latn --wiki yo --vocab-size 16000
+
+# prove the wiring (~1 min), then the POC's 2x2 grid across both cards
+python mlm_fleet.py --corpus yor --queue poc --smoke
+python mlm_fleet.py --corpus yor --queue poc
+python mlm_run.py --corpus yor --random-init      # the control everything is measured against
+
+# predict before committing a night
+python mlm_run.py --corpus yor --steps 24000 --estimate
+```
+
+Watch with `python dashboard.py` — the MLM runs write the same JSONL schema as the causal ones,
+so the existing dashboard displays them unchanged.
+
+After executing any notebook headlessly, run `python nb_clean.py <notebook>`. Hugging Face's
+progress bars leave `widget-view` outputs whose backing state does not survive a headless run,
+and those cells render as **"Could not render content"**; the cleaner drops the dead views (their
+`text/plain` fallback is kept), strips the ANSI codes transformers prints, and restores cell ids.
+It took `POC_v4_factory.ipynb` from 787 KB to 244 KB.
+
+`factory_diagnostics.ipynb` runs `diagnose.py` and `audit_corpus.py` with charts — the same
+analysis our reports contain, but computed for whatever machine and corpus you point it at.
+Run it first on a new box.
+
+Notebooks: `POC_v4_factory.ipynb` is the group's v3 proof-of-concept with its plumbing replaced
+by these calls (every change bracketed by `# BEGIN: factory` / `# END: factory`, with the code it
+replaced left commented underneath); `results_factory_mlm.ipynb` reads `runs/*_result.json` and
+plots the data axis against the compute axis. `POC_v3_...ipynb` is theirs and is left untouched.
+
+Two things the factory deliberately does **not** take over: the fine-tuning harness (SIB-200,
+MasakhaNER, the seeded bootstrap CIs) runs on a few hundred labelled examples in seconds and has
+nothing to gain from a GPU-resident stream, and checkpoints are ordinary `save_pretrained`
+directories so `AutoModelFor*.from_pretrained` keeps working.
