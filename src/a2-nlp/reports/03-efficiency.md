@@ -335,9 +335,57 @@ added, took it from **6.763 to 5.783**.
   prevent a collapse, but it turns a 69-minute silent failure into a two-minute one. It fired
   correctly on the collapsed verification run.
 
-The three AfriBERTa ladder rows above are kept in `runs/` as the evidence for this finding.
-**They are collapsed runs and must not be quoted as results** — the ladder needs re-running at
-3e-4 before there are real numbers at that scale.
+The original AfriBERTa rows are kept in `runs/` under a `collapsed-lr5e4_` prefix as the evidence
+for this finding. They are not results.
+
+## 6e. The ladder, re-run — and the answer is not the one we expected
+
+With the corrected recipe the AfriBERTa runs no longer collapse (`stalled: false` on all three,
+the 64M cell moving from 6.733 to 5.315). **The smaller model still wins at every rung.**
+
+| rung | POC 33.8M | AfriBERTa old (collapsed) | AfriBERTa fixed |
+|---|---|---|---|
+| 4M | **5.670** | 6.789 | 5.706 |
+| 16M | **3.008** | 5.509 | 5.494 |
+| 64M | **2.612** | 6.733 | 5.315 |
+
+The training curves on the 64M rung say why. Both models start at exactly the same place:
+
+```
+POC 33.8M    5.65  5.55  5.47  5.42  3.46  2.95  2.75  2.67  2.62  2.61  2.61
+AfriBERTa    5.65  5.56  5.49  5.46  5.43  5.38  5.35  5.33  5.32  5.32  5.32
+```
+
+The smaller model **breaks through** at around 40% of training — the cliff from 5.42 to 3.46 is
+the point where it stops predicting unigram frequencies and starts using context. The larger
+model never does. It grinds down the plateau and converges there: the last three points move by
+0.003, so this is not a run that would arrive with a little more patience. It has finished, at a
+far worse place.
+
+### What this means for the study design
+
+At this compute budget, **scaling from 33.8M to 86M is not merely unhelpful, it is harmful.** The
+larger model costs 2.5× the compute per token *and* fails to reach the regime where a language
+model becomes useful. Both halves of that are bad; together they are decisive. The budget is
+better spent on more updates to the smaller model.
+
+That inverts the plan in the proposal, which sizes the real study at AfriBERTa scale on the
+assumption that bigger is better once the pipeline works.
+
+### What we have not established
+
+Only that the larger model loses *at this budget and this recipe*. We tried two learning rates at
+that scale (5e-4 collapses, 3e-4 converges to the plateau) and did not search schedules, warmup
+lengths beyond the floor, or batch sizes. It is entirely possible that a longer run, or a
+different schedule, gets the 86M model through the transition — large models are known to need
+disproportionately more compute before they overtake small ones.
+
+The cheap experiment that would settle it: the 16M rung at AfriBERTa scale with three times the
+step budget, about 50 minutes. If the transition fires, the answer becomes "the bigger model
+needs more compute than the ladder allows"; if it does not, the recommendation above stands
+unqualified. This has not been run.
+
+All AfriBERTa figures here are one seed.
 
 ## 7. Bugs this investigation surfaced
 
