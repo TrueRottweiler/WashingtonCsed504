@@ -199,6 +199,11 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     n_intervals = (steps + log_every - 1) // log_every
     print(f'[{tag}] {n_intervals} epochs, batch {batch} x {ds.seq_len} tok '
           f'(logging every {log_every:,} steps)', flush=True)
+    # Total work, for the dashboard's finish-time estimate. It cannot infer this: its causal
+    # heuristic is epochs x corpus-size, which for an MLM run means logging intervals times the
+    # WHOLE corpus rather than the subset actually being trained on -- off by any factor at all.
+    # Stating the real figure lets it divide by observed throughput and be right.
+    print(f'[{tag}] total work {steps * tokens_per_step:,} tokens', flush=True)
 
     gen = torch.Generator(device=device)
     gen.manual_seed(seed)
@@ -244,7 +249,10 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             vl = evaluate(model, val_batches)
             is_best = vl < best
             best = min(best, vl)
-            row = {'epoch': step // log_every, 'step': step, 'lr': sch.get_last_lr()[0],
+            # Number the intervals 1..n by counting them, not by dividing. step // log_every
+            # gives the FINAL (partial) interval the same number as the one before it, so a
+            # finished run reported 10 of 11 intervals and the dashboard drew it as STOPPED.
+            row = {'epoch': len(history) + 1, 'step': step, 'lr': sch.get_last_lr()[0],
                    'elapsed': time.time() - t0, 'is_best': is_best,
                    'train': {'loss': ema, 'ppl': math.exp(min(20.0, ema)),
                              'sec': dt, 'tok_s': tok_s},

@@ -43,9 +43,14 @@ verified across three seeds. Had the study run on the old settings, every cell w
 produced a dead model and "from-scratch pretraining doesn't work for Yoruba" would have looked
 like the answer. Detail in [03-efficiency.md §6d–6e](03-efficiency.md).
 
-**Not established:** only that the larger model loses at *this* budget and recipe. A 50-minute
-experiment — the 16M rung at 3× the step budget — would say whether it merely needs more compute.
-Not yet run.
+**More compute does not rescue it.** The 16M rung re-run at 3× the step budget reached 5.385
+against 5.494 at 1× — 0.109 for triple the compute — and converged on the plateau again. The
+smaller model reaches 3.008 on that rung with a third of the budget.
+
+**The most promising unsearched lead** is the batch shape, not the learning rate. We train at
+16,384 tokens per step; RoBERTa-base, which this preset resembles, was trained at roughly two
+million. Large models on small batches are known to stall on exactly this kind of plateau. That
+experiment has not been run.
 
 ## Two things not to quote yet
 

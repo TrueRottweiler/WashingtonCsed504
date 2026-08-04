@@ -380,10 +380,44 @@ lengths beyond the floor, or batch sizes. It is entirely possible that a longer 
 different schedule, gets the 86M model through the transition — large models are known to need
 disproportionately more compute before they overtake small ones.
 
-The cheap experiment that would settle it: the 16M rung at AfriBERTa scale with three times the
-step budget, about 50 minutes. If the transition fires, the answer becomes "the bigger model
-needs more compute than the ladder allows"; if it does not, the recommendation above stands
-unqualified. This has not been run.
+### Run: does more compute rescue it? No.
+
+The 16M rung at AfriBERTa scale with **three times** the step budget — 35,156 steps, 54 minutes:
+
+| configuration | val loss |
+|---|---|
+| AfriBERTa 86M, 1× budget | 5.494 |
+| **AfriBERTa 86M, 3× budget** | **5.385** |
+| POC 33.8M, 1× budget | **3.008** |
+
+```
+5.69  5.61  5.53  5.51  5.47  5.44  5.42  5.40  5.39  5.39  5.39
+```
+
+Tripling the compute bought **0.109**, and the run converged on the plateau again — the last
+three intervals are identical to two decimal places. The larger model does not break through
+with more compute at this scale; it settles.
+
+For contrast, the smaller model reached 3.008 on the same rung with **a third** of that budget.
+
+So the recommendation stands without the qualifier: **at this budget and batch shape, do not
+scale the model up.** More compute does not rescue it, and the compute spent trying is compute
+not spent on the smaller model that works.
+
+### What is still unsearched, and the most promising lead
+
+We have now tested four learning rates (1e-4, 3e-4, 5e-4, 1e-3) and two compute budgets (1× and
+3×) at 86M. We have *not* varied the batch shape, and that is where suspicion should fall next.
+
+Our batch is 128 sequences × 128 tokens = **16,384 tokens per step**. RoBERTa-base — which the
+afriberta preset closely resembles — was trained at 8,000 sequences, on the order of two million
+tokens per step. We are running a model of that size at roughly a hundredth of the batch it was
+designed for, and large models trained with small batches are known to struggle to escape
+exactly this kind of plateau: the gradient is too noisy for the model to organise.
+
+That is a testable hypothesis, not a conclusion. The experiment is the 16M rung at batch 512 or
+1024 with the step count reduced to hold tokens-of-updates fixed. `diagnose.py` shows batch 512
+costs about 22.8 GB at poc scale, so it fits comfortably. Not run.
 
 All AfriBERTa figures here are one seed.
 
