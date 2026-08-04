@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 
 import torch
 
@@ -26,6 +27,30 @@ import mlm_data as D
 import mlm_train as M
 
 RUNS = M.RUNS
+LOGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+
+
+class _Tee:
+    """Write console output to logs/<tag>.log as well as the terminal.
+
+    The runner owns its own log rather than relying on the fleet to redirect it. Without this a
+    run started by hand left no log at all, so the dashboards -- which discover runs and read
+    their headers from logs/ -- could not see it, show its progress, or estimate its finish.
+    """
+
+    def __init__(self, stream, path):
+        self.stream = stream
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.fh = open(path, 'a', encoding='utf-8', buffering=1)
+
+    def write(self, s):
+        self.stream.write(s)
+        self.fh.write(s)
+        return len(s)
+
+    def flush(self):
+        self.stream.flush()
+        self.fh.flush()
 
 
 def main():
@@ -43,6 +68,10 @@ def main():
     p.add_argument('--mlm-prob', type=float, default=0.15)
     p.add_argument('--seed', type=int, default=0)
     p.add_argument('--clip', type=float, default=1.0)
+    p.add_argument('--accum', type=int, default=1,
+                   help='micro-batches per optimizer step; effective batch is batch x accum')
+    p.add_argument('--no-resume', action='store_true',
+                   help='start fresh even if an interrupted run left state behind')
     p.add_argument('--store-dtype', choices=['auto', 'int16', 'int32'], default='auto')
     p.add_argument('--tag', default=None)
     p.add_argument('--smoke', action='store_true',
@@ -91,6 +120,9 @@ def main():
     if args.smoke:
         tag = f'smoke-{tag}'
 
+    # From here on, everything printed also lands in logs/<tag>.log.
+    sys.stdout = _Tee(sys.stdout, os.path.join(LOGS, f'{tag}.log'))
+
     # The header dashboard.py parses: it looks for "device cuda:N" and "dataset <name> |" to
     # label a run and predict its finish time. Without them an MLM run showed up unlabelled --
     # and the absent dataset took the whole dashboard down with a TypeError rather than simply
@@ -115,6 +147,7 @@ def main():
                       store_dtype=args.store_dtype)
     record = M.pretrain(ds, tokenizer, tag, steps, preset=args.preset, batch=args.batch,
                         lr=args.lr, mlm_prob=args.mlm_prob, seed=args.seed, clip=args.clip,
+                        accum=args.accum, resume=not args.no_resume,
                         val_batches=val.fixed_val_batches(mlm_prob=args.mlm_prob))
     print(json.dumps({k: v for k, v in record.items() if k != 'history'}, indent=2))
 

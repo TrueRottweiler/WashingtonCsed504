@@ -37,6 +37,12 @@ except Exception:
     UNICODE = False
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Set from the command line in main(). Watching a single run should not mean scrolling past
+# fifteen finished ones.
+ONLY_LIVE = False
+TAG_FILTER = None
+RECENT_HOURS = 18.0
 RUNS, LOGS = os.path.join(HERE, 'runs'), os.path.join(HERE, 'logs')
 
 # Same scheme as the a1 dashboard and the notebooks: one hue per dataset, the recurrent model in
@@ -127,7 +133,11 @@ def gpus():
 
 
 def live_tags():
-    """Which A2 runs have a train_run.py process actually running right now?
+    """Which A2 runs have a training process actually running right now?
+
+    Matches BOTH runners. The causal study uses train_run.py and the masked-LM study uses
+    mlm_run.py; this only looked for the first, so every MLM run was reported STOPPED while it
+    was in fact training, and the whole display filled with red.
 
     Same tag reconstruction as a1's dashboard, with one addition: we must not claim a1-cv's
     runs as ours (both assignments have a train_run.py). A fleet-launched child has the full
@@ -140,12 +150,13 @@ def live_tags():
         out = subprocess.run(
             ['powershell', '-NoProfile', '-Command',
              "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
-             "Where-Object { $_.CommandLine -match 'train_run.py' } | "
+             r"Where-Object { $_.CommandLine -match '(train_run|mlm_run)\.py' } | "
              "ForEach-Object { $_.CommandLine }"],
             capture_output=True, text=True, timeout=8).stdout
         tags = set()
         for line in out.splitlines():
-            md = re.search(r'--dataset\s+(\S+)', line)
+            # mlm_run.py says --corpus where train_run.py says --dataset.
+            md = re.search(r'--(?:dataset|corpus)\s+(\S+)', line)
             ours = 'a2-nlp' in line or (md and md.group(1) in PALETTE)
             if not ours:
                 continue
@@ -154,13 +165,31 @@ def live_tags():
                 base = mt.group(1)
             else:
                 mm = re.search(r'--model\s+(\S+)', line)
-                if not mm:
-                    continue
-                model = mm.group(1)
-                md = re.search(r'--dataset\s+(\S+)', line)
-                dataset = md.group(1) if md else 'wikitext2'
-                base = f'{dataset}_{model}'
-            tags.add(f'smoke-{base}' if '--smoke-test' in line else base)
+                if mm:
+                    model = mm.group(1)
+                    md2 = re.search(r'--dataset\s+(\S+)', line)
+                    base = f'{(md2.group(1) if md2 else "wikitext2")}_{model}'
+                else:
+                    # An MLM run names itself from corpus/tokens/steps/seed/preset rather than
+                    # from a model name, and the fleet does not pass --tag. Rebuild it with the
+                    # same function the runner uses, so the two cannot disagree.
+                    mc = re.search(r'--corpus\s+(\S+)', line)
+                    mtok = re.search(r'--tokens\s+(\d+)', line)
+                    mst = re.search(r'--steps\s+(\d+)', line)
+                    if not (mc and mtok and mst):
+                        continue
+                    msd = re.search(r'--seed\s+(\d+)', line)
+                    mpr = re.search(r'--preset\s+(\S+)', line)
+                    try:
+                        import mlm_train
+                        base = mlm_train.cell_tag(
+                            mc.group(1), int(mtok.group(1)), int(mst.group(1)),
+                            int(msd.group(1)) if msd else 0,
+                            mpr.group(1) if mpr else 'poc')
+                    except Exception:
+                        continue
+            smoke = '--smoke-test' in line or '--smoke' in line
+            tags.add(f'smoke-{base}' if smoke else base)
         return tags
     except Exception:
         return set()
@@ -216,9 +245,39 @@ def _ref_tps(model):
     return _REF_TPS_CACHE[model]
 
 
-def _predict_total_s(dataset, model, total_epochs):
+def _declared_work(tag):
+    """Total tokens a run says it will process, from its own header. None if it does not say."""
+    try:
+        with open(os.path.join(LOGS, f'{tag}.log'), errors='replace') as f:
+            for line in f:
+                m = re.search(r'total work ([\d,]+) tokens', line)
+                if m:
+                    return int(m.group(1).replace(',', ''))
+    except OSError:
+        pass
+    return None
+
+
+def _observed_tps(tag):
+    """This run's own median throughput so far -- better than a prior run's for its own ETA."""
+    rows = read_jsonl(tag)
+    vals = sorted(r['train']['tok_s'] for r in rows
+                  if 'train' in r and r['train'].get('tok_s'))
+    return vals[len(vals) // 2] if vals else None
+
+
+def _predict_total_s(dataset, model, total_epochs, tag=None):
     """Predicted wall-clock for the whole run from a prior run's throughput -- a genuine
     prediction to hold the live estimate against, not a restatement of it."""
+    # A run that declares its own total work gets an exact answer: divide by the throughput it
+    # is actually achieving. Only fall back to the epochs x corpus-size heuristic, which assumes
+    # one epoch covers the corpus once, when the run says nothing.
+    work = _declared_work(tag) if tag else None
+    if work:
+        tps = _observed_tps(tag) or _ref_tps(model)
+        if tps:
+            return work / tps + 15.0
+
     ref = _ref_tps(model)
     n_train = _n_train_tokens(dataset)
     if not ref or not n_train:
@@ -229,14 +288,17 @@ def _predict_total_s(dataset, model, total_epochs):
 def render(t0):
     """Build the frame: a hardware panel on top, then one stacked card per run."""
     alive = live_tags()
-    recent = time.time() - 18 * 3600
+    recent = time.time() - RECENT_HOURS * 3600
     tags = set(alive)
-    for p in glob.glob(os.path.join(LOGS, '*.log')):
-        try:
-            if os.path.getmtime(p) > recent:
-                tags.add(os.path.basename(p)[:-4])
-        except OSError:
-            pass
+    if not ONLY_LIVE:
+        for p in glob.glob(os.path.join(LOGS, '*.log')):
+            try:
+                if os.path.getmtime(p) > recent:
+                    tags.add(os.path.basename(p)[:-4])
+            except OSError:
+                pass
+    if TAG_FILTER:
+        tags = {t for t in tags if TAG_FILTER in t}
     tags = sorted(tags)
 
     blocks = []
@@ -310,7 +372,7 @@ def render(t0):
         remaining = _fmt((total - ep) * per_ep) if (running and ep < total) else '-'
         model = tag[len(dataset) + 1:] if (dataset and tag.startswith(dataset + '_')) else tag
         model = re.sub(r'_s\d+$', '', model)
-        pred_s = _predict_total_s(dataset, model, total)
+        pred_s = _predict_total_s(dataset, model, total, tag)
         predicted = _fmt(pred_s) if pred_s else '?'
         lr = last.get('lr')
 
@@ -399,7 +461,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--once', action='store_true')
     ap.add_argument('--interval', type=float, default=2.0)
+    ap.add_argument('--live', action='store_true',
+                    help='show only runs with a process still attached -- the usual case when '
+                         'you are watching something rather than reviewing everything')
+    ap.add_argument('--tag', default=None,
+                    help='substring filter on the run name, e.g. --tag afriberta')
+    ap.add_argument('--hours', type=float, default=18.0,
+                    help='how far back to include finished runs (default 18)')
     a = ap.parse_args()
+
+    global ONLY_LIVE, TAG_FILTER, RECENT_HOURS
+    ONLY_LIVE, TAG_FILTER, RECENT_HOURS = a.live, a.tag, a.hours
 
     t0 = time.time()
     console = Console(legacy_windows=False)

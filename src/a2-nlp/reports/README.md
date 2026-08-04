@@ -26,15 +26,31 @@ projection.
 
 ## The one that changes the study plan
 
-**The recipe collapses at the model size the real study uses.** Run at AfriBERTa scale (86M), the
-old settings produced models that learned nothing — validation loss flat at 6.73 for 69 minutes —
-and the ladder came out *worse at every rung* than the four-times-smaller model. Two causes had to
-be fixed together: the peak learning rate (5e-4 collapses at that size; 3e-4 works) and the warmup
-length (a percentage warmup gives short runs far too few steps). With both fixed it is reliable
-across three seeds. Detail in [03-efficiency.md §6d](03-efficiency.md).
+**Scaling the model up made it worse, at every rung.** The proposal sizes the real study at
+AfriBERTa scale (86M) on the assumption that bigger is better once the pipeline works. Run at
+matched budgets against the 33.8M model, it lost every time — 2.612 vs 5.315 on the 64M rung.
 
-Had the group run their study on the old settings, every cell would have produced a dead model,
-and "from-scratch pretraining doesn't work for Yoruba" would have looked like the answer.
+The curves say why. Both start at 5.65. The smaller model *breaks through* the unigram plateau
+at ~40% of training and converges at 2.61; the larger one grinds along the plateau and converges
+at 5.32, its last three checkpoints moving 0.003. It is finished, not merely slow. So the larger
+model costs 2.5× the compute per token **and** never reaches the regime where a language model
+becomes useful.
+
+Getting to that answer took fixing a separate bug first: at 86M the old recipe *collapsed*
+outright (loss flat at 6.73 for 69 minutes), because the peak learning rate was too high for
+that size and the percentage-based warmup gave short runs far too few steps. Both are fixed and
+verified across three seeds. Had the study run on the old settings, every cell would have
+produced a dead model and "from-scratch pretraining doesn't work for Yoruba" would have looked
+like the answer. Detail in [03-efficiency.md §6d–6e](03-efficiency.md).
+
+**More compute does not rescue it.** The 16M rung re-run at 3× the step budget reached 5.385
+against 5.494 at 1× — 0.109 for triple the compute — and converged on the plateau again. The
+smaller model reaches 3.008 on that rung with a third of the budget.
+
+**Batch shape was the promising lead, and it is not the answer either.** Quadrupling the batch
+to 65,536 tokens per step moved the 16M rung from 5.494 to 5.342 — 0.15 against a gap of 2.3 —
+and converged on the plateau just the same. Larger batches help in the expected direction and
+by nowhere near enough.
 
 ## Two things not to quote yet
 

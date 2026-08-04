@@ -335,9 +335,111 @@ added, took it from **6.763 to 5.783**.
   prevent a collapse, but it turns a 69-minute silent failure into a two-minute one. It fired
   correctly on the collapsed verification run.
 
-The three AfriBERTa ladder rows above are kept in `runs/` as the evidence for this finding.
-**They are collapsed runs and must not be quoted as results** — the ladder needs re-running at
-3e-4 before there are real numbers at that scale.
+The original AfriBERTa rows are kept in `runs/` under a `collapsed-lr5e4_` prefix as the evidence
+for this finding. They are not results.
+
+## 6e. The ladder, re-run — and the answer is not the one we expected
+
+With the corrected recipe the AfriBERTa runs no longer collapse (`stalled: false` on all three,
+the 64M cell moving from 6.733 to 5.315). **The smaller model still wins at every rung.**
+
+| rung | POC 33.8M | AfriBERTa old (collapsed) | AfriBERTa fixed |
+|---|---|---|---|
+| 4M | **5.670** | 6.789 | 5.706 |
+| 16M | **3.008** | 5.509 | 5.494 |
+| 64M | **2.612** | 6.733 | 5.315 |
+
+The training curves on the 64M rung say why. Both models start at exactly the same place:
+
+```
+POC 33.8M    5.65  5.55  5.47  5.42  3.46  2.95  2.75  2.67  2.62  2.61  2.61
+AfriBERTa    5.65  5.56  5.49  5.46  5.43  5.38  5.35  5.33  5.32  5.32  5.32
+```
+
+The smaller model **breaks through** at around 40% of training — the cliff from 5.42 to 3.46 is
+the point where it stops predicting unigram frequencies and starts using context. The larger
+model never does. It grinds down the plateau and converges there: the last three points move by
+0.003, so this is not a run that would arrive with a little more patience. It has finished, at a
+far worse place.
+
+### What this means for the study design
+
+At this compute budget, **scaling from 33.8M to 86M is not merely unhelpful, it is harmful.** The
+larger model costs 2.5× the compute per token *and* fails to reach the regime where a language
+model becomes useful. Both halves of that are bad; together they are decisive. The budget is
+better spent on more updates to the smaller model.
+
+That inverts the plan in the proposal, which sizes the real study at AfriBERTa scale on the
+assumption that bigger is better once the pipeline works.
+
+### What we have not established
+
+Only that the larger model loses *at this budget and this recipe*. We tried two learning rates at
+that scale (5e-4 collapses, 3e-4 converges to the plateau) and did not search schedules, warmup
+lengths beyond the floor, or batch sizes. It is entirely possible that a longer run, or a
+different schedule, gets the 86M model through the transition — large models are known to need
+disproportionately more compute before they overtake small ones.
+
+### Run: does more compute rescue it? No.
+
+The 16M rung at AfriBERTa scale with **three times** the step budget — 35,156 steps, 54 minutes:
+
+| configuration | val loss |
+|---|---|
+| AfriBERTa 86M, 1× budget | 5.494 |
+| **AfriBERTa 86M, 3× budget** | **5.385** |
+| POC 33.8M, 1× budget | **3.008** |
+
+```
+5.69  5.61  5.53  5.51  5.47  5.44  5.42  5.40  5.39  5.39  5.39
+```
+
+Tripling the compute bought **0.109**, and the run converged on the plateau again — the last
+three intervals are identical to two decimal places. The larger model does not break through
+with more compute at this scale; it settles.
+
+For contrast, the smaller model reached 3.008 on the same rung with **a third** of that budget.
+
+So the recommendation stands without the qualifier: **at this budget and batch shape, do not
+scale the model up.** More compute does not rescue it, and the compute spent trying is compute
+not spent on the smaller model that works.
+
+### What is still unsearched, and the most promising lead
+
+We have now tested four learning rates (1e-4, 3e-4, 5e-4, 1e-3) and two compute budgets (1× and
+3×) at 86M. We have *not* varied the batch shape, and that is where suspicion should fall next.
+
+Our batch is 128 sequences × 128 tokens = **16,384 tokens per step**. RoBERTa-base — which the
+afriberta preset closely resembles — was trained at 8,000 sequences, on the order of two million
+tokens per step. We are running a model of that size at roughly a hundredth of the batch it was
+designed for, and large models trained with small batches are known to struggle to escape
+exactly this kind of plateau: the gradient is too noisy for the model to organise.
+
+### Run: batch shape helps, and does not explain it
+
+The 16M rung at AfriBERTa scale, same 11,719 steps, varying only the batch:
+
+| batch | tokens per step | val loss |
+|---|---|---|
+| 128 | 16,384 | 5.494 |
+| 256 | 32,768 | 5.403 |
+| **512** | **65,536** | **5.342** |
+
+Quadrupling the batch buys **0.152**, and the curve flattens as before — the last three intervals
+of the batch-512 run read 5.35, 5.34, 5.34. It converged on the plateau like every other run at
+this model size. The 33.8M model reaches 3.008 on the same rung.
+
+So the hypothesis is refuted within the range we can reach: batch shape moves the number in the
+expected direction and comes nowhere near closing a gap of 2.3. Extrapolating the observed
+returns — 0.09 for the first doubling, 0.06 for the second — even a very large batch would not
+arrive.
+
+The honest limit of that statement: RoBERTa-base trained near two million tokens per step and we
+reached 65,536, so the regime it was designed for is still 30× away. Gradient accumulation now
+exists in the factory to get there, and the returns above make it look unpromising rather than
+untested-and-hopeful.
+
+All AfriBERTa figures here are one seed.
 
 ## 7. Bugs this investigation surfaced
 
