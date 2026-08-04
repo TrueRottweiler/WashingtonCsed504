@@ -48,6 +48,14 @@ SOURCES = {
                                                               streaming=True)),
     'wikipedia': lambda wiki: ('wikimedia/wikipedia', dict(name=f'20231101.{wiki}',
                                                            split='train', streaming=True)),
+    # FineWeb-2 covers 1,800+ languages but not English, which lives in its own repositories.
+    # fineweb-edu is the filtered educational subset -- cleaner text than the raw crawl, which
+    # matters at the small model sizes this study trains, and readable enough that a person can
+    # judge the model's output rather than taking a loss number on faith.
+    'fineweb_edu': lambda cfg: ('HuggingFaceFW/fineweb-edu',
+                                dict(name=cfg or 'sample-10BT', split='train', streaming=True)),
+    'fineweb': lambda cfg: ('HuggingFaceFW/fineweb',
+                            dict(name=cfg or 'sample-10BT', split='train', streaming=True)),
 }
 
 
@@ -189,10 +197,158 @@ def encode_docs(hf_tok, docs: list[str], vocab_size: int, batch: int = 2000) -> 
     return ids
 
 
+def sample_chars_for_docs(n_docs: int) -> int:
+    """Roughly how many characters yield n_docs documents, at web-average length."""
+    return max(2_000_000, n_docs * 4_000)
+
+
+def stream_docs(lang: str, wiki: str | None = None, max_chars: int | None = None,
+                max_seconds: float | None = None, source: str = 'fineweb2'):
+    """Yield documents one at a time from the first source that works.
+
+    A generator rather than a list, and that is the whole point. collect_docs holds every
+    document as a Python string -- fine for the 260 MB of Yoruba that exists, fatal for the
+    billions of tokens a corpus large enough to occupy this hardware would need. Nothing here
+    keeps more than the document in hand.
+    """
+    from datasets import load_dataset
+
+    attempts = [(source, SOURCES[source](lang))]
+    if wiki:
+        attempts.append(('wikipedia', SOURCES['wikipedia'](wiki)))
+
+    last_error = None
+    for label, (repo, kw) in attempts:
+        try:
+            ds = load_dataset(repo, **kw)
+            n, docs, t0 = 0, 0, time.time()
+            for rec in ds:
+                text = rec.get('text') or ''
+                if not text:
+                    continue
+                yield text
+                n += len(text)
+                docs += 1
+                if max_chars and n >= max_chars:
+                    break
+                if max_seconds and time.time() - t0 > max_seconds:
+                    break
+                if docs % 20_000 == 0:
+                    rate = n / max(1e-9, time.time() - t0) / 1e6
+                    print(f'\r    streamed {docs:,} docs / {n/1e6:,.0f}M chars '
+                          f'({rate:.1f}M chars/s)', end='', flush=True)
+            print(f'\r    [{label}] {docs:,} docs / {n/1e6:,.0f}M chars in '
+                  f'{time.time()-t0:.0f}s' + ' ' * 24)
+            return
+        except Exception as e:                        # noqa: BLE001 -- try the next source
+            last_error = e
+            print(f'  [{label}] failed: {repr(e)[:110]}')
+    raise RuntimeError(f'no corpus source worked for {lang}: {last_error!r}')
+
+
+def train_tokenizer_streaming(lang, wiki, vocab_size, max_len, sample_chars,
+                              sample_docs_keep, source='fineweb2'):
+    """Train the BPE on a bounded prefix of the stream, keeping a document sample on the way.
+
+    A 16k byte-level BPE cannot use more text than this: a couple of hundred million characters
+    is already far past the point where the merge table stops changing. Reading a bounded prefix
+    keeps memory flat however large the corpus is, which is the difference between preparation
+    that scales and preparation that dies.
+    """
+    from tokenizers import Tokenizer, decoders, models, pre_tokenizers, processors, trainers
+    from transformers import PreTrainedTokenizerFast
+
+    kept, sample = [], []
+    print(f'  reading up to {sample_chars/1e6:,.0f}M chars to train the vocabulary')
+    for doc in stream_docs(lang, wiki, max_chars=sample_chars, source=source):
+        kept.append(doc)
+        if len(sample) < sample_docs_keep:
+            sample.append(doc)
+
+    tk = Tokenizer(models.BPE(unk_token='<unk>'))
+    tk.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=True)
+    tk.decoder = decoders.ByteLevel()
+    tk.train_from_iterator(iter(kept), trainers.BpeTrainer(
+        vocab_size=vocab_size, show_progress=False, special_tokens=SPECIALS,
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet()))
+    tk.post_processor = processors.TemplateProcessing(
+        single='<s> $A </s>', pair='<s> $A </s> </s> $B </s>',
+        special_tokens=[('<s>', tk.token_to_id('<s>')), ('</s>', tk.token_to_id('</s>'))])
+    del kept
+
+    hf = PreTrainedTokenizerFast(
+        tokenizer_object=tk, bos_token='<s>', eos_token='</s>', unk_token='<unk>',
+        pad_token='<pad>', mask_token='<mask>', cls_token='<s>', sep_token='</s>',
+        model_max_length=max_len)
+    return hf, sample
+
+
+def encode_stream_to_disk(hf_tok, docs_iter, dtype, bin_path, batch: int = 2000):
+    """Encode a document stream straight to a raw file, holding only one batch at a time.
+
+    Returns (tokens_written, chars_read). It writes raw bytes rather than a .npy because the
+    final length is not known until the stream ends, and a .npy header has to state it.
+    """
+    n_tok = n_chars = n_docs = 0
+    t0 = time.time()
+    buf = []
+
+    with open(bin_path, 'wb') as out:
+        def flush(chunk):
+            nonlocal n_tok
+            if not chunk:
+                return
+            encs = hf_tok.backend_tokenizer.encode_batch(chunk)
+            arr = np.concatenate([np.asarray(e.ids, dtype=dtype) for e in encs])
+            out.write(arr.tobytes())
+            n_tok += len(arr)
+
+        for doc in docs_iter:
+            buf.append(doc)
+            n_chars += len(doc)
+            n_docs += 1
+            if len(buf) >= batch:
+                flush(buf)
+                buf = []
+                if n_docs % (batch * 20) == 0:
+                    rate = n_tok / max(1e-9, time.time() - t0) / 1e6
+                    print(f'\r    encoded {n_docs:,} docs -> {n_tok/1e6:,.1f}M tokens '
+                          f'({rate:.2f}M tok/s)', end='', flush=True)
+        flush(buf)
+
+    print(f'\r    encoded {n_docs:,} docs -> {n_tok:,} tokens in {time.time()-t0:.0f}s'
+          + ' ' * 24)
+    return n_tok, n_chars
+
+
+def bin_to_npy(bin_path: str, npy_path: str, dtype, n: int, chunk: int = 8_000_000):
+    """Turn the raw stream into a .npy GpuTokens can memory-map, without loading it.
+
+    Copied in chunks: the array can be tens of gigabytes, and the point of the streaming path is
+    that no step ever needs all of it resident.
+    """
+    arr = np.lib.format.open_memmap(npy_path, mode='w+', dtype=dtype, shape=(n,))
+    itemsize = np.dtype(dtype).itemsize
+    with open(bin_path, 'rb') as f:
+        pos = 0
+        while pos < n:
+            raw = f.read(min(chunk, n - pos) * itemsize)
+            if not raw:
+                break
+            block = np.frombuffer(raw, dtype=dtype)
+            arr[pos:pos + len(block)] = block
+            pos += len(block)
+    arr.flush()
+    del arr
+    os.remove(bin_path)
+
+
 def prepare_corpus(name: str, lang: str, wiki: str | None = None, vocab_size: int = 16_000,
                    max_len: int = 128, max_chars: int = 300_000_000, max_seconds: int = 300,
                    val_tokens: int = 500_000, sample_docs: int = 4000,
-                   tokenizer: str | None = None, force: bool = False) -> dict:
+                   tokenizer: str | None = None,
+                   tokenizer_sample_chars: int = 200_000_000,
+                   source: str = 'fineweb2', force: bool = False) -> dict:
     """Collect, tokenize, and store one language once. Returns the stats dict.
 
     This is the step the POC repeats every session and the factory does exactly once. Re-running
@@ -229,50 +385,70 @@ def prepare_corpus(name: str, lang: str, wiki: str | None = None, vocab_size: in
         return stats
 
     os.makedirs(out, exist_ok=True)
-    print(f'{name}: collecting {lang}')
-    docs, n_chars = collect_docs(lang, wiki, max_chars, max_seconds)
+    print(f'{name}: preparing {lang}')
 
+    # Pass one: the vocabulary, plus a document sample for the language-ID gate. Skipped when a
+    # shared tokenizer is supplied, which also saves a pass over the network.
+    sample = []
     if tokenizer:
-        print(f'{name}: using the shared tokenizer at {tokenizer!r} (not training a new one)')
+        print(f'  using the shared tokenizer at {tokenizer!r} (not training a new one)')
         hf_tok = load_shared_tokenizer(tokenizer, max_len)
+        for doc in stream_docs(lang, wiki, max_chars=sample_chars_for_docs(sample_docs),
+                               source=source):
+            sample.append(doc)
+            if len(sample) >= sample_docs:
+                break
     else:
-        print(f'{name}: training a {vocab_size:,} BPE on its own text')
-        hf_tok = train_tokenizer(docs, vocab_size, max_len)
+        hf_tok, sample = train_tokenizer_streaming(
+            lang, wiki, vocab_size, max_len, tokenizer_sample_chars, sample_docs, source)
+
     actual_vocab = hf_tok.backend_tokenizer.get_vocab_size()
     fingerprint = tokenizer_fingerprint(hf_tok)
-
-    ids = encode_docs(hf_tok, docs, actual_vocab)
-    if len(ids) <= val_tokens * 2:
-        raise ValueError(f'{name}: only {len(ids):,} tokens, too few to hold out {val_tokens:,}')
-
-    train_ids, val_ids = ids[:-val_tokens], ids[-val_tokens:]
-    P.save_split(name, 'train', train_ids, actual_vocab)
-    P.save_split(name, 'val', val_ids, actual_vocab)
-
-    # Keep a raw sample of the collected text. The contamination gate needs real paragraphs to
-    # run language ID over, and without this it would have to re-stream the whole corpus just to
-    # look at a few hundred of them. Capped so the file stays small next to the token arrays.
-    sample = docs[:sample_docs]
     if not sample:
-        raise ValueError(f'sample_docs={sample_docs!r} kept no documents -- the language-ID '
-                         f'gate would have nothing to read')
+        raise ValueError(f'{name}: the stream yielded no documents')
+
+    # Pass two: the whole corpus, encoded straight to disk. Memory holds one batch of documents
+    # and never the corpus, so this is bounded whether the language has 69 million tokens or ten
+    # billion.
+    dtype = P.disk_dtype(actual_vocab)
+    tmp_bin = os.path.join(out, '_tokens.bin')
+    n_tok, n_chars = encode_stream_to_disk(
+        hf_tok, stream_docs(lang, wiki, max_chars, max_seconds, source=source),
+        dtype, tmp_bin)
+    if n_tok <= val_tokens * 2:
+        os.remove(tmp_bin)
+        raise ValueError(f'{name}: only {n_tok:,} tokens, too few to hold out {val_tokens:,}')
+
+    all_path = os.path.join(out, '_all_tokens.npy')
+    bin_to_npy(tmp_bin, all_path, dtype, n_tok)
+
+    # Split by slicing the memory-mapped array, so neither half is ever fully resident.
+    allarr = np.load(all_path, mmap_mode='r')
+    n_train = n_tok - val_tokens
+    np.save(os.path.join(out, 'train_tokens.npy'), allarr[:n_train])
+    np.save(os.path.join(out, 'val_tokens.npy'), allarr[n_train:])
+    del allarr
+    os.remove(all_path)
+
     with open(os.path.join(out, 'sample_docs.json'), 'w', encoding='utf-8') as f:
-        json.dump(sample, f)
+        json.dump(sample[:sample_docs], f)
 
     hf_tok.save_pretrained(os.path.join(out, 'tokenizer'))
     P.save_stats(name, f'bpe{actual_vocab}', actual_vocab,
-                 {'train': int(len(train_ids)), 'val': int(len(val_ids))},
-                 extra={'lang': lang, 'chars': int(n_chars), 'docs': len(docs),
-                        'chars_per_token': n_chars / len(ids),
+                 {'train': int(n_train), 'val': int(val_tokens)},
+                 extra={'lang': lang, 'chars': int(n_chars),
+                        'chars_per_token': n_chars / n_tok,
                         'tokenizer_fingerprint': fingerprint,
                         'tokenizer_source': tokenizer or 'trained here',
                         'tokenizer_path': os.path.join('data', name, 'tokenizer')})
 
     # Read a sample back before anyone trains on it. Same discipline as the causal rungs: a
     # tokenizer round-trip bug is silent, and a human reading prose is what catches it.
-    print(f'\n  decoded sample: {hf_tok.decode(train_ids[:60].tolist())[:200]!r}')
-    print(f'  {len(train_ids):,} train + {len(val_ids):,} val tokens, '
-          f'{n_chars/len(ids):.2f} chars/token\n')
+    head = np.asarray(np.load(os.path.join(out, 'train_tokens.npy'), mmap_mode='r')[:60])
+    print(f'\n  decoded sample: {hf_tok.decode(head.tolist())[:200]!r}')
+    print(f'  {n_train:,} train + {val_tokens:,} val tokens, {n_chars/n_tok:.2f} chars/token')
+    print(f'  vocabulary fingerprint {fingerprint} -- runs only compare across matching '
+          f'fingerprints\n')
     return T.load_stats(name)
 
 
@@ -388,6 +564,8 @@ if __name__ == '__main__':
     p.add_argument('--name', required=True, help='corpus name, e.g. yor')
     p.add_argument('--lang', required=True, help='FineWeb-2 code, e.g. yor_Latn')
     p.add_argument('--wiki', default=None, help='Wikipedia fallback code, e.g. yo')
+    p.add_argument('--source', default='fineweb2', choices=sorted(SOURCES),
+                   help='fineweb2 for most languages; fineweb_edu/fineweb for English')
     p.add_argument('--vocab-size', type=int, default=16_000)
     p.add_argument('--max-len', type=int, default=128)
     p.add_argument('--max-chars', type=int, default=300_000_000)
@@ -398,6 +576,9 @@ if __name__ == '__main__':
     p.add_argument('--tokenizer', default=None,
                    help='reuse a shared tokenizer (dir, tokenizer.json, or hub id) instead of '
                         'training a new one -- required for comparability across machines')
+    p.add_argument('--tokenizer-sample-chars', type=int, default=200_000_000,
+                   help='characters read to train the BPE; the rest of the corpus '
+                        'streams to disk and is never held in memory')
     p.add_argument('--force', action='store_true')
     a = p.parse_args()
     # Keyword arguments, not positional. Passing these positionally is what silently handed
@@ -407,5 +588,7 @@ if __name__ == '__main__':
     stats = prepare_corpus(name=a.name, lang=a.lang, wiki=a.wiki, vocab_size=a.vocab_size,
                            max_len=a.max_len, max_chars=a.max_chars,
                            max_seconds=a.max_seconds, val_tokens=a.val_tokens,
-                           sample_docs=a.sample_docs, tokenizer=a.tokenizer, force=a.force)
+                           sample_docs=a.sample_docs, tokenizer=a.tokenizer,
+                           tokenizer_sample_chars=a.tokenizer_sample_chars,
+                           source=a.source, force=a.force)
     print(json.dumps({k: v for k, v in stats.items() if k != 'vocab'}, indent=2))
