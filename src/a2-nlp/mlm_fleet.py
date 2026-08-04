@@ -94,6 +94,10 @@ def launch(spec, gpu, args):
     steps = steps_for(update_tokens, args.batch, args.seq_len)
     base = spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len)
 
+    stale = os.path.join(LOGS, f'{base}.log')
+    if os.path.exists(stale):
+        os.remove(stale)          # mlm_run appends; a fresh cell starts a fresh log
+
     cmd = [PY, '-u', '-W', 'ignore', os.path.join(HERE, 'mlm_run.py'),
            '--corpus', args.corpus, '--tokens', str(tokens), '--steps', str(steps),
            '--preset', args.preset, '--gpu', str(gpu), '--seed', str(seed),
@@ -102,10 +106,13 @@ def launch(spec, gpu, args):
         cmd.append('--smoke')
         base = f'smoke-{base}'
 
+    # mlm_run.py writes logs/<tag>.log itself now, so the fleet must NOT also redirect into
+    # that file -- two writers on one path interleave and corrupt it. We keep stderr so a child
+    # that dies before it can log still reports why.
     os.makedirs(LOGS, exist_ok=True)
-    log = open(os.path.join(LOGS, f'{base}.log'), 'w', encoding='utf-8')
+    log = open(os.path.join(LOGS, f'{base}.stderr.log'), 'w', encoding='utf-8')
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-    proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=HERE,
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=log, cwd=HERE,
                             creationflags=flags)
     # Same compact formatting the tags use, so the console line and the run name agree. The
     # raw //10**6 version printed "0M x 0k" for every cell below a million tokens.

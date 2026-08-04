@@ -141,10 +141,46 @@ def save_random_init(vocab_size, tokenizer, preset, max_len, out_dir) -> str:
     return out_dir
 
 
+def _state_path(out_dir: str) -> str:
+    """Where the resumable training state lives, beside the HF checkpoint."""
+    return os.path.join(out_dir, 'train_state.pt')
+
+
+def save_train_state(out_dir, model, opt, sch, scaler, micro, history, ema, best, stall_warned):
+    """Everything needed to continue this run, written atomically.
+
+    Temp file then rename, so a crash during the write can destroy the .tmp but never the good
+    state underneath -- the discipline train_loop.py already uses. A multi-day run WILL be
+    interrupted; the only question is whether that costs minutes or days.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    tmp = _state_path(out_dir) + '.tmp'
+    torch.save({'model': model.state_dict(), 'optimizer': opt.state_dict(),
+                'scheduler': sch.state_dict(), 'scaler': scaler.state_dict(),
+                'micro': micro, 'history': history, 'ema': ema, 'best': best,
+                'stall_warned': stall_warned}, tmp)
+    os.replace(tmp, _state_path(out_dir))
+
+
+def load_train_state(out_dir, model, opt, sch, scaler, device):
+    """Restore a previous run's state. None if there is nothing to resume from."""
+    p = _state_path(out_dir)
+    if not os.path.exists(p):
+        return None
+    ck = torch.load(p, map_location=device, weights_only=False)
+    model.load_state_dict(ck['model'])
+    opt.load_state_dict(ck['optimizer'])
+    sch.load_state_dict(ck['scheduler'])
+    if scaler.is_enabled() and ck.get('scaler'):
+        scaler.load_state_dict(ck['scaler'])
+    return ck
+
+
 def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: int = 128,
              lr: float | None = None, mlm_prob: float = 0.15, seed: int = 0, clip: float = 1.0,
              log_every: int | None = None, out_dir: str | None = None,
-             val_batches=None, amp_dtype=None) -> dict:
+             val_batches=None, amp_dtype=None, accum: int = 1,
+             resume: bool = True, ckpt_every: int | None = None) -> dict:
     """Pretrain one grid cell and return its record.
 
     ds is an mlm_data.MlmTokens already sliced to this cell's token budget, so "how much unique
@@ -184,10 +220,13 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
 
     if val_batches is None:
         val_batches = ds.fixed_val_batches(mlm_prob=mlm_prob)
-    log_every = log_every or max(1, steps // 10)
+    # Ten points over a whole run is enough to plot and useless to watch: on a two-day run that
+    # is one update every five hours, and a dashboard polling every three seconds shows a frozen
+    # screen. Aim for ~60 points, capped so a very long run still updates every few minutes.
+    log_every = log_every or max(1, min(steps // 60 or 1, 500))
     out_dir = out_dir or os.path.join(RUNS, tag)
 
-    tokens_per_step = batch * ds.seq_len
+    tokens_per_step = batch * accum * ds.seq_len
     passes = steps * tokens_per_step / ds.n
     random_loss = math.log(ds.vocab_size)
     print(f'[{tag}] {total_p/1e6:.1f}M params ({nonemb_p/1e6:.1f}M non-emb) | '
@@ -205,31 +244,89 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # Stating the real figure lets it divide by observed throughput and be right.
     print(f'[{tag}] total work {steps * tokens_per_step:,} tokens', flush=True)
 
+    # The same facts as JSON. Dashboards used to recover these by regexing the console log,
+    # which broke for any run whose log was redirected elsewhere -- no total, no progress bar,
+    # no finish estimate. Structured data belongs in a file, not in printed prose.
+    meta = {'tag': tag, 'corpus': getattr(ds, 'name', None), 'preset': preset, 'steps': steps, 'batch': batch, 'accum': accum,
+            'seq_len': ds.seq_len, 'tokens_per_step': tokens_per_step,
+            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr,
+            'seed': seed, 'vocab_size': ds.vocab_size, 'random_loss': random_loss,
+            'log_every': log_every, 'started': time.time(),
+            'params': total_p, 'nonemb_params': nonemb_p}
+    with open(os.path.join(RUNS, f'{tag}_meta.json'), 'w', encoding='utf-8') as f:
+        json.dump(meta, f, indent=2)
+
     gen = torch.Generator(device=device)
     gen.manual_seed(seed)
-    jsonl = os.path.join(RUNS, f'{tag}.jsonl')
     os.makedirs(RUNS, exist_ok=True)
-    if os.path.exists(jsonl):
-        os.remove(jsonl)
 
     history, ema, best = [], None, float('inf')
     stall_warned = False
+    start_micro = 0
+
+    # Resume BEFORE touching the JSONL, because whether this is a fresh run decides whether the
+    # old history is thrown away -- reading start_micro before setting it raised UnboundLocalError
+    # on the first real restart.
+    #
+    # The RNG stream is not restored, so resumed windows differ from what an uninterrupted run
+    # would have drawn. That is acceptable -- the windows are random anyway -- and far better
+    # than losing a day of training to a reboot.
+    if resume:
+        prev = load_train_state(out_dir, model, opt, sch, scaler, device)
+        if prev:
+            start_micro = prev['micro']
+            history, ema = prev['history'], prev['ema']
+            best, stall_warned = prev['best'], prev['stall_warned']
+            done = start_micro // accum
+            print(f'[{tag}] resuming at step {done:,}/{steps:,} '
+                  f'({done / max(steps, 1):.0%} done, best val {best:.3f})', flush=True)
+
+    jsonl = os.path.join(RUNS, f'{tag}.jsonl')
+    if os.path.exists(jsonl) and not start_micro:
+        os.remove(jsonl)          # a fresh run never appends to an old run's history
+
+    ckpt_every = ckpt_every or max(1, steps // 20)
     t0 = time.time()
     t_window = time.time()
     last_log_step = 0
     model.train()
 
-    for step, (xm, y) in enumerate(ds.masked_batches(batch, steps, mlm_prob, gen), start=1):
+    # accum micro-batches make one optimizer step, so the EFFECTIVE batch is batch * accum while
+    # memory only ever holds `batch` sequences. That is the only way to reach the batch sizes a
+    # model this size was designed for -- RoBERTa-base trained near two million tokens per step
+    # and we hold sixteen thousand -- without a card that can hold them all at once.
+    micro_total = steps * accum
+    if start_micro >= micro_total:
+        # Nothing left to do. Report the finished run rather than crashing on a `step` that the
+        # loop never got to define.
+        print(f'[{tag}] already complete ({steps:,} steps) -- '
+              f'pass resume=False to train it again', flush=True)
+        done_path = os.path.join(RUNS, f'{tag}_result.json')
+        if os.path.exists(done_path):
+            with open(done_path, encoding='utf-8') as f:
+                return json.load(f)
+
+    for micro, (xm, y) in enumerate(
+            ds.masked_batches(batch, micro_total - start_micro, mlm_prob, gen),
+            start=start_micro + 1):
         with torch.autocast('cuda', dtype=amp_dtype, enabled=True):
             loss = model(input_ids=xm, labels=y).loss
+            # Scale so the accumulated gradient is the MEAN over micro-batches, not the sum;
+            # without this the effective learning rate silently multiplies by accum.
+            loss_for_backward = loss / accum
 
-        opt.zero_grad(set_to_none=True)
-        scaler.scale(loss).backward()
+        scaler.scale(loss_for_backward).backward()
+
+        if micro % accum:
+            continue                      # keep accumulating; no optimizer step yet
+        step = micro // accum
+
         if clip:
             scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         scaler.step(opt)
         scaler.update()
+        opt.zero_grad(set_to_none=True)
         sch.step()
 
         # One .item() per step is a host sync, which the causal loop was careful to avoid. Here
@@ -273,6 +370,10 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             history.append(row)
             with open(jsonl, 'a') as f:
                 f.write(json.dumps(row) + '\n')
+
+            if step % ckpt_every == 0 or step == steps:
+                save_train_state(out_dir, model, opt, sch, scaler, micro,
+                                 history, ema, best, stall_warned)
             print(f'[{tag}] step {step:>7,}/{steps:,}{" *" if is_best else "  "}| '
                   f'train(EMA) {ema:5.3f} | val {vl:5.3f} | '
                   f'{tok_s/1e3:6.0f}k tok/s | {time.time()-t0:6.0f}s', flush=True)

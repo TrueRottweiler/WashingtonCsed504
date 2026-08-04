@@ -315,6 +315,7 @@ class MlmTokens(T.GpuTokens):
         # corrupt the objective in a way that still trains and still reports a loss.
         if mask_id is None:
             mask_id = load_tokenizer(dataset).mask_token_id
+        self.name = dataset
         self.mask_id = int(mask_id)
         self.n_special = int(n_special)
 

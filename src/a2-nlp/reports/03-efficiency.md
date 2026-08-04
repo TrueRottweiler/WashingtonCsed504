@@ -415,9 +415,29 @@ tokens per step. We are running a model of that size at roughly a hundredth of t
 designed for, and large models trained with small batches are known to struggle to escape
 exactly this kind of plateau: the gradient is too noisy for the model to organise.
 
-That is a testable hypothesis, not a conclusion. The experiment is the 16M rung at batch 512 or
-1024 with the step count reduced to hold tokens-of-updates fixed. `diagnose.py` shows batch 512
-costs about 22.8 GB at poc scale, so it fits comfortably. Not run.
+### Run: batch shape helps, and does not explain it
+
+The 16M rung at AfriBERTa scale, same 11,719 steps, varying only the batch:
+
+| batch | tokens per step | val loss |
+|---|---|---|
+| 128 | 16,384 | 5.494 |
+| 256 | 32,768 | 5.403 |
+| **512** | **65,536** | **5.342** |
+
+Quadrupling the batch buys **0.152**, and the curve flattens as before — the last three intervals
+of the batch-512 run read 5.35, 5.34, 5.34. It converged on the plateau like every other run at
+this model size. The 33.8M model reaches 3.008 on the same rung.
+
+So the hypothesis is refuted within the range we can reach: batch shape moves the number in the
+expected direction and comes nowhere near closing a gap of 2.3. Extrapolating the observed
+returns — 0.09 for the first doubling, 0.06 for the second — even a very large batch would not
+arrive.
+
+The honest limit of that statement: RoBERTa-base trained near two million tokens per step and we
+reached 65,536, so the regime it was designed for is still 30× away. Gradient accumulation now
+exists in the factory to get there, and the returns above make it look unpromising rather than
+untested-and-hopeful.
 
 All AfriBERTa figures here are one seed.
 

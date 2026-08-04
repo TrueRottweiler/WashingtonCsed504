@@ -47,10 +47,10 @@ like the answer. Detail in [03-efficiency.md §6d–6e](03-efficiency.md).
 against 5.494 at 1× — 0.109 for triple the compute — and converged on the plateau again. The
 smaller model reaches 3.008 on that rung with a third of the budget.
 
-**The most promising unsearched lead** is the batch shape, not the learning rate. We train at
-16,384 tokens per step; RoBERTa-base, which this preset resembles, was trained at roughly two
-million. Large models on small batches are known to stall on exactly this kind of plateau. That
-experiment has not been run.
+**Batch shape was the promising lead, and it is not the answer either.** Quadrupling the batch
+to 65,536 tokens per step moved the 16M rung from 5.494 to 5.342 — 0.15 against a gap of 2.3 —
+and converged on the plateau just the same. Larger batches help in the expected direction and
+by nowhere near enough.
 
 ## Two things not to quote yet
 
