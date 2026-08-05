@@ -160,3 +160,17 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    # Leave immediately rather than through interpreter shutdown. A finished run has already
+    # written everything that matters -- the result JSON, the checkpoint, and the log, which is
+    # line-buffered -- so there is nothing left to flush but the console stream.
+    #
+    # This is not defensive tidying. multi_ind returned from main() and then sat for thirty
+    # hours with one core pegged at 100% and its GPU memory still held, while four identical
+    # runs exited cleanly, so it is a race somewhere in CUDA or thread teardown rather than a
+    # path we can find and fix. The cost of leaving it alone is worse than a hung process: the
+    # fleet advances a card only when its child exits, so one run that never returns parks that
+    # card for the rest of the queue.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
