@@ -118,7 +118,13 @@ def main():
                      store_dtype=args.store_dtype)
     tag = args.tag or M.cell_tag(args.corpus, ds.n, steps, args.seed, args.preset)
     if args.smoke:
-        tag = f'smoke-{tag}'
+        # Name the smoke run after the cell it stands in for, not after the shrunken shape it
+        # actually ran. Every cell collapses to the same 2M x 200, so a tag built from that is
+        # the same string for every cell -- and a fleet smoke test then points two cards at one
+        # run directory, where they race on train_state.pt and one dies with WinError 32. The
+        # requested shape is what makes the cells distinct, so it is what the tag has to carry.
+        tag = 'smoke-' + M.cell_tag(args.corpus, args.tokens, args.steps,
+                                    args.seed, args.preset)
 
     # From here on, everything printed also lands in logs/<tag>.log.
     sys.stdout = _Tee(sys.stdout, os.path.join(LOGS, f'{tag}.log'))

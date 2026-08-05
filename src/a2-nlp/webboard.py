@@ -746,9 +746,16 @@ function cells(runs, axis){
   const grid = {};
   for(const r of runs){
     if(!r.study || r.val_loss == null) continue;
-    const key = [r.corpus, r.n_tokens, r.preset || 'poc', r.steps_total || 0].join('|');
-    (grid[key] = grid[key] || {corpus: r.corpus, n: r.n_tokens, preset: r.preset || 'poc',
-                               steps: r.steps_total || 0, runs: []}).runs.push(r);
+    // A cell is a run name with the seed stripped. Keying on (corpus, tokens, preset, steps)
+    // instead looked principled and merged runs that share those but differ in ways the API does
+    // not model -- the causal baselines carry none of those four, so GPT and LSTM at wikitext103
+    // collapsed into a single averaged bar. The name is the one thing that always distinguishes
+    // a configuration, and stripping the trailing _s<n> is exactly what makes seeds of one cell
+    // group together and nothing else.
+    const key = r.tag.replace(/_s\d+$/, '');
+    (grid[key] = grid[key] || {base: key, corpus: r.corpus, n: r.n_tokens,
+                               preset: r.preset || 'poc', steps: r.steps_total || 0,
+                               runs: []}).runs.push(r);
   }
   return Object.values(grid).map(c => {
     const v = c.runs.map(r => r.val_loss);
@@ -812,7 +819,7 @@ function barsChart(cs, col, rungs, axis, usingGain){
       const x = L + gi*slot + (slot - bw*inRung.length)/2 + bi*bw;
       const y = Y(c.plot);
       bars += `<rect x="${x}" y="${y}" width="${bw-3}" height="${Math.max(1,(H-B)-y)}" rx="2"
-          fill="${col[n]}" opacity="${isBig(c)?0.45:1}"/>
+          fill="${col[c.key]}" opacity="${isBig(c)?0.45:1}"/>
         <text class="tk" x="${x+(bw-3)/2}" y="${y-4}" text-anchor="middle"
           style="font-weight:600">${c.plot.toFixed(2)}</text>`;
     });
@@ -858,10 +865,10 @@ function curvesChart(cs, col, usingGain){
     const pts=c.curve.filter(p=>p.x>0);
     if(pts.length<2) continue;
     const d=pts.map((p,i)=>(i?'L':'M')+X(p.x).toFixed(1)+' '+Y(p.val).toFixed(1)).join(' ');
-    lines += `<path d="${d}" fill="none" stroke="${col[c.n]}" stroke-width="${c.live?2.8:2}"
+    lines += `<path d="${d}" fill="none" stroke="${col[c.key]}" stroke-width="${c.live?2.8:2}"
         stroke-linejoin="round" stroke-dasharray="${isBig(c)?'5 4':'0'}"/>`;
     const f=flatIdx(pts);
-    lines += `<circle cx="${X(pts[f].x)}" cy="${Y(pts[f].val)}" r="3.5" fill="${col[c.group]}"/>`;
+    lines += `<circle cx="${X(pts[f].x)}" cy="${Y(pts[f].val)}" r="3.5" fill="${col[c.key]}"/>`;
   }
   const ref = rl ? `<line x1="${L}" y1="${Y(rl)}" x2="${W-R}" y2="${Y(rl)}" stroke="var(--dim)"
       stroke-dasharray="4 4" stroke-width="1"/>` : '';
@@ -881,6 +888,41 @@ function flatIdx(c){
   return c.length-1;
 }
 
+// How many distinct values each dimension takes in this experiment. An axis with one value
+// groups every run together: identical colours, identical legend entries, and a takeaway that
+// reads "50M tokens ahead of 50M tokens". The dropdown should not offer it in the first place.
+function axisSpread(runs){
+  const st = runs.filter(r=>r.study && r.val_loss!=null);
+  const v = {corpus:new Set(), n:new Set(), preset:new Set(), steps:new Set()};
+  st.forEach(r=>{
+    v.corpus.add(r.corpus); v.n.add(r.n_tokens);
+    v.preset.add(r.preset || 'poc'); v.steps.add(r.steps_total);
+  });
+  return {corpus:v.corpus.size, n:v.n.size, preset:v.preset.size, steps:v.steps.size};
+}
+
+// Rebuild the axis dropdown for the experiment on screen, disabling the dimensions it holds
+// constant. Returns the axis to actually use, falling back to auto when the current choice has
+// become degenerate -- which happens simply by switching experiments.
+function syncAxisOptions(runs){
+  const spread = axisSpread(runs);
+  const sel = document.getElementById('axis');
+  const opts = [['auto','what varies']].concat(
+    [['corpus','language'],['n','data size'],['preset','model size'],['steps','compute']]
+      .map(([k,label]) => [k, spread[k] > 1 ? label : label + ' \u2014 same for every run']));
+  const sig = opts.map(([k]) => k + (spread[k] > 1 ? '1' : '0')).join(',');
+  if(sel.dataset.sig !== sig){
+    const keep = sel.value;
+    sel.innerHTML = opts.map(([k,label]) =>
+      `<option value="${k}"${k!=='auto' && spread[k]<2 ? ' disabled' : ''}>${label}</option>`
+    ).join('');
+    sel.value = (keep && (keep === 'auto' || spread[keep] > 1)) ? keep : 'auto';
+    sel.dataset.sig = sig;
+  }
+  if(sel.value !== 'auto' && spread[sel.value] < 2) sel.value = 'auto';
+  return sel.value === 'auto' ? autoAxis(runs) : sel.value;
+}
+
 function renderCompare(allRuns){
   const el = document.getElementById('compare');
 
@@ -897,9 +939,9 @@ function renderCompare(allRuns){
     sel.value = want;
   }
   const runs = allRuns.filter(r => r.experiment === want);
-  let axis = document.getElementById('axis').value;
+  const spread = axisSpread(runs);
+  const axis = syncAxisOptions(runs);
   const measure = document.getElementById('measure').value;
-  if(axis === 'auto') axis = autoAxis(runs);
 
   const cs = cells(runs, axis);
   el.hidden = cs.length < 2;
@@ -910,7 +952,10 @@ function renderCompare(allRuns){
 
   const groups = [...new Set(cs.map(c=>c.group))]
       .sort((a,b) => (typeof a === 'number' ? a-b : String(a).localeCompare(String(b))));
-  const col = {}; groups.forEach((g,i)=> col[g] = HUES[i % HUES.length]);
+  // Cells within a group still need to be told apart, so the hue is per cell and the group only
+  // decides the ordering.
+  const col = {};
+  cs.forEach((c,i)=>{ c.key = c.base; col[c.key] = HUES[i % HUES.length]; });
 
   document.getElementById('bars').innerHTML   = barsChart(cs, col, groups, axis, usingGain);
   document.getElementById('curves').innerHTML = curvesChart(cs, col, usingGain);
@@ -927,15 +972,15 @@ function renderCompare(allRuns){
   document.getElementById('takeaway').innerHTML =
     (EXP_QUESTIONS[expSel.value] ? '<span class="muted">'
        + EXP_QUESTIONS[expSel.value] + '</span> ' : '')
-    + takeaway(cs, axis, usingGain);
+    + takeaway(cs, spread, usingGain);
 
   document.getElementById('cmpnote').textContent =
     `${cs.length} configurations \u00b7 grouped by ${AXIS_NAME[axis]}`
     + (usingGain ? ' \u00b7 vocabulary entropy removed' : '');
 
   document.getElementById('cmpleg').innerHTML = cs.map(c =>
-    '<span><i class="sw" style="background:' + col[c.group]
-    + (isBig(c) ? ';opacity:.45' : '') + '"></i>' + groupLabel(c, axis)
+    '<span><i class="sw" style="background:' + col[c.key]
+    + (isBig(c) ? ';opacity:.45' : '') + '"></i>' + cellLabel(c, spread)
     + (c.seeds > 1 ? ' (' + c.seeds + ' seeds)' : '') + '</span>').join('')
     + (usingGain ? '' : '<span style="opacity:.7">solid 33.8M &middot; dashed 86M</span>');
 }
@@ -949,7 +994,7 @@ const EXP_QUESTIONS = {
 // One sentence a person can act on. The dashboard is for watching runs, not for analysis, so
 // this says which configuration won and by how much -- and nothing else. The reasoning belongs
 // in the reports.
-function takeaway(cs, axis, usingGain){
+function takeaway(cs, spread, usingGain){
   if(cs.length < 2) return '';
   const better = usingGain ? (a,b) => b.plot - a.plot : (a,b) => a.plot - b.plot;
   const rank = cs.slice().sort(better);
@@ -957,17 +1002,30 @@ function takeaway(cs, axis, usingGain){
   const gap = Math.abs(top.plot - bot.plot);
   const unit = usingGain ? 'nats of context' : 'nats of loss';
   if(gap < 0.10)
-    return `<em>${groupLabel(top, axis)}</em> and <em>${groupLabel(bot, axis)}</em> land within `
+    return `<em>${cellLabel(top, spread)}</em> and <em>${cellLabel(bot, spread)}</em> land within `
          + `${gap.toFixed(2)} of each other \u2014 too close to call apart from seed noise.`;
-  return `Best so far: <em>${groupLabel(top, axis)}</em> at ${top.plot.toFixed(2)}, `
-       + `${gap.toFixed(2)} ${unit} ahead of <em>${groupLabel(bot, axis)}</em>.`;
+  return `Best so far: <em>${cellLabel(top, spread)}</em> at ${top.plot.toFixed(2)}, `
+       + `${gap.toFixed(2)} ${unit} ahead of <em>${cellLabel(bot, spread)}</em>.`;
 }
 
-function groupLabel(c, axis){
-  if(axis === 'corpus') return (LANG_NAMES[c.corpus] || c.corpus) + ' \u00b7 ' + fmtTok(c.n);
-  if(axis === 'preset') return SIZES[c.preset] || c.preset;
-  if(axis === 'steps')  return fmtN(c.steps) + ' steps';
-  return fmtTok(c.n) + ' tokens';
+// A cell's name is the set of dimensions the experiment varies. Labelling by the comparison
+// axis alone produced five legend entries all reading "50M tokens" on an experiment where the
+// data size is the one thing every run shares -- the label has to say what is DIFFERENT, which
+// is not necessarily what is being grouped by.
+function cellLabel(c, spread){
+  const bits = [];
+  if(spread.corpus > 1) bits.push(LANG_NAMES[c.corpus] || c.corpus);
+  if(spread.n > 1)      bits.push(fmtTok(c.n) + ' tokens');
+  if(spread.preset > 1) bits.push(SIZES[c.preset] || c.preset);
+  if(spread.steps > 1)  bits.push(fmtN(c.steps) + ' steps');
+  // Nothing we track varies -- which is normal for the causal baselines, where the difference
+  // is the architecture and lives only in the name. Use the name, minus the corpus prefix it
+  // shares with its neighbours, rather than printing the same label for every bar.
+  if(!bits.length){
+    const rest = c.base.startsWith(c.corpus + '_') ? c.base.slice(c.corpus.length + 1) : c.base;
+    return rest.replace(/_/g, ' ') || (LANG_NAMES[c.corpus] || c.corpus);
+  }
+  return bits.join(' \u00b7 ');
 }
 
 const EXP_NAMES = {ladder:'Yoruba data ladder', multi:'Five languages',

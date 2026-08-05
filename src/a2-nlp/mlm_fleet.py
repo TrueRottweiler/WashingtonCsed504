@@ -30,7 +30,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PY = sys.executable
 LOGS = os.path.join(HERE, 'logs')
 
-# Each spec is (data_tokens, update_tokens, seed).
+# Each spec is (data_tokens, update_tokens, seed) or (data_tokens, update_tokens, seed, preset).
+#
+# The fourth field exists because model size is a thing a queue may want to VARY rather than fix.
+# With --preset applying to the whole fleet, a study that compares two model sizes had to be run
+# as two fleets, and the scheduler could only balance within each -- which matters here, since the
+# 86M preset measures 2.17x slower than 33.8M and a fleet of one size finishes long before a fleet
+# of the other. Specs that omit it inherit --preset, so every existing queue is unchanged.
 #
 # The compute axis is a count of TOKENS OF UPDATES, not a count of steps, and that distinction
 # is the whole reason this is worth stating. Steps are not comparable across batch sizes: the
@@ -61,6 +67,22 @@ QUEUES = {
 
     'seeds': [(32_000_000, 196_608_000, 0), (32_000_000, 196_608_000, 1),
               (32_000_000, 196_608_000, 2)],
+
+    # The English ladder. Two things the Yoruba ladder cannot answer, for the same reason: all of
+    # FineWeb-2 Yoruba is 69.1M tokens, so its 64M rung already uses 93% of the language.
+    #
+    # Compute is held FIXED at 1.024B tokens of updates across every rung, which is the Yoruba
+    # ladder's design at 5.3x the budget. Holding it fixed is the point: scaling compute along
+    # with data would confound the two axes, and we would not be able to say which one moved the
+    # loss. The Yoruba version found data worth 0.075 nats against 0.049 of seed noise -- but
+    # every rung there was compute-bound, so the data axis was never really under test. At 1.024B
+    # updates neither model is starved, and the rungs span 256x instead of 16x.
+    #
+    # Both presets at every rung, because the 86M model losing at every Yoruba rung reads as
+    # undertraining rather than a verdict on capacity. If there is a crossover this finds it.
+    'engladder': [(d, 1_024_000_000, 0, p)
+                  for p in ('afriberta', 'poc')          # slowest preset first; see below
+                  for d in (1_024_000_000, 256_000_000, 64_000_000, 16_000_000, 4_000_000)],
 }
 
 
@@ -69,12 +91,19 @@ def steps_for(update_tokens: int, batch: int, seq_len: int) -> int:
     return max(1, round(update_tokens / (batch * seq_len)))
 
 
+def unpack(spec, default_preset):
+    """(tokens, update_tokens, seed, preset), filling in the fleet-wide preset when omitted."""
+    tokens, update_tokens, seed = spec[0], spec[1], spec[2]
+    preset = spec[3] if len(spec) > 3 else default_preset
+    return tokens, update_tokens, seed, preset
+
+
 def spec_tag(corpus, spec, preset, batch, seq_len):
     # The one definition lives in mlm_train, so the fleet, the single-cell runner, and the
     # notebook API cannot drift into naming the same run three different things. The tag carries
     # the STEP count, so a cell keeps its identity across batch sizes only if the token budget
     # is what was held fixed -- which is exactly what QUEUES now does.
-    tokens, update_tokens, seed = spec
+    tokens, update_tokens, seed, preset = unpack(spec, preset)
     return mlm_train.cell_tag(corpus, tokens,
                               steps_for(update_tokens, batch, seq_len), seed, preset)
 
@@ -90,7 +119,7 @@ def resolve_queue(args):
 
 def launch(spec, gpu, args):
     """Start one mlm_run.py on one card and hand back a live handle."""
-    tokens, update_tokens, seed = spec
+    tokens, update_tokens, seed, preset = unpack(spec, args.preset)
     steps = steps_for(update_tokens, args.batch, args.seq_len)
     base = spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len)
 
@@ -100,7 +129,7 @@ def launch(spec, gpu, args):
 
     cmd = [PY, '-u', '-W', 'ignore', os.path.join(HERE, 'mlm_run.py'),
            '--corpus', args.corpus, '--tokens', str(tokens), '--steps', str(steps),
-           '--preset', args.preset, '--gpu', str(gpu), '--seed', str(seed),
+           '--preset', preset, '--gpu', str(gpu), '--seed', str(seed),
            '--batch', str(args.batch), '--seq-len', str(args.seq_len)]
     if args.smoke:
         cmd.append('--smoke')
@@ -116,9 +145,10 @@ def launch(spec, gpu, args):
                             creationflags=flags)
     # Same compact formatting the tags use, so the console line and the run name agree. The
     # raw //10**6 version printed "0M x 0k" for every cell below a million tokens.
-    print(f'  [gpu {gpu}] start  {base:28s} '
+    print(f'  [gpu {gpu}] start  {base:34s} '
           f'{mlm_train.compact(tokens):>6} data x {mlm_train.compact(update_tokens):>6} upd '
-          f'= {mlm_train.compact(steps):>5} steps  (pid {proc.pid})  logs/{base}.log', flush=True)
+          f'= {mlm_train.compact(steps):>5} steps  {preset:9s} (pid {proc.pid})  '
+          f'logs/{base}.log', flush=True)
     return {'base': base, 'gpu': gpu, 'proc': proc, 'log': log, 't0': time.time()}
 
 
@@ -149,7 +179,7 @@ def run_fleet(args):
                 job['log'].close()
                 dt = time.time() - job['t0']
                 ok = 'done ' if ret == 0 else f'FAILED({ret})'
-                print(f'  [gpu {g}] {ok} {job["base"]:28s} in {dt/60:.1f} min', flush=True)
+                print(f'  [gpu {g}] {ok} {job["base"]:34s} in {dt/60:.1f} min', flush=True)
                 slots[g] = launch(queue.pop(0), g, args) if queue else None
             time.sleep(1.0)
     except KeyboardInterrupt:
