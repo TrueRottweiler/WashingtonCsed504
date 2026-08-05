@@ -118,7 +118,13 @@ def main():
                      store_dtype=args.store_dtype)
     tag = args.tag or M.cell_tag(args.corpus, ds.n, steps, args.seed, args.preset)
     if args.smoke:
-        tag = f'smoke-{tag}'
+        # Name the smoke run after the cell it stands in for, not after the shrunken shape it
+        # actually ran. Every cell collapses to the same 2M x 200, so a tag built from that is
+        # the same string for every cell -- and a fleet smoke test then points two cards at one
+        # run directory, where they race on train_state.pt and one dies with WinError 32. The
+        # requested shape is what makes the cells distinct, so it is what the tag has to carry.
+        tag = 'smoke-' + M.cell_tag(args.corpus, args.tokens, args.steps,
+                                    args.seed, args.preset)
 
     # From here on, everything printed also lands in logs/<tag>.log.
     sys.stdout = _Tee(sys.stdout, os.path.join(LOGS, f'{tag}.log'))
@@ -154,3 +160,17 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    # Leave immediately rather than through interpreter shutdown. A finished run has already
+    # written everything that matters -- the result JSON, the checkpoint, and the log, which is
+    # line-buffered -- so there is nothing left to flush but the console stream.
+    #
+    # This is not defensive tidying. multi_ind returned from main() and then sat for thirty
+    # hours with one core pegged at 100% and its GPU memory still held, while four identical
+    # runs exited cleanly, so it is a race somewhere in CUDA or thread teardown rather than a
+    # path we can find and fix. The cost of leaving it alone is worse than a hung process: the
+    # fleet advances a card only when its child exits, so one run that never returns parks that
+    # card for the rest of the queue.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)

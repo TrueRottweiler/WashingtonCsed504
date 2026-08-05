@@ -88,6 +88,40 @@ def repetition(docs: list[str]) -> dict:
             'worst': counts.most_common(3)}
 
 
+def uses_word_boundaries(text: str, sample: int = 200_000) -> bool:
+    """Does this writing system separate words with whitespace?
+
+    Chinese, Japanese and Thai do not, and that quietly breaks the usual "tokens per word"
+    fertility metric: a whitespace split of a Chinese clause returns the whole clause, so the
+    measure reports something like thirty tokens per word and means nothing. Rather than
+    hard-coding a list of languages, ask the text -- if the average run between spaces is far
+    longer than any alphabetic language's average word, there are no word boundaries to count.
+    """
+    t = text[:sample]
+    runs = [len(w) for w in t.split() if w]
+    if not runs:
+        return False
+    return (sum(runs) / len(runs)) < 12
+
+
+def fertility_per_char(tokenizer, texts: list[str]) -> float:
+    """Tokens per CHARACTER -- comparable across every writing system.
+
+    This is the measure to quote when scripts differ. Tokens per word cannot be compared between
+    a language that marks word boundaries and one that does not; tokens per character can.
+    """
+    n_tok = n_chr = 0
+    for t in texts:
+        for piece in t.split(chr(10)):
+            piece = piece.strip()
+            if not piece:
+                continue
+            n_tok += len(tokenizer(piece, add_special_tokens=False,
+                                   truncation=False, verbose=False)['input_ids'])
+            n_chr += len(piece)
+    return n_tok / max(n_chr, 1)
+
+
 def fertility(tokenizer, texts: list[str]) -> float:
     """Tokens per whitespace word -- how much the tokenizer fragments this language.
 
@@ -125,6 +159,9 @@ def main():
     docs = factory.sample_docs(args.corpus, args.docs)
     text = '\n'.join(docs)
     words = WORD.findall(text)
+    # Decided once from the text itself: Chinese, Japanese and Thai do not delimit
+    # words with spaces, and every word-based statistic below is meaningless there.
+    spaced = uses_word_boundaries(text)
 
     print('=' * 74)
     print(f'  CORPUS AUDIT: {args.corpus}')
@@ -161,26 +198,40 @@ def main():
 
     # -- is it varied ----------------------------------------------------------------------
     rep = repetition(docs)
-    ttr = len(set(w.lower() for w in words)) / max(len(words), 1)
     print(f'\n  VARIETY')
-    print(f'    type/token ratio {ttr:.3f}  ({len(set(w.lower() for w in words)):,} distinct '
-          f'words in {len(words):,})')
-    print(f'    repeated lines   {rep["repeated_share"]:.1%} of {rep["lines"]:,} substantial lines')
+    if spaced:
+        ttr = len(set(w.lower() for w in words)) / max(len(words), 1)
+        print(f'    type/token ratio {ttr:.3f}  '
+              f'({len(set(w.lower() for w in words)):,} distinct words in {len(words):,})')
+    else:
+        chars = [c for c in text[:2_000_000] if not c.isspace()]
+        print(f'    distinct characters {len(set(chars)):,} in {len(chars):,}')
+        print('    (word-level ratios do not apply to a script without word boundaries)')
+    print(f'    repeated lines   {rep["repeated_share"]:.1%} of {rep["lines"]:,} '
+          f'substantial lines')
     if rep['repeated_share'] > 0.15:
         print('    a large share of this corpus is boilerplate repeated across documents.')
         for line, c in rep['worst']:
             print(f'      {c:>5}x  {line[:70]!r}')
 
     # -- does the vocabulary fit ------------------------------------------------------------
-    print(f'\n  TOKENIZER FIT  (tokens per word -- lower means a better fit)')
     sample = [d[:2000] for d in docs[:200]]
+    unit = 'tokens per word' if spaced else 'tokens per character'
+    print(f'\n  TOKENIZER FIT  ({unit} -- lower means a better fit)')
+    if not spaced:
+        print('    this script has no whitespace word boundaries, so tokens-per-word would be')
+        print('    meaningless here; tokens-per-character is what compares across scripts.')
+
+    measure = fertility if spaced else fertility_per_char
     own = factory.load_tokenizer(args.corpus)
-    print(f'    {"this corpus own BPE":<34}{fertility(own, sample):>7.2f}')
+    base = measure(own, sample)
+    print(f'    {"this corpus own BPE":<34}{base:>8.3f}')
     for name in args.compare_tokenizer:
         try:
             from transformers import AutoTokenizer
             other = AutoTokenizer.from_pretrained(name)
-            print(f'    {name:<34}{fertility(other, sample):>7.2f}')
+            v = measure(other, sample)
+            print(f'    {name:<34}{v:>8.3f}   {v/base:.2f}x')
         except Exception as e:
             print(f'    {name:<34}  failed: {repr(e)[:40]}')
 

@@ -256,3 +256,4 @@ hpo_outputs/
 src/a1-cv/hpo_outputs/
 *.db-wal
 *.db-shm
+runs/_fleet_plan.json

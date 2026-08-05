@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -37,7 +38,26 @@ RUNS = os.path.join(HERE, 'runs')
 LOGS = os.path.join(HERE, 'logs')
 
 # nvidia-smi costs ~50 ms, and several browsers polling at once should not multiply that.
-STUDY_TAG = re.compile(r'^[a-z]+_[\d.]+[kM]?_[\d.]+[kM]?(_[a-z]+)?_s\d+$')
+# A cell_tag-shaped name: corpus_<tokens>_<steps>[_preset]_s<seed>. These are the data-ladder
+# grid cells; anything else is a differently-named experiment or a piece of scratch.
+LADDER_TAG = re.compile(r'^[a-z]+_[\d.]+[kM]?_[\d.]+[kM]?(_[a-z]+)?_s\d+$')
+
+# Throwaway runs, excluded from every comparison. An inclusion regex was the wrong shape: it
+# silently dropped whole experiments -- the five-language comparison never appeared on the chart
+# because `multi_eng` does not look like a grid cell.
+SCRATCH = re.compile(r'^(teetest|resumetest|lrfix|warmupfix|tmp|smoke-)')
+
+
+def experiment_of(tag: str) -> str:
+    """Which experiment a run belongs to, from its name.
+
+    Runs are compared against their own experiment, not against everything ever run. The data
+    ladder and the five-language comparison answer different questions and putting them on one
+    axis produces a chart that answers neither.
+    """
+    if LADDER_TAG.match(tag):
+        return 'ladder'
+    return tag.split('_')[0]
 
 _GPU_CACHE = {'t': 0.0, 'data': []}
 _GPU_LOCK = threading.Lock()
@@ -132,6 +152,199 @@ def _log_field(tag: str, pattern: str, cast=str):
     except OSError:
         pass
     return None
+
+
+# Corpus code -> what a person calls it. Anything unlisted falls back to the code itself, so a
+# new language shows up readable-ish rather than breaking the description.
+LANGUAGES = {
+    'eng': 'English', 'eng_1b': 'English', 'fra': 'French', 'ind': 'Indonesian', 'cmn': 'Mandarin',
+    'yor': 'Yoruba', 'swh': 'Swahili', 'hau': 'Hausa', 'ibo': 'Igbo',
+    'wikitext2': 'WikiText-2', 'wikitext103': 'WikiText-103', 'shakespeare': 'Shakespeare',
+}
+
+# Preset -> the number people actually compare models by.
+PRESET_SIZE = {'poc': '33.8M', 'afriberta': '86M'}
+
+
+def _compact_n(n):
+    """4,000,000 -> 4M. Local copy so this module does not depend on the trainer being importable."""
+    if not n:
+        return None
+    for unit, size in (('M', 1_000_000), ('k', 1_000)):
+        if n >= size:
+            return f'{n / size:.1f}'.rstrip('0').rstrip('.') + unit
+    return str(n)
+
+
+def describe_run(tag, corpus, n_tokens, preset, steps, batch, seed, params=None):
+    """One human sentence for a run: what language, how much text, what model, how much training.
+
+    Tags are built for uniqueness and sorting, which makes them unreadable -- nobody can look at
+    `yor_16M_11.7k_afriberta_s0` and say what it is testing. This says it.
+    """
+    lang = LANGUAGES.get(corpus, corpus or 'unknown corpus')
+    size = PRESET_SIZE.get(preset or 'poc')
+    if not size and params:
+        size = _compact_n(params)
+
+    bits = [lang]
+    if n_tokens:
+        bits.append(f'{_compact_n(n_tokens)} tokens of text')
+    if size:
+        bits.append(f'{size} model')
+    if steps:
+        bits.append(f'{_compact_n(steps)} steps')
+    if batch and batch != 128:
+        bits.append(f'batch {batch}')
+    if seed:
+        bits.append(f'seed {seed}')
+    return ' \u00b7 '.join(bits)
+
+
+_ENTROPY_CACHE = {}
+
+
+def unigram_entropy(corpus: str) -> float | None:
+    """Cross-entropy a model would score by predicting token frequencies and ignoring context.
+
+    This is the anchor that makes two languages comparable. Raw validation loss is not: each
+    corpus has its own 16k vocabulary with its own frequency distribution, so a loss of 2.5 on
+    French and 4.5 on Mandarin are not measurements of the same thing. Most of that gap is the
+    vocabulary, not the language. Subtracting this leaves what the model learned FROM CONTEXT,
+    which is comparable.
+
+    Cached to disk -- it reads twenty million tokens and never changes for a prepared corpus.
+    """
+    if corpus in _ENTROPY_CACHE:
+        return _ENTROPY_CACHE[corpus]
+
+    cache_file = os.path.join(HERE, 'data', corpus, 'unigram_entropy.json')
+    try:
+        with open(cache_file, encoding='utf-8') as f:
+            _ENTROPY_CACHE[corpus] = json.load(f)['entropy']
+            return _ENTROPY_CACHE[corpus]
+    except (OSError, ValueError, KeyError):
+        pass
+
+    try:
+        import numpy as np
+        path = os.path.join(HERE, 'data', corpus, 'train_tokens.npy')
+        arr = np.load(path, mmap_mode='r')[:20_000_000]
+        counts = np.bincount(np.asarray(arr, dtype=np.int64)).astype(np.float64)
+        p = counts / counts.sum()
+        p = p[p > 0]
+        h = float(-(p * np.log(p)).sum())
+    except Exception:                                  # noqa: BLE001 -- no corpus, no anchor
+        _ENTROPY_CACHE[corpus] = None
+        return None
+
+    try:
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump({'entropy': h, 'tokens_counted': 20_000_000}, f)
+    except OSError:
+        pass
+    _ENTROPY_CACHE[corpus] = h
+    return h
+
+
+def measured_rates() -> dict:
+    """Tokens of updates per second, per preset, from every run this machine has finished.
+
+    Estimates come from this machine's own history rather than a constant in the source. A
+    hard-coded rate is wrong on any other machine and goes quietly stale on this one the moment
+    a driver or a batch size changes.
+    """
+    rates = {}
+    for rp in glob.glob(os.path.join(RUNS, '*_result.json')):
+        try:
+            with open(rp, encoding='utf-8') as f:
+                r = json.load(f)
+        except (OSError, ValueError):
+            continue
+        steps, batch = r.get('steps'), r.get('batch')
+        secs = r.get('elapsed_sec') or r.get('seconds') or r.get('wall_sec')
+        if not (steps and batch and secs):
+            continue
+        preset = r.get('preset') or 'poc'
+        got = rates.setdefault(preset, [0, 0.0])
+        got[0] += steps * batch * (r.get('seq_len') or 128)
+        got[1] += secs
+    return {p: tok / sec for p, (tok, sec) in rates.items() if sec > 0}
+
+
+def schedule_remaining(cells, n_gpu, rates, live):
+    """Wall-clock left, by simulating the same longest-first fill the fleet actually uses.
+
+    Dividing the remaining work by the number of cards is wrong whenever the cells differ in
+    cost: at the end of a queue the cards drain unevenly, and the finish time is set by the
+    slowest single remaining cell, not by the average.
+    """
+    default = rates.get('poc') or 400_000.0
+    cards = [0.0] * max(1, n_gpu)
+
+    # Cells already running occupy their card for whatever is left of them.
+    for c in cells:
+        if c['state'] != 'running':
+            continue
+        rate = rates.get(c['preset']) or default
+        frac = live.get(c['tag']) or 0.0
+        cards[cards.index(min(cards))] += c['update_tokens'] * max(0.0, 1 - frac) / rate
+
+    todo = sorted((c for c in cells if c['state'] == 'pending'),
+                  key=lambda c: -c['update_tokens'] / (rates.get(c['preset']) or default))
+    for c in todo:
+        rate = rates.get(c['preset']) or default
+        i = cards.index(min(cards))
+        cards[i] += c['update_tokens'] / rate
+    return max(cards) if cards else 0.0
+
+
+def fleet_plan(runs, hours: float) -> dict | None:
+    """The queued study, with each cell's status derived rather than recorded.
+
+    mlm_fleet publishes only the plan. Status is worked out here from what is on disk and what
+    is running, so the file cannot go stale between a cell finishing and something rewriting it
+    -- and a fleet killed halfway leaves a plan that still reads correctly.
+    """
+    path = os.path.join(RUNS, '_fleet_plan.json')
+    try:
+        with open(path, encoding='utf-8') as f:
+            plan = json.load(f)
+    except (OSError, ValueError):
+        return None
+
+    live = {r['tag']: (r.get('frac') or 0.0) for r in runs if r.get('live')}
+    rates = measured_rates()
+    default = rates.get('poc') or 400_000.0
+
+    cells, done, pending, running = [], 0, 0, 0
+    for c in plan.get('cells', []):
+        tag = c['tag']
+        if tag in live:
+            state, running = 'running', running + 1
+        elif os.path.exists(os.path.join(RUNS, f'{tag}_result.json')):
+            state, done = 'done', done + 1
+        else:
+            state, pending = 'pending', pending + 1
+
+        rate = rates.get(c['preset']) or default
+        full = c['update_tokens'] / rate
+        cells.append({**c, 'state': state,
+                      'eta_s': None if state == 'done' else
+                               full * (1 - live.get(tag, 0.0)) if state == 'running' else full,
+                      'run_s': full,
+                      'description': describe_run(tag, plan.get('corpus'), c.get('tokens'),
+                                                  c.get('preset'), c.get('steps'),
+                                                  plan.get('batch'), c.get('seed'))})
+
+    n_gpu = plan.get('n_gpu') or 1
+    left = schedule_remaining(cells, n_gpu, rates, live)
+    return {'corpus': plan.get('corpus'), 'queue': plan.get('queue'),
+            'started': plan.get('started'), 'n_gpu': n_gpu, 'cells': cells,
+            'done': done, 'running': running, 'pending': pending,
+            'remaining_s': left, 'finish_at': time.time() + left,
+            'rates': rates, 'measured_from': sum(1 for _ in glob.glob(
+                os.path.join(RUNS, '*_result.json')))}
 
 
 def snapshot(hours: float) -> dict:
@@ -241,6 +454,12 @@ def snapshot(hours: float) -> dict:
 
         runs.append({
             'tag': tag, 'live': live, 'frac': frac, 'state': state,
+            'unigram_h': unigram_entropy(corpus),
+            'description': describe_run(
+                tag, corpus, meta.get('n_tokens') or (result or {}).get('n_tokens'),
+                meta.get('preset') or cli.get('preset') or (result or {}).get('preset'),
+                step_total, meta.get('batch') or cli.get('batch') or (result or {}).get('batch'),
+                meta.get('seed'), meta.get('params')),
             'step': last.get('step'), 'steps': step_total,
             'train_loss': last['train']['loss'], 'val_loss': last['val']['loss'],
             'random_loss': random_loss, 'lr': last.get('lr'),
@@ -248,7 +467,8 @@ def snapshot(hours: float) -> dict:
             'tok_s': med_tps, 'eta_s': eta,
             'corpus': corpus,
             'steps_total': step_total,
-            'study': bool(STUDY_TAG.match(tag)),
+            'study': not bool(SCRATCH.match(tag)),
+            'experiment': experiment_of(tag),
             'n_tokens': meta.get('n_tokens') or (result or {}).get('n_tokens'),
             'seed': meta.get('seed'),
             'accum': meta.get('accum'),
@@ -281,7 +501,20 @@ def snapshot(hours: float) -> dict:
 
     runs.sort(key=lambda r: (not r['live'], r['tag']))
     return {'now': time.time(), 'server_started': SERVER_STARTED,
+            'fleet': fleet_plan(runs, hours),
+            'page_version': page_version(),
             'gpus': gpus(), 'runs': runs}
+
+
+def page_version() -> str:
+    """A short hash of the page we would serve right now.
+
+    The dashboard's JavaScript is embedded in the HTML, so editing this file changes nothing in
+    a browser tab that is already open -- it keeps polling the API and rendering with its old
+    code. That has been mistaken for a broken feature three times. The page compares this stamp
+    against the one it was built with and tells the reader to reload when they differ.
+    """
+    return hashlib.sha256(PAGE.encode('utf-8')).hexdigest()[:8]
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -295,7 +528,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(snapshot(self.hours)).encode()
             ctype = 'application/json'
         else:
-            body = PAGE.encode()
+            body = PAGE.replace('__PAGE_VERSION__', page_version()).encode()
             ctype = 'text/html; charset=utf-8'
         self.send_response(200)
         self.send_header('Content-Type', ctype)
@@ -325,6 +558,23 @@ header{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
   padding:1rem 1.25rem;border-bottom:1px solid var(--line)}
 h1{font-size:1rem;font-weight:650;margin:0;letter-spacing:.02em}
 .muted{color:var(--dim);font-size:.82rem}
+#queue{margin:0 0 1rem}
+.qrow{display:grid;grid-template-columns:1.1rem 1fr auto auto auto;gap:.7rem;align-items:center;
+  padding:.32rem 1.25rem;font-size:.82rem;border-top:1px solid var(--line)}
+.qrow:first-child{border-top:0}
+.qrow.pending{opacity:.6}
+.qdot{width:.6rem;height:.6rem;border-radius:50%;background:var(--dim)}
+.qrow.running .qdot{background:var(--blue);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--blue) 25%,transparent)}
+.qrow.done .qdot{background:var(--aqua)}
+.qnum{color:var(--dim);font-variant-numeric:tabular-nums;font-size:.76rem;min-width:5.6rem;
+  text-align:right}
+.qstate{font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;color:var(--dim);
+  min-width:4.4rem;text-align:right}
+.qfoot{padding:.5rem 1.25rem .7rem;font-size:.76rem;border-top:1px solid var(--line)}
+.stale{padding:.6rem 1.25rem;background:color-mix(in oklab,var(--amber) 18%,var(--bg));
+  border-bottom:1px solid color-mix(in oklab,var(--amber) 45%,var(--line));font-size:.82rem}
+.stale b{color:var(--ink)}
 .help{padding:.7rem 1.25rem;border-bottom:1px solid var(--line);color:var(--dim);
   font-size:.8rem;line-height:1.6;max-width:80ch}
 .help b{color:var(--ink);font-weight:600}
@@ -371,6 +621,10 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem}
 .chd{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap}
 .chd h2{font-size:.95rem;font-weight:650;margin:0}
+.takeaway{margin:.1rem 1.25rem .5rem;font-size:.84rem;color:var(--ink);line-height:1.45}
+.takeaway em{font-style:normal;font-weight:650}
+.sel{font-size:.76rem;color:var(--dim);display:inline-flex;gap:.35rem;align-items:center}
+.sel select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:.15rem .3rem}
 .ctitle{font-size:.76rem;color:var(--dim);margin:.6rem 0 .1rem}
 .cmpgrid{display:grid;gap:1rem;grid-template-columns:1fr}
 @media (min-width:900px){.cmpgrid{grid-template-columns:minmax(0,4fr) minmax(0,6fr)}}
@@ -382,7 +636,13 @@ details[open] summary::before{content:"▾ "}
 table.past{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.8rem;
   font-variant-numeric:tabular-nums}
 table.past td{padding:.3rem .5rem;border-top:1px solid var(--line)}
-table.past td:first-child{word-break:break-all}
+table.past td:first-child{word-break:normal;min-width:190px}
+.desc{font-size:.76rem;color:var(--dim);font-weight:400;margin-top:.1rem}
+.tagsm{font-size:.66rem;color:var(--dim);opacity:.65;margin-top:.1rem;word-break:break-all}
+/* Half the live card's chart, so a table of them stays a table. */
+td.mini-cell{width:270px;padding:.15rem .5rem}
+svg.mini{width:260px;height:66px;display:block}
+@media (max-width:800px){td.mini-cell{display:none}}
 table.past tr.hd td{color:var(--dim);font-size:.68rem;text-transform:uppercase;
   letter-spacing:.04em;border-top:none}
 table.past td.good{color:var(--aqua)} table.past td.mid{color:var(--amber)}
@@ -394,6 +654,15 @@ table.past td.num{text-align:right;color:var(--dim)}
   <span class="muted" id="sub">connecting…</span>
   <span class="muted" style="margin-left:auto" id="clock"></span>
 </header>
+<section id="queue" class="card" hidden>
+  <div class="chd"><h2 id="qtitle">Queued study</h2>
+    <span class="muted" id="qnote"></span></div>
+  <div id="qbody"></div>
+  <div class="qfoot muted" id="qfoot"></div>
+</section>
+<div id="stale" class="stale" hidden>
+  This page is running older code than the server. <b>Reload</b> to pick up the latest.
+</div>
 <div class="help">
   <b>Reading this:</b> the blue line is loss on held-out text (lower is better), orange is
   training loss. The dashed line is what a model that learned nothing scores — a curve still
@@ -405,7 +674,24 @@ table.past td.num{text-align:right;color:var(--dim)}
 <main>
   <section class="gpus" id="gpus"></section>
   <section class="compare card" id="compare" hidden>
-    <div class="chd"><h2>All runs together</h2><span class="muted" id="cmpnote"></span></div>
+    <div class="chd"><h2 id="cmptitle">All runs together</h2>
+      <label class="sel">experiment
+        <select id="experiment"></select></label>
+      <label class="sel">compare by
+        <select id="axis">
+          <option value="auto">what varies</option>
+          <option value="corpus">language</option>
+          <option value="n">data size</option>
+          <option value="preset">model size</option>
+          <option value="steps">compute</option>
+        </select></label>
+      <label class="sel">measure
+        <select id="measure">
+          <option value="loss">validation loss</option>
+          <option value="gain">context gained (comparable across languages)</option>
+        </select></label>
+      <span class="muted" id="cmpnote"></span></div>
+    <p class="takeaway" id="takeaway"></p>
     <div class="cmpgrid">
       <div><div class="ctitle" id="lt"></div><div id="bars"></div></div>
       <div><div class="ctitle" id="rt"></div><div id="curves"></div></div>
@@ -432,7 +718,7 @@ const fmtN = n => n==null ? "–" : n>=1e6 ? (n/1e6).toFixed(1)+"M"
 // the last point of each is marked so the current value is findable without a tooltip.
 function chart(curve, randomLoss, stepsTotal){
   if(!curve || curve.length<2) return '<div class="muted" style="padding:.5rem 0">no points yet</div>';
-  const W=520,H=132,L=42,R=10,T=10,B=22;
+  const W=520,H=146,L=42,R=10,T=10,B=36;
   const xs=curve.map(p=>p.x), ys=curve.flatMap(p=>[p.train,p.val]);
   if(randomLoss && randomLoss < Math.max(...ys)+2) ys.push(randomLoss);
   // Span the full step budget when we know it. Auto-scaling to the data drew a
@@ -459,6 +745,20 @@ function chart(curve, randomLoss, stepsTotal){
       <text class="tk" x="${W-R-2}" y="${(+ry-4).toFixed(1)}" text-anchor="end"
         >learned nothing</text>`;
   }
+  // Five evenly spaced ticks across the full budget, with a mark on the axis rather than a
+  // bare number. Previously the only labels were the first point, the last point and the total
+  // -- and on a run that is nearly finished the last two land on top of each other, which is
+  // what produced the "12k steps12k" overlap.
+  let xticks = '';
+  const NT = 5;
+  for(let i=0;i<=NT;i++){
+    const v = x0 + (x1-x0)*i/NT;
+    const px = X(v);
+    const anchor = i===0 ? 'start' : (i===NT ? 'end' : 'middle');
+    xticks += `<line x1="${px}" y1="${H-B}" x2="${px}" y2="${H-B+3}" class="axis"/>`
+            + `<text class="tk" x="${px}" y="${H-B+16}" text-anchor="${anchor}">${fmtN(v)}</text>`;
+  }
+
   const lastT=curve[curve.length-1], marks=
       `<circle cx="${X(lastT.x)}" cy="${Y(lastT.train)}" r="3" fill="var(--orange)"/>`
     + `<circle cx="${X(lastT.x)}" cy="${Y(lastT.val)}" r="3" fill="var(--blue)"/>`;
@@ -468,9 +768,9 @@ function chart(curve, randomLoss, stepsTotal){
           stroke-linejoin="round"/>
     <path d="${path('val')}" fill="none" stroke="var(--blue)" stroke-width="2.2"
           stroke-linejoin="round"/>${marks}
-    <text class="tk" x="${L}" y="${H-6}">0</text>
-    <text class="tk" x="${X(lastT.x)}" y="${H-6}" text-anchor="middle">${fmtN(lastT.x)}</text>
-    <text class="tk" x="${W-R}" y="${H-6}" text-anchor="end">${fmtN(x1)} steps</text>
+    ${xticks}
+    <text class="tk" x="${(L+W-R)/2}" y="${H-B+31}" text-anchor="middle"
+      >optimizer step</text>
   </svg>
   <div class="lg"><span><i class="sw" style="background:var(--blue)"></i>val</span>
   <span><i class="sw" style="background:var(--orange)"></i>train (EMA)</span></div>`;
@@ -486,6 +786,33 @@ function gpuCard(g){
     <span>${Math.round(g.temp)}°C</span></div></div>`;
 }
 
+// A half-size curve for a finished run. Same encoding as the live card -- blue val, orange
+// train, dashed "learned nothing" -- so a glance at the table reads the same way as a glance at
+// a card. It answers the question a final number cannot: did this converge, or was it still
+// falling when the budget ran out?
+function miniChart(curve, randomLoss){
+  if(!curve || curve.length < 2) return '';
+  const W=260, H=66, L=4, R=4, T=6, B=6;
+  const xs = curve.map(p=>p.x), ys = curve.flatMap(p=>[p.train, p.val]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys.concat(randomLoss ? [randomLoss] : []));
+  const pad = (y1-y0)*0.08 || 0.1; y0 -= pad; y1 += pad;
+  const X = v => L + (v-x0)/((x1-x0)||1) * (W-L-R);
+  const Y = v => T + (y1-v)/((y1-y0)||1) * (H-T-B);
+  const path = k => curve.map((p,i)=>(i?'L':'M')+X(p.x).toFixed(1)+' '+Y(p[k]).toFixed(1)).join(' ');
+  const ref = (randomLoss && randomLoss<=y1 && randomLoss>=y0)
+    ? `<line x1="${L}" y1="${Y(randomLoss)}" x2="${W-R}" y2="${Y(randomLoss)}"
+         stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>` : '';
+  const last = curve[curve.length-1];
+  return `<svg class="mini" viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="convergence curve">${ref}
+    <path d="${path('train')}" fill="none" stroke="var(--orange)" stroke-width="1.3"
+      stroke-linejoin="round" opacity=".75"/>
+    <path d="${path('val')}" fill="none" stroke="var(--blue)" stroke-width="1.7"
+      stroke-linejoin="round"/>
+    <circle cx="${X(last.x)}" cy="${Y(last.val)}" r="2.4" fill="var(--blue)"/></svg>`;
+}
+
 function runCard(r){
   const known = r.frac!=null;
   const pct = known ? Math.round(r.frac*100) : 0;
@@ -496,7 +823,7 @@ function runCard(r){
   const box = 'run' + (r.live?' livewire':'')
     + ((r.stalled||r.state==='stalled'||r.state==='on the plateau')?' stall':'');
   return `<div class="${box}">
-    <div class="rhead"><span class="tag">${r.tag}</span><span>${stall}${state}</span></div>
+    <div class="rhead"><div><span class="tag">${r.tag}</span><div class="desc">${r.description||''}</div></div><span>${stall}${state}</span></div>
     <div class="meter ${known?'':'unknown'}"><i style="width:${known?pct:100}%"></i></div>
     <div class="grid">
       <div><div class="k">how good</div>
@@ -533,27 +860,57 @@ const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(0)+'M' : fmtN(n);
 
 // One row per (data rung x model size), seeds averaged, so three seeds of one cell are one bar
 // rather than three bars pretending to be different configurations.
-function cells(runs){
+function cells(runs, axis){
+  // Group by whatever dimension the comparison is about. The panel used to key on data size
+  // alone, which is right for a data ladder and useless for a set of runs that share their data
+  // size and differ by language -- they all collapsed into one indistinguishable group.
   const grid = {};
   for(const r of runs){
-    if(!r.study || !r.n_tokens || r.val_loss == null) continue;
-    // Key on the COMPUTE budget too. Without it, two runs at the same data rung and model size
-    // but different step counts get averaged together and reported as "2 seeds" -- which is a
-    // different experiment described as a repeat of the same one.
-    const key = [r.n_tokens, r.preset || 'poc', r.steps_total || 0].join('|');
-    (grid[key] = grid[key] || {n: r.n_tokens, preset: r.preset || 'poc',
-                               steps: r.steps_total || 0, runs: []}).runs.push(r);
+    if(!r.study || r.val_loss == null) continue;
+    // A cell is a run name with the seed stripped. Keying on (corpus, tokens, preset, steps)
+    // instead looked principled and merged runs that share those but differ in ways the API does
+    // not model -- the causal baselines carry none of those four, so GPT and LSTM at wikitext103
+    // collapsed into a single averaged bar. The name is the one thing that always distinguishes
+    // a configuration, and stripping the trailing _s<n> is exactly what makes seeds of one cell
+    // group together and nothing else.
+    const key = r.tag.replace(/_s\d+$/, '');
+    (grid[key] = grid[key] || {base: key, corpus: r.corpus, n: r.n_tokens,
+                               preset: r.preset || 'poc', steps: r.steps_total || 0,
+                               runs: []}).runs.push(r);
   }
   return Object.values(grid).map(c => {
     const v = c.runs.map(r => r.val_loss);
     c.val = v.reduce((a,b)=>a+b,0)/v.length;
-    c.spread = v.length > 1 ? Math.max(...v) - Math.min(...v) : 0;
     c.seeds = v.length;
     c.live = c.runs.some(r => r.live);
     c.curve = c.runs.slice().sort((a,b)=>b.curve.length-a.curve.length)[0].curve;
     c.random = c.runs.map(r=>r.random_loss).find(Boolean);
+    c.unigram = c.runs.map(r=>r.unigram_h).find(Boolean);
+    // How much better than frequency-guessing. The only measure that survives a change of
+    // language, because it cancels the vocabulary's own entropy.
+    c.gain = c.unigram ? c.unigram - c.val : null;
+    c.group = axis === 'corpus' ? c.corpus
+            : axis === 'preset' ? c.preset
+            : axis === 'steps'  ? c.steps
+            : c.n;
     return c;
-  }).sort((a,b) => a.n - b.n || (a.preset > b.preset ? 1 : -1) || a.steps - b.steps);
+  }).sort((a,b) => (a.group > b.group ? 1 : a.group < b.group ? -1 : 0) || a.val - b.val);
+}
+
+// Which dimension actually varies? Pick the one with the most distinct values, so a set of runs
+// that differ only by language groups by language without being told.
+function autoAxis(runs){
+  const st = runs.filter(r=>r.study);
+  const counts = {corpus:new Set(), n:new Set(), preset:new Set(), steps:new Set()};
+  st.forEach(r=>{
+    counts.corpus.add(r.corpus); counts.n.add(r.n_tokens);
+    counts.preset.add(r.preset || 'poc'); counts.steps.add(r.steps_total);
+  });
+  let best = 'n', bestN = 0;
+  for(const k of ['corpus','n','preset','steps']){
+    if(counts[k].size > bestN){ bestN = counts[k].size; best = k; }
+  }
+  return best;
 }
 
 function rungColour(rungs){
@@ -561,7 +918,7 @@ function rungColour(rungs){
 }
 
 // LEFT: where each one lands. Grouped bars, x ordered by how much unique text the run saw.
-function barsChart(cs, col, rungs){
+function barsChart(cs, col, rungs, axis, usingGain){
   const W=460,H=280,L=52,R=10,T=18,B=66;
   if(!cs.length) return '<div class="muted">no grid runs yet</div>';
   const rl = cs.map(c=>c.random).find(Boolean);
@@ -577,31 +934,29 @@ function barsChart(cs, col, rungs){
   }
   let bars='';
   rungs.forEach((n,gi)=>{
-    const inRung = cs.filter(c=>c.n===n);
+    const inRung = cs.filter(c=>c.group===n);
     const bw = Math.min(30, (slot-16)/Math.max(inRung.length,1));
     inRung.forEach((c,bi)=>{
       const x = L + gi*slot + (slot - bw*inRung.length)/2 + bi*bw;
-      const y = Y(c.val);
+      const y = Y(c.plot);
       bars += `<rect x="${x}" y="${y}" width="${bw-3}" height="${Math.max(1,(H-B)-y)}" rx="2"
-          fill="${col[n]}" opacity="${isBig(c)?0.45:1}"/>
+          fill="${col[c.key]}" opacity="${isBig(c)?0.45:1}"/>
         <text class="tk" x="${x+(bw-3)/2}" y="${y-4}" text-anchor="middle"
-          style="font-weight:600">${c.val.toFixed(2)}</text>`;
+          style="font-weight:600">${c.plot.toFixed(2)}</text>`;
     });
     bars += `<text class="tk" x="${L+gi*slot+slot/2}" y="${H-B+15}" text-anchor="middle"
-        style="font-weight:600">${fmtTok(n)}</text>
-      <text class="tk" x="${L+gi*slot+slot/2}" y="${H-B+27}" text-anchor="middle"
-        >unique tokens</text>`;
+        style="font-weight:600">${axis==='corpus'?(LANG_NAMES[n]||n):(axis==='n'?fmtTok(n):n)}</text>`;
   });
   const ref = rl ? `<line x1="${L}" y1="${Y(rl)}" x2="${W-R}" y2="${Y(rl)}" stroke="var(--dim)"
       stroke-dasharray="4 4" stroke-width="1"/>
       <text class="tk" x="${W-R}" y="${Y(rl)-4}" text-anchor="end">learned nothing (${rl.toFixed(1)})</text>` : '';
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="final loss by data rung">
     ${g}${ref}${bars}<line class="axis" x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}"/>
-    <text class="tk" x="4" y="${T+4}">val loss</text></svg>`;
+    <text class="tk" x="4" y="${T+4}">${usingGain?'context gained':'val loss'}</text></svg>`;
 }
 
 // RIGHT: how each one gets there. Same colours, dash = larger model, dot = stopped improving.
-function curvesChart(cs, col){
+function curvesChart(cs, col, usingGain){
   const W=560,H=280,L=46,R=12,T=18,B=40;
   const all = cs.filter(c=>c.curve && c.curve.length>1);
   if(!all.length) return '';
@@ -631,10 +986,10 @@ function curvesChart(cs, col){
     const pts=c.curve.filter(p=>p.x>0);
     if(pts.length<2) continue;
     const d=pts.map((p,i)=>(i?'L':'M')+X(p.x).toFixed(1)+' '+Y(p.val).toFixed(1)).join(' ');
-    lines += `<path d="${d}" fill="none" stroke="${col[c.n]}" stroke-width="${c.live?2.8:2}"
+    lines += `<path d="${d}" fill="none" stroke="${col[c.key]}" stroke-width="${c.live?2.8:2}"
         stroke-linejoin="round" stroke-dasharray="${isBig(c)?'5 4':'0'}"/>`;
     const f=flatIdx(pts);
-    lines += `<circle cx="${X(pts[f].x)}" cy="${Y(pts[f].val)}" r="3.5" fill="${col[c.n]}"/>`;
+    lines += `<circle cx="${X(pts[f].x)}" cy="${Y(pts[f].val)}" r="3.5" fill="${col[c.key]}"/>`;
   }
   const ref = rl ? `<line x1="${L}" y1="${Y(rl)}" x2="${W-R}" y2="${Y(rl)}" stroke="var(--dim)"
       stroke-dasharray="4 4" stroke-width="1"/>` : '';
@@ -654,39 +1009,200 @@ function flatIdx(c){
   return c.length-1;
 }
 
-function renderCompare(runs){
-  const el=document.getElementById('compare');
-  const cs=cells(runs);
-  el.hidden = cs.length<2;
-  if(el.hidden) return;
-  const rungs=[...new Set(cs.map(c=>c.n))].sort((a,b)=>a-b);
-  const col=rungColour(rungs);
-
-  document.getElementById('bars').innerHTML   = barsChart(cs, col, rungs);
-  document.getElementById('curves').innerHTML = curvesChart(cs, col);
-  document.getElementById('lt').textContent =
-    'Where each one lands  (left bar = 33.8M, right bar = 86M)';
-  document.getElementById('rt').textContent =
-    'How each one gets there  (dashed = 86M, dot = stopped improving)';
-
-  const seeded = cs.filter(c=>c.seeds>1).length;
-  document.getElementById('cmpnote').textContent =
-    cs.length + ' configurations' + (seeded ? ', seeds averaged' : '');
-
-  // Name every line, the way the Part 1 legend did. A colour with no name is a decoration.
-  const multi = {};
-  cs.forEach(c => { const k = c.n + '|' + c.preset; multi[k] = (multi[k]||0) + 1; });
-  document.getElementById('cmpleg').innerHTML = cs.map(c =>
-    '<span><i class="sw" style="background:' + col[c.n]
-    + (isBig(c) ? ';opacity:.45' : '') + '"></i>'
-    + fmtTok(c.n) + ' &middot; ' + (SIZES[c.preset] || c.preset)
-    + (multi[c.n + '|' + c.preset] > 1 ? ' &middot; ' + fmtN(c.steps) + ' steps' : '')
-    + (c.seeds > 1 ? ' (' + c.seeds + ' seeds)' : '') + '</span>').join('');
+// How many distinct values each dimension takes in this experiment. An axis with one value
+// groups every run together: identical colours, identical legend entries, and a takeaway that
+// reads "50M tokens ahead of 50M tokens". The dropdown should not offer it in the first place.
+function axisSpread(runs){
+  const st = runs.filter(r=>r.study && r.val_loss!=null);
+  const v = {corpus:new Set(), n:new Set(), preset:new Set(), steps:new Set()};
+  st.forEach(r=>{
+    v.corpus.add(r.corpus); v.n.add(r.n_tokens);
+    v.preset.add(r.preset || 'poc'); v.steps.add(r.steps_total);
+  });
+  return {corpus:v.corpus.size, n:v.n.size, preset:v.preset.size, steps:v.steps.size};
 }
+
+// Rebuild the axis dropdown for the experiment on screen, disabling the dimensions it holds
+// constant. Returns the axis to actually use, falling back to auto when the current choice has
+// become degenerate -- which happens simply by switching experiments.
+function syncAxisOptions(runs){
+  const spread = axisSpread(runs);
+  const sel = document.getElementById('axis');
+  const opts = [['auto','what varies']].concat(
+    [['corpus','language'],['n','data size'],['preset','model size'],['steps','compute']]
+      .map(([k,label]) => [k, spread[k] > 1 ? label : label + ' \u2014 same for every run']));
+  const sig = opts.map(([k]) => k + (spread[k] > 1 ? '1' : '0')).join(',');
+  if(sel.dataset.sig !== sig){
+    const keep = sel.value;
+    sel.innerHTML = opts.map(([k,label]) =>
+      `<option value="${k}"${k!=='auto' && spread[k]<2 ? ' disabled' : ''}>${label}</option>`
+    ).join('');
+    sel.value = (keep && (keep === 'auto' || spread[keep] > 1)) ? keep : 'auto';
+    sel.dataset.sig = sig;
+  }
+  if(sel.value !== 'auto' && spread[sel.value] < 2) sel.value = 'auto';
+  return sel.value === 'auto' ? autoAxis(runs) : sel.value;
+}
+
+// The queue, including what has not started. Watching two live runs tells you nothing about
+// whether they are the whole study or the first tenth of it.
+function renderQueue(f){
+  const el = document.getElementById('queue');
+  el.hidden = !f || !f.cells || !f.cells.length;
+  if(el.hidden) return;
+
+  document.getElementById('qtitle').textContent =
+    (EXP_NAMES[f.queue] || f.queue || 'Queued study');
+  document.getElementById('qnote').textContent =
+    `${f.done} of ${f.cells.length} done \u00b7 ${f.running} running \u00b7 `
+    + `${f.pending} not started`
+    + (f.remaining_s > 0 ? ` \u00b7 about ${fmtT(f.remaining_s)} left` : '');
+
+  document.getElementById('qbody').innerHTML = f.cells.map(c => `
+    <div class="qrow ${c.state}">
+      <span class="qdot"></span>
+      <span>${c.description || c.tag}</span>
+      <span class="qnum">${fmtTok(c.update_tokens)} updates</span>
+      <span class="qnum">${c.state === 'done' ? '' :
+        (c.state === 'running' ? fmtT(c.eta_s) + ' left' : fmtT(c.run_s))}</span>
+      <span class="qstate">${c.state === 'pending' ? 'queued' : c.state}</span>
+    </div>`).join('');
+
+  // Say where the numbers come from. An estimate whose basis is invisible gets trusted when it
+  // should not be, and ignored when it should not be.
+  const rate = Object.entries(f.rates || {})
+    .map(([p,v]) => `${SIZES[p]||p} ${Math.round(v/1000)}k tok/s`).join(' \u00b7 ');
+  document.getElementById('qfoot').innerHTML =
+    (f.remaining_s > 0
+      ? `Expected to finish about <b>${new Date(f.finish_at*1000)
+          .toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</b>. ` : 'Finished. ')
+    + `Estimated from this machine's own finished runs${rate ? ' \u2014 ' + rate : ''}, `
+    + `scheduled across ${f.n_gpu} card${f.n_gpu===1?'':'s'}.`;
+}
+
+function renderCompare(allRuns){
+  const el = document.getElementById('compare');
+
+  // Which experiments exist, and which one are we looking at? Keep the user's choice across
+  // refreshes -- the panel repaints every three seconds and resetting the selector each time
+  // would make it unusable.
+  const names = [...new Set(allRuns.filter(r=>r.study && r.val_loss!=null)
+                                   .map(r=>r.experiment))].sort();
+  const sel = document.getElementById('experiment');
+  const want = sel.value && names.includes(sel.value) ? sel.value
+             : (names.includes('multi') ? 'multi' : names[0]);
+  if(sel.options.length !== names.length || sel.value !== want){
+    sel.innerHTML = names.map(n=>`<option value="${n}">${EXP_NAMES[n]||n}</option>`).join('');
+    sel.value = want;
+  }
+  const runs = allRuns.filter(r => r.experiment === want);
+  const spread = axisSpread(runs);
+  const axis = syncAxisOptions(runs);
+  const measure = document.getElementById('measure').value;
+
+  const cs = cells(runs, axis);
+  el.hidden = cs.length < 2;
+  if(el.hidden) return;
+
+  const usingGain = measure === 'gain' && cs.every(c => c.gain != null);
+  cs.forEach(c => { c.plot = usingGain ? c.gain : c.val; });
+
+  const groups = [...new Set(cs.map(c=>c.group))]
+      .sort((a,b) => (typeof a === 'number' ? a-b : String(a).localeCompare(String(b))));
+  // Cells within a group still need to be told apart, so the hue is per cell and the group only
+  // decides the ordering.
+  const col = {};
+  cs.forEach((c,i)=>{ c.key = c.base; col[c.key] = HUES[i % HUES.length]; });
+
+  document.getElementById('bars').innerHTML   = barsChart(cs, col, groups, axis, usingGain);
+  document.getElementById('curves').innerHTML = curvesChart(cs, col, usingGain);
+
+  const AXIS_NAME = {corpus:'language', n:'unique tokens', preset:'model size', steps:'steps'};
+  document.getElementById('lt').textContent = usingGain
+    ? 'How much context each one learned  (higher is better)'
+    : 'Where each one lands  (lower is better)';
+  document.getElementById('rt').textContent =
+    'How each one gets there  (dot = stopped improving)';
+  const expSel = document.getElementById('experiment');
+  document.getElementById('cmptitle').textContent =
+    EXP_NAMES[expSel.value] || 'All runs together';
+  document.getElementById('takeaway').innerHTML =
+    (EXP_QUESTIONS[expSel.value] ? '<span class="muted">'
+       + EXP_QUESTIONS[expSel.value] + '</span> ' : '')
+    + takeaway(cs, spread, usingGain);
+
+  document.getElementById('cmpnote').textContent =
+    `${cs.length} configurations \u00b7 grouped by ${AXIS_NAME[axis]}`
+    + (usingGain ? ' \u00b7 vocabulary entropy removed' : '');
+
+  document.getElementById('cmpleg').innerHTML = cs.map(c =>
+    '<span><i class="sw" style="background:' + col[c.key]
+    + (isBig(c) ? ';opacity:.45' : '') + '"></i>' + cellLabel(c, spread)
+    + (c.seeds > 1 ? ' (' + c.seeds + ' seeds)' : '') + '</span>').join('')
+    + (usingGain ? '' : '<span style="opacity:.7">solid 33.8M &middot; dashed 86M</span>');
+}
+
+const EXP_QUESTIONS = {
+  ladder: 'Does more Yoruba text help, if the compute is held fixed?',
+  multi:  'At the same data and the same compute, how much does the language matter?',
+  eng:    'With compute held fixed, does more text keep helping — and does the bigger '
+          + 'model ever overtake the smaller one?',
+  wikitext103: 'How do the older architectures do on the same English text?',
+};
+
+// One sentence a person can act on. The dashboard is for watching runs, not for analysis, so
+// this says which configuration won and by how much -- and nothing else. The reasoning belongs
+// in the reports.
+function takeaway(cs, spread, usingGain){
+  if(cs.length < 2) return '';
+  const better = usingGain ? (a,b) => b.plot - a.plot : (a,b) => a.plot - b.plot;
+  const rank = cs.slice().sort(better);
+  const top = rank[0], bot = rank[rank.length-1];
+  const gap = Math.abs(top.plot - bot.plot);
+  const unit = usingGain ? 'nats of context' : 'nats of loss';
+  if(gap < 0.10)
+    return `<em>${cellLabel(top, spread)}</em> and <em>${cellLabel(bot, spread)}</em> land within `
+         + `${gap.toFixed(2)} of each other \u2014 too close to call apart from seed noise.`;
+  return `Best so far: <em>${cellLabel(top, spread)}</em> at ${top.plot.toFixed(2)}, `
+       + `${gap.toFixed(2)} ${unit} ahead of <em>${cellLabel(bot, spread)}</em>.`;
+}
+
+// A cell's name is the set of dimensions the experiment varies. Labelling by the comparison
+// axis alone produced five legend entries all reading "50M tokens" on an experiment where the
+// data size is the one thing every run shares -- the label has to say what is DIFFERENT, which
+// is not necessarily what is being grouped by.
+function cellLabel(c, spread){
+  const bits = [];
+  if(spread.corpus > 1) bits.push(LANG_NAMES[c.corpus] || c.corpus);
+  if(spread.n > 1)      bits.push(fmtTok(c.n) + ' tokens');
+  if(spread.preset > 1) bits.push(SIZES[c.preset] || c.preset);
+  if(spread.steps > 1)  bits.push(fmtN(c.steps) + ' steps');
+  // Nothing we track varies -- which is normal for the causal baselines, where the difference
+  // is the architecture and lives only in the name. Use the name, minus the corpus prefix it
+  // shares with its neighbours, rather than printing the same label for every bar.
+  if(!bits.length){
+    const rest = c.base.startsWith(c.corpus + '_') ? c.base.slice(c.corpus.length + 1) : c.base;
+    return rest.replace(/_/g, ' ') || (LANG_NAMES[c.corpus] || c.corpus);
+  }
+  return bits.join(' \u00b7 ');
+}
+
+const EXP_NAMES = {ladder:'Yoruba data ladder', multi:'Five languages',
+                   eng:'English data ladder',
+                   wikitext103:'WikiText-103 baselines',
+                   batchtest:'Batch-size sweep', lrprobe:'Learning-rate sweep',
+                   stabcheck:'Seed stability'};
+const LANG_NAMES = {eng:'English', eng_1b:'English', fra:'French', ind:'Indonesian', cmn:'Mandarin',
+                    yor:'Yoruba', swh:'Swahili', hau:'Hausa', ibo:'Igbo'};
+
+const MY_VERSION = '__PAGE_VERSION__';
 
 async function tick(){
   try{
     const d = await (await fetch('/api/', {cache:'no-store'})).json();
+    document.getElementById('stale').hidden =
+      !d.page_version || d.page_version === MY_VERSION;
+    renderQueue(d.fleet);
     document.getElementById('gpus').innerHTML = d.gpus.map(gpuCard).join('');
     // Runs still going get a full card. Everything finished collapses into one closed list --
     // on a busy day that is fifteen dead panels between you and the run you care about.
@@ -702,15 +1218,18 @@ async function tick(){
     document.getElementById('pastrows').innerHTML =
       '<tr class="hd"><td>run</td><td class="num">how good</td><td class="num">val loss</td>'
       + '<td class="num">choosing between</td><td class="num">steps</td>'
-      + '<td class="num">batch</td><td class="num">took</td></tr>'
+      + '<td class="num">batch</td><td class="num">took</td>'
+      + '<td class="num">how it converged</td></tr>'
       + past.map(r=>`<tr>
-      <td>${r.tag}${r.stalled?' <span class="pill warn">stalled</span>':''}</td>
+      <td>${r.description||r.tag}${r.stalled?' <span class="pill warn">stalled</span>':''}
+          <div class="tagsm">${r.tag}</div></td>
       <td class="num ${qcls(r.quality)}">${r.quality==null?'–':Math.round(r.quality*100)+'%'}</td>
       <td class="num">${r.val_loss.toFixed(3)}</td>
       <td class="num">${fmtN(Math.exp(r.val_loss))} words</td>
       <td class="num">${fmtN(r.steps_total)}</td>
       <td class="num">${r.batch||'–'}</td>
-      <td class="num">${fmtT(r.elapsed)}</td></tr>`).join('');
+      <td class="num">${fmtT(r.elapsed)}</td>
+      <td class="mini-cell">${miniChart(r.curve, r.random_loss)}</td></tr>`).join('');
 
     document.getElementById('sub').textContent = live.length
       ? `${live.length} training` : 'nothing training right now';
@@ -721,6 +1240,8 @@ async function tick(){
       `${new Date().toLocaleTimeString()} · server up since ${up}`;
   }catch(e){ document.getElementById('sub').textContent = 'lost connection to the server'; }
 }
+['axis','measure','experiment'].forEach(id =>
+  document.getElementById(id).addEventListener('change', tick));
 tick(); setInterval(tick, 3000);
 </script></body></html>
 """
