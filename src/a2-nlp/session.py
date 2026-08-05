@@ -21,7 +21,8 @@ Usage — put this stub at the top of any new notebook and nothing else:
     import session; factory = session.start()
 
 Options:
-    session.start(corpus='yor')     # prepare a different corpus
+    session.start(corpus='fra')            # a different corpus
+    session.start(corpus=['yor', 'eng'])   # several
     session.start(prepare=False)    # fine-tuning only, no pretraining corpus needed
     session.start(pull=False)       # skip git pull (faster, but you may be running stale code)
 
@@ -49,7 +50,19 @@ PACKAGES = [
     ("seqeval", "seqeval"),
 ]
 
-TOKENIZERS = {"yor": ("yor_Latn", "yo", "tokenizers/yor-bpe16k", "15abd33de5af")}
+# corpus -> (lang code, wikipedia code, shared tokenizer path, fingerprint, source)
+# All five tokenizers are committed and were trained on 260M characters each. Using the shared
+# one is what makes losses comparable across machines: two people streaming the same web source
+# do NOT get identical documents, so a freshly trained BPE gives a different vocabulary and a
+# cross-entropy of 2.9 over one 16k vocab is not the same measurement as 2.9 over another.
+CORPORA = {
+    "yor": ("yor_Latn", "yo", "tokenizers/yor-bpe16k", "15abd33de5af", "fineweb2"),
+    "eng": ("eng_Latn", "en", "tokenizers/eng-bpe16k", "7820319faa75", "fineweb_edu"),
+    "fra": ("fra_Latn", "fr", "tokenizers/fra-bpe16k", "8d19fea36313", "fineweb2"),
+    "ind": ("ind_Latn", "id", "tokenizers/ind-bpe16k", "d30303ef89aa", "fineweb2"),
+    "cmn": ("cmn_Hani", "zh", "tokenizers/cmn-bpe16k", "a40a6e85972c", "fineweb2"),
+}
+TOKENIZERS = CORPORA   # backwards-compatible alias
 
 
 def _sh(cmd: str) -> tuple[int, str]:
@@ -96,9 +109,12 @@ def gpu_report() -> dict:
     return info
 
 
-def start(corpus: str = "yor", pull: bool = True, install: bool = True,
+def start(corpus="yor", pull: bool = True, install: bool = True,
           prepare: bool = True, quiet: bool = False):
     """Make this kernel ready to use the factory. Safe to call from any notebook.
+
+    `corpus` takes a name or a list: start(corpus=['yor', 'eng']). Known corpora are the five
+    with committed tokenizers -- yor, eng, fra, ind, cmn.
 
     Returns the mlm_api module.
     """
@@ -134,19 +150,23 @@ def start(corpus: str = "yor", pull: bool = True, install: bool = True,
     import mlm_api as factory
 
     # --- corpus (on disk, so shared; prepare_corpus no-ops if already done) --
+    # `corpus` accepts a name or a list of names.
     if prepare:
-        if corpus not in TOKENIZERS:
-            raise ValueError(f"unknown corpus {corpus!r}; known: {list(TOKENIZERS)}")
-        lang, wiki, tok_path, fingerprint = TOKENIZERS[corpus]
-        factory.prepare_corpus(corpus, lang=lang, wiki=wiki, tokenizer=tok_path)
-        got = factory.corpus_info(corpus)["tokenizer_fingerprint"]
-        if got != fingerprint:
-            raise RuntimeError(
-                f"tokenizer fingerprint {got} != expected {fingerprint}.\n"
-                "A different vocabulary makes every loss incomparable with the recorded "
-                "results. Do not proceed."
-            )
-        log(f"  corpus '{corpus}' ready, tokenizer {got}")
+        names = [corpus] if isinstance(corpus, str) else list(corpus)
+        for name in names:
+            if name not in CORPORA:
+                raise ValueError(f"unknown corpus {name!r}; known: {list(CORPORA)}")
+            lang, wiki, tok_path, fingerprint, source = CORPORA[name]
+            factory.prepare_corpus(name, lang=lang, wiki=wiki, tokenizer=tok_path,
+                                   source=source)
+            got = factory.corpus_info(name)["tokenizer_fingerprint"]
+            if got != fingerprint:
+                raise RuntimeError(
+                    f"[{name}] tokenizer fingerprint {got} != expected {fingerprint}.\n"
+                    "A different vocabulary makes every loss incomparable with the recorded "
+                    "results. Do not proceed."
+                )
+            log(f"  corpus '{name}' ready, tokenizer {got}")
 
     log(f"ready — cwd {os.getcwd()}")
     return factory
