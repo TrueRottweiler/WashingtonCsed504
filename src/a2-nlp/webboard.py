@@ -157,7 +157,7 @@ def _log_field(tag: str, pattern: str, cast=str):
 # Corpus code -> what a person calls it. Anything unlisted falls back to the code itself, so a
 # new language shows up readable-ish rather than breaking the description.
 LANGUAGES = {
-    'eng': 'English', 'fra': 'French', 'ind': 'Indonesian', 'cmn': 'Mandarin',
+    'eng': 'English', 'eng_1b': 'English', 'fra': 'French', 'ind': 'Indonesian', 'cmn': 'Mandarin',
     'yor': 'Yoruba', 'swh': 'Swahili', 'hau': 'Hausa', 'ibo': 'Igbo',
     'wikitext2': 'WikiText-2', 'wikitext103': 'WikiText-103', 'shakespeare': 'Shakespeare',
 }
@@ -245,6 +245,106 @@ def unigram_entropy(corpus: str) -> float | None:
         pass
     _ENTROPY_CACHE[corpus] = h
     return h
+
+
+def measured_rates() -> dict:
+    """Tokens of updates per second, per preset, from every run this machine has finished.
+
+    Estimates come from this machine's own history rather than a constant in the source. A
+    hard-coded rate is wrong on any other machine and goes quietly stale on this one the moment
+    a driver or a batch size changes.
+    """
+    rates = {}
+    for rp in glob.glob(os.path.join(RUNS, '*_result.json')):
+        try:
+            with open(rp, encoding='utf-8') as f:
+                r = json.load(f)
+        except (OSError, ValueError):
+            continue
+        steps, batch = r.get('steps'), r.get('batch')
+        secs = r.get('elapsed_sec') or r.get('seconds') or r.get('wall_sec')
+        if not (steps and batch and secs):
+            continue
+        preset = r.get('preset') or 'poc'
+        got = rates.setdefault(preset, [0, 0.0])
+        got[0] += steps * batch * (r.get('seq_len') or 128)
+        got[1] += secs
+    return {p: tok / sec for p, (tok, sec) in rates.items() if sec > 0}
+
+
+def schedule_remaining(cells, n_gpu, rates, live):
+    """Wall-clock left, by simulating the same longest-first fill the fleet actually uses.
+
+    Dividing the remaining work by the number of cards is wrong whenever the cells differ in
+    cost: at the end of a queue the cards drain unevenly, and the finish time is set by the
+    slowest single remaining cell, not by the average.
+    """
+    default = rates.get('poc') or 400_000.0
+    cards = [0.0] * max(1, n_gpu)
+
+    # Cells already running occupy their card for whatever is left of them.
+    for c in cells:
+        if c['state'] != 'running':
+            continue
+        rate = rates.get(c['preset']) or default
+        frac = live.get(c['tag']) or 0.0
+        cards[cards.index(min(cards))] += c['update_tokens'] * max(0.0, 1 - frac) / rate
+
+    todo = sorted((c for c in cells if c['state'] == 'pending'),
+                  key=lambda c: -c['update_tokens'] / (rates.get(c['preset']) or default))
+    for c in todo:
+        rate = rates.get(c['preset']) or default
+        i = cards.index(min(cards))
+        cards[i] += c['update_tokens'] / rate
+    return max(cards) if cards else 0.0
+
+
+def fleet_plan(runs, hours: float) -> dict | None:
+    """The queued study, with each cell's status derived rather than recorded.
+
+    mlm_fleet publishes only the plan. Status is worked out here from what is on disk and what
+    is running, so the file cannot go stale between a cell finishing and something rewriting it
+    -- and a fleet killed halfway leaves a plan that still reads correctly.
+    """
+    path = os.path.join(RUNS, '_fleet_plan.json')
+    try:
+        with open(path, encoding='utf-8') as f:
+            plan = json.load(f)
+    except (OSError, ValueError):
+        return None
+
+    live = {r['tag']: (r.get('frac') or 0.0) for r in runs if r.get('live')}
+    rates = measured_rates()
+    default = rates.get('poc') or 400_000.0
+
+    cells, done, pending, running = [], 0, 0, 0
+    for c in plan.get('cells', []):
+        tag = c['tag']
+        if tag in live:
+            state, running = 'running', running + 1
+        elif os.path.exists(os.path.join(RUNS, f'{tag}_result.json')):
+            state, done = 'done', done + 1
+        else:
+            state, pending = 'pending', pending + 1
+
+        rate = rates.get(c['preset']) or default
+        full = c['update_tokens'] / rate
+        cells.append({**c, 'state': state,
+                      'eta_s': None if state == 'done' else
+                               full * (1 - live.get(tag, 0.0)) if state == 'running' else full,
+                      'run_s': full,
+                      'description': describe_run(tag, plan.get('corpus'), c.get('tokens'),
+                                                  c.get('preset'), c.get('steps'),
+                                                  plan.get('batch'), c.get('seed'))})
+
+    n_gpu = plan.get('n_gpu') or 1
+    left = schedule_remaining(cells, n_gpu, rates, live)
+    return {'corpus': plan.get('corpus'), 'queue': plan.get('queue'),
+            'started': plan.get('started'), 'n_gpu': n_gpu, 'cells': cells,
+            'done': done, 'running': running, 'pending': pending,
+            'remaining_s': left, 'finish_at': time.time() + left,
+            'rates': rates, 'measured_from': sum(1 for _ in glob.glob(
+                os.path.join(RUNS, '*_result.json')))}
 
 
 def snapshot(hours: float) -> dict:
@@ -401,6 +501,7 @@ def snapshot(hours: float) -> dict:
 
     runs.sort(key=lambda r: (not r['live'], r['tag']))
     return {'now': time.time(), 'server_started': SERVER_STARTED,
+            'fleet': fleet_plan(runs, hours),
             'page_version': page_version(),
             'gpus': gpus(), 'runs': runs}
 
@@ -457,6 +558,20 @@ header{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
   padding:1rem 1.25rem;border-bottom:1px solid var(--line)}
 h1{font-size:1rem;font-weight:650;margin:0;letter-spacing:.02em}
 .muted{color:var(--dim);font-size:.82rem}
+#queue{margin:0 0 1rem}
+.qrow{display:grid;grid-template-columns:1.1rem 1fr auto auto auto;gap:.7rem;align-items:center;
+  padding:.32rem 1.25rem;font-size:.82rem;border-top:1px solid var(--line)}
+.qrow:first-child{border-top:0}
+.qrow.pending{opacity:.6}
+.qdot{width:.6rem;height:.6rem;border-radius:50%;background:var(--dim)}
+.qrow.running .qdot{background:var(--blue);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--blue) 25%,transparent)}
+.qrow.done .qdot{background:var(--aqua)}
+.qnum{color:var(--dim);font-variant-numeric:tabular-nums;font-size:.76rem;min-width:5.6rem;
+  text-align:right}
+.qstate{font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;color:var(--dim);
+  min-width:4.4rem;text-align:right}
+.qfoot{padding:.5rem 1.25rem .7rem;font-size:.76rem;border-top:1px solid var(--line)}
 .stale{padding:.6rem 1.25rem;background:color-mix(in oklab,var(--amber) 18%,var(--bg));
   border-bottom:1px solid color-mix(in oklab,var(--amber) 45%,var(--line));font-size:.82rem}
 .stale b{color:var(--ink)}
@@ -539,6 +654,12 @@ table.past td.num{text-align:right;color:var(--dim)}
   <span class="muted" id="sub">connecting…</span>
   <span class="muted" style="margin-left:auto" id="clock"></span>
 </header>
+<section id="queue" class="card" hidden>
+  <div class="chd"><h2 id="qtitle">Queued study</h2>
+    <span class="muted" id="qnote"></span></div>
+  <div id="qbody"></div>
+  <div class="qfoot muted" id="qfoot"></div>
+</section>
 <div id="stale" class="stale" hidden>
   This page is running older code than the server. <b>Reload</b> to pick up the latest.
 </div>
@@ -923,6 +1044,42 @@ function syncAxisOptions(runs){
   return sel.value === 'auto' ? autoAxis(runs) : sel.value;
 }
 
+// The queue, including what has not started. Watching two live runs tells you nothing about
+// whether they are the whole study or the first tenth of it.
+function renderQueue(f){
+  const el = document.getElementById('queue');
+  el.hidden = !f || !f.cells || !f.cells.length;
+  if(el.hidden) return;
+
+  document.getElementById('qtitle').textContent =
+    (EXP_NAMES[f.queue] || f.queue || 'Queued study');
+  document.getElementById('qnote').textContent =
+    `${f.done} of ${f.cells.length} done \u00b7 ${f.running} running \u00b7 `
+    + `${f.pending} not started`
+    + (f.remaining_s > 0 ? ` \u00b7 about ${fmtT(f.remaining_s)} left` : '');
+
+  document.getElementById('qbody').innerHTML = f.cells.map(c => `
+    <div class="qrow ${c.state}">
+      <span class="qdot"></span>
+      <span>${c.description || c.tag}</span>
+      <span class="qnum">${fmtTok(c.update_tokens)} updates</span>
+      <span class="qnum">${c.state === 'done' ? '' :
+        (c.state === 'running' ? fmtT(c.eta_s) + ' left' : fmtT(c.run_s))}</span>
+      <span class="qstate">${c.state === 'pending' ? 'queued' : c.state}</span>
+    </div>`).join('');
+
+  // Say where the numbers come from. An estimate whose basis is invisible gets trusted when it
+  // should not be, and ignored when it should not be.
+  const rate = Object.entries(f.rates || {})
+    .map(([p,v]) => `${SIZES[p]||p} ${Math.round(v/1000)}k tok/s`).join(' \u00b7 ');
+  document.getElementById('qfoot').innerHTML =
+    (f.remaining_s > 0
+      ? `Expected to finish about <b>${new Date(f.finish_at*1000)
+          .toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</b>. ` : 'Finished. ')
+    + `Estimated from this machine's own finished runs${rate ? ' \u2014 ' + rate : ''}, `
+    + `scheduled across ${f.n_gpu} card${f.n_gpu===1?'':'s'}.`;
+}
+
 function renderCompare(allRuns){
   const el = document.getElementById('compare');
 
@@ -988,6 +1145,8 @@ function renderCompare(allRuns){
 const EXP_QUESTIONS = {
   ladder: 'Does more Yoruba text help, if the compute is held fixed?',
   multi:  'At the same data and the same compute, how much does the language matter?',
+  eng:    'With compute held fixed, does more text keep helping — and does the bigger '
+          + 'model ever overtake the smaller one?',
   wikitext103: 'How do the older architectures do on the same English text?',
 };
 
@@ -1029,10 +1188,11 @@ function cellLabel(c, spread){
 }
 
 const EXP_NAMES = {ladder:'Yoruba data ladder', multi:'Five languages',
+                   eng:'English data ladder',
                    wikitext103:'WikiText-103 baselines',
                    batchtest:'Batch-size sweep', lrprobe:'Learning-rate sweep',
                    stabcheck:'Seed stability'};
-const LANG_NAMES = {eng:'English', fra:'French', ind:'Indonesian', cmn:'Mandarin',
+const LANG_NAMES = {eng:'English', eng_1b:'English', fra:'French', ind:'Indonesian', cmn:'Mandarin',
                     yor:'Yoruba', swh:'Swahili', hau:'Hausa', ibo:'Igbo'};
 
 const MY_VERSION = '__PAGE_VERSION__';
@@ -1042,6 +1202,7 @@ async function tick(){
     const d = await (await fetch('/api/', {cache:'no-store'})).json();
     document.getElementById('stale').hidden =
       !d.page_version || d.page_version === MY_VERSION;
+    renderQueue(d.fleet);
     document.getElementById('gpus').innerHTML = d.gpus.map(gpuCard).join('');
     // Runs still going get a full card. Everything finished collapses into one closed list --
     // on a busy day that is fifteen dead panels between you and the run you care about.

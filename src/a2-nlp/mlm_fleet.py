@@ -19,6 +19,7 @@ Watch it with:  python dashboard.py
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -29,6 +30,7 @@ import mlm_train
 HERE = os.path.dirname(os.path.abspath(__file__))
 PY = sys.executable
 LOGS = os.path.join(HERE, 'logs')
+RUNS_DIR = os.path.join(HERE, 'runs')
 
 # Each spec is (data_tokens, update_tokens, seed) or (data_tokens, update_tokens, seed, preset).
 #
@@ -152,8 +154,37 @@ def launch(spec, gpu, args):
     return {'base': base, 'gpu': gpu, 'proc': proc, 'log': log, 't0': time.time()}
 
 
+def write_plan(queue, args):
+    """Publish the whole queue so the dashboard can show what has not run yet.
+
+    Without this the queue exists only in this process's memory, so a watcher sees two runs in
+    flight and no way to tell whether that is the whole study or the first tenth of it. Only the
+    PLAN is written -- each cell's status is derived live by the dashboard from result files and
+    running processes, so this file never goes stale and never needs updating as cells finish.
+    """
+    cells = []
+    for spec in queue:
+        tokens, update_tokens, seed, preset = unpack(spec, args.preset)
+        cells.append({
+            'tag': spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
+            'tokens': tokens, 'update_tokens': update_tokens,
+            'steps': steps_for(update_tokens, args.batch, args.seq_len),
+            'preset': preset, 'seed': seed,
+        })
+    plan = {'corpus': args.corpus, 'queue': args.queue, 'batch': args.batch,
+            'seq_len': args.seq_len, 'n_gpu': args.n_gpu, 'started': time.time(),
+            'cells': cells}
+    os.makedirs(RUNS_DIR, exist_ok=True)
+    tmp = os.path.join(RUNS_DIR, '_fleet_plan.json.tmp')
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(plan, f, indent=2)
+    os.replace(tmp, os.path.join(RUNS_DIR, '_fleet_plan.json'))
+
+
 def run_fleet(args):
     queue = resolve_queue(args)
+    if not args.smoke:
+        write_plan(queue, args)
     print(f'\nFleet: {len(queue)} cells across {args.n_gpu} cards'
           f'{" (SMOKE)" if args.smoke else ""}')
     print(f'  batch {args.batch} x seq {args.seq_len} = {args.batch*args.seq_len:,} tok/step')
