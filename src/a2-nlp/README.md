@@ -1,9 +1,54 @@
-# A2 · NLP — When Does Attention Beat Recurrence?
+# A2 · NLP
 
-Part 2's model factory: parameter-matched LSTM and GPT language models raced across a ladder of
-data scales, measured by held-out perplexity. This folder duplicates the a1-cv factory files and
-adapts them from images/top-1 to tokens/perplexity; a1-cv itself is untouched. The proposal has
-the full study design; this README is *how to run it*.
+**Two studies live in this folder.** They share the token store, the scheduler, and the
+dashboard, which is why they are together — but they are separate work and it is easy to open
+the wrong one.
+
+| you are here for | start at |
+|---|---|
+| **The group's Yoruba study** — masked LM, from-scratch vs multilingual transfer | **[QUICKSTART.md](QUICKSTART.md)**, then [`mlm_api.py`](mlm_api.py) |
+| The causal LM study — LSTM vs GPT on WikiText, held-out perplexity | this README, below |
+
+## If you are Patrick or Leon, read this part
+
+The interface is **[`mlm_api.py`](mlm_api.py)**. That is the whole surface: nine functions, each
+documented in place, and nothing else in this folder needs to be imported to use the factory.
+
+```python
+import mlm_api as factory                       # from inside src/a2-nlp/
+
+factory.prepare_corpus('yor', lang='yor_Latn')   # once per language, cached on disk
+factory.pretrain('yor', tokens=16_000_000, steps=12_000)
+factory.results()                                # every finished run, as a list of dicts
+factory.curve('yor_16M_12k_s0')                  # one run's loss history
+```
+
+Two arguments worth knowing about early:
+
+- `pretrain(..., reuse=True)` is the default and returns the existing record if that exact cell
+  has already been trained. Re-running a notebook top to bottom costs nothing.
+- `prepare_corpus(..., tokenizer=...)` points a corpus at a shared vocabulary instead of training
+  a fresh one. Two people streaming the same web source do not receive identical documents, so
+  they get different BPEs and their losses stop being comparable. Pass a directory, a
+  `tokenizer.json`, or a hub id. `tokenizers/` has five committed vocabularies with fingerprints.
+
+[QUICKSTART.md](QUICKSTART.md) is the ten-minute version, written for a single GPU including a
+free Colab session — nothing here needs the two-card workstation. `POC_v4_factory.ipynb` is the
+group's own v3 notebook with its plumbing replaced by these calls, every change bracketed by
+`# BEGIN: factory` / `# END: factory` with the replaced code left commented underneath, so the
+diff is readable.
+
+Findings so far, with the methodology written out, are in **[reports/](reports/)** — start with
+[reports/README.md](reports/README.md), which is a one-page summary of all five.
+
+---
+
+## The causal LM study — When Does Attention Beat Recurrence?
+
+Parameter-matched LSTM and GPT language models raced across a ladder of data scales, measured by
+held-out perplexity. This part duplicates the a1-cv factory files and adapts them from
+images/top-1 to tokens/perplexity; a1-cv itself is untouched. The proposal has the full study
+design; what follows is *how to run it*.
 
 ## The pieces
 

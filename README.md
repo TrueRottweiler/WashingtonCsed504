@@ -63,6 +63,13 @@ runs the same stack whether they're on Windows, macOS, Linux, or Google Colab.
 
 If a hello notebook runs top-to-bottom without errors, your environment is ready.
 
+### Working on the A2 NLP study?
+
+Start at **[`src/a2-nlp/QUICKSTART.md`](src/a2-nlp/QUICKSTART.md)** — ten minutes, one GPU, works
+on free Colab. The factory's interface is [`src/a2-nlp/mlm_api.py`](src/a2-nlp/mlm_api.py) and
+nothing else needs importing. Findings and methodology are in
+[`src/a2-nlp/reports/`](src/a2-nlp/reports/).
+
 ---
 
 ## Prerequisites: install Anaconda / Miniconda

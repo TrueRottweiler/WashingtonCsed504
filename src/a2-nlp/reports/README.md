@@ -9,6 +9,8 @@ projection.
 | 01 | [What we're building](01-what-were-building.md) | What is the group's research question, what does the factory provide, and where are the data and hardware limits? Start here. |
 | 02 | [What the model actually learned](02-what-the-model-learned.md) | We trained a model — what did it *do*? Fill-in-the-blank predictions from the real checkpoint, what a loss of 2.886 means, and what the corpus does and doesn't contain. |
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
+| 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
+| 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute. Where the data axis saturates, what that implies for Yoruba, and whether the bigger model ever catches up. |
 
 ## The short version
 
@@ -23,6 +25,17 @@ projection.
   Convenient, since text is what they've run out of.
 - **The factory made the same work 2.07× faster** — 1.33× from batch size, the rest from using the
   second card at all — and the full study fits in 7.6 GPU-hours against a ~20 hour budget.
+- **Yoruba is under-served, not hard.** At matched data and compute, a from-scratch Yoruba model
+  gains 4.114 nats of context against English's 3.906 — measured after subtracting each corpus's
+  unigram entropy, since raw loss across two vocabularies compares nothing. Nothing about the
+  language resists modelling.
+- **A multilingual vocabulary is not inherently worse.** XLM-R costs English 1.04×, Indonesian
+  1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
+  penalty appears only where the language is under-represented, which is the group's thesis with
+  a control arm attached.
+- **The data axis saturates around 64M tokens** — and all of Yoruba is 69.1M. Past that, 16× more
+  English text buys 0.024 nats, half the seed spread. If that threshold transfers, the study
+  cannot rest on "there is too little Yoruba text"; it has to rest on tokenizer fit.
 
 ## The one that changes the study plan
 

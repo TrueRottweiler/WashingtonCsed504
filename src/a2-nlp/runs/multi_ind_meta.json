@@ -1,0 +1,20 @@
+{
+  "tag": "multi_ind",
+  "corpus": "ind",
+  "preset": "poc",
+  "steps": 12000,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 196608000,
+  "n_tokens": 50000000,
+  "lr": 0.0005,
+  "seed": 0,
+  "vocab_size": 16000,
+  "random_loss": 9.680344001221918,
+  "log_every": 200,
+  "started": 1785853636.693898,
+  "params": 33758848,
+  "nonemb_params": 25566848
+}
