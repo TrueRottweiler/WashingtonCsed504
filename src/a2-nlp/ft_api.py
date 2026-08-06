@@ -49,6 +49,22 @@ MASAKHANER IS READ FROM CoNLL, NOT load_dataset. The HuggingFace copy ships a cu
 script, and that path is no longer executed after the July 2026 incident. The files come from the
 masakhane-ner GitHub repo instead, and the loader records and prints the split sizes -- comparing
 against the published Table 4 baseline is only valid if they match.
+
+TEXT IS NFC-NORMALISED ON THE WAY IN, and that is not cosmetic. MasakhaNER ships in DECOMPOSED
+form: 17.1% of its characters vanish under NFC, because Yoruba tone marks are stored as separate
+combining codepoints. The committed 16k BPEs have no normalizer (they are byte-level, trained on
+FineWeb-2, which is precomposed), so on the raw files they see `náà` as five codepoints and cut
+it into four tokens instead of one. XLM-R does not care -- SentencePiece carries a precompiled
+charsmap that folds the difference away.
+
+The result was a measurement that reversed the study's central claim. Raw, yor-bpe16k spends 3.15
+tokens/word on MasakhaNER against XLM-R's 2.83, and 18.9% of sentences overflow a 128-token
+window against XLM-R's 11.8% -- the project's own tokenizer looking WORSE than the multilingual
+one, on the one dataset where the thesis says it should look best. Under NFC it is 1.67 against
+2.91, and 0.2% against 13.3%. Same data, same tokenizers, opposite conclusion.
+
+So `normalize` defaults to 'NFC', it is recorded on every result and encoded in the record tag,
+and normalize=None reproduces the pre-fix numbers rather than silently overwriting them.
 """
 from __future__ import annotations
 
@@ -58,6 +74,7 @@ import json
 import os
 import random
 import time
+import unicodedata
 import urllib.request
 
 import numpy as np
@@ -67,8 +84,10 @@ import torch.nn as nn
 import mlm_api as factory
 
 # Bumped when a call here changes shape or a default moves. Pin against it if a script must not
-# silently change behaviour: assert ft_api.API_VERSION == (1, 0)
-API_VERSION = (1, 0)
+# silently change behaviour: assert ft_api.API_VERSION == (1, 1)
+#   (1, 0)  extraction from POC_v4_factory.ipynb
+#   (1, 1)  NFC normalisation on by default; `normalize` added to the record and the tag
+API_VERSION = (1, 1)
 
 RUNS = factory.RUNS
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -100,6 +119,11 @@ N_BOOT = 500
 # than it needs to be.
 SUBSAMPLE_SEED = 12345
 
+# Unicode normalisation applied to every item before it reaches a tokenizer. See the module
+# docstring: on MasakhaNER this is the difference between the study's central claim holding and
+# reversing. None disables it and reproduces the pre-fix numbers.
+NORMALIZE = 'NFC'
+
 SIB_TEXT, SIB_LABEL = 'text', 'category'
 MASAKHANER_URL = ('https://raw.githubusercontent.com/masakhane-io/masakhane-ner/main'
                   '/MasakhaNER2.0/data/{lang}/{split}.txt')
@@ -127,7 +151,27 @@ def gpu_name() -> str:
 # data
 # ----------------------------------------------------------------------------------------------
 
-def load_sib200(lang: str = 'yor_Latn') -> dict:
+def _norm(s: str, form: str | None) -> str:
+    """Unicode-normalise one string. Word counts are unaffected -- normalisation composes
+    combining marks into precomposed characters, it never splits or joins words -- so a
+    normalised NER sentence still lines up with its tag sequence."""
+    return unicodedata.normalize(form, s) if form else s
+
+
+def decomposition_report(texts) -> dict:
+    """How much of this text is in decomposed form. A quick way to check a new corpus, or to
+    confirm the prepared pretraining corpus matches what the tokenizer was trained on.
+
+    `shrink` is the fraction of characters that disappear under NFC. Near 0 means precomposed
+    (FineWeb-2, SIB-200); MasakhaNER is 0.171.
+    """
+    s = ''.join(texts)
+    nfc = unicodedata.normalize('NFC', s)
+    return {'chars': len(s), 'chars_nfc': len(nfc), 'is_nfc': s == nfc,
+            'shrink': (len(s) - len(nfc)) / max(len(s), 1)}
+
+
+def load_sib200(lang: str = 'yor_Latn', normalize: str | None = NORMALIZE) -> dict:
     """SIB-200 topic classification for one language.
 
     Returns {'train'/'validation'/'test': {'text': [...], 'label': [...]}, 'labels': [...]}.
@@ -135,8 +179,9 @@ def load_sib200(lang: str = 'yor_Latn') -> dict:
     across languages -- a model fine-tuned in one notebook and scored in another agrees about
     what class 3 is.
     """
-    if lang in _SIB_CACHE:
-        return _SIB_CACHE[lang]
+    key = (lang, normalize)
+    if key in _SIB_CACHE:
+        return _SIB_CACHE[key]
 
     from datasets import load_dataset
 
@@ -144,15 +189,17 @@ def load_sib200(lang: str = 'yor_Latn') -> dict:
     labels = sorted(set(ds['train'][SIB_LABEL]))
     l2i = {l: i for i, l in enumerate(labels)}
 
-    out = {'labels': labels, 'lang': lang, 'task': 'sib200'}
+    out = {'labels': labels, 'lang': lang, 'task': 'sib200', 'normalize': normalize}
     for split in ('train', 'validation', 'test'):
         if split in ds:
-            out[split] = {'text': list(ds[split][SIB_TEXT]),
+            out[split] = {'text': [_norm(t, normalize) for t in ds[split][SIB_TEXT]],
                           'label': [l2i[l] for l in ds[split][SIB_LABEL]]}
     sizes = ' '.join(f'{s} {len(out[s]["text"])}' for s in ('train', 'validation', 'test')
                      if s in out)
-    print(f'sib200/{lang}: {sizes} | {len(labels)} classes (chance {1/len(labels):.3f})')
-    _SIB_CACHE[lang] = out
+    dec = decomposition_report(ds['train'][SIB_TEXT])
+    print(f'sib200/{lang}: {sizes} | {len(labels)} classes (chance {1/len(labels):.3f}) '
+          f'| {dec["shrink"]:.1%} decomposed -> {normalize}')
+    _SIB_CACHE[key] = out
     return out
 
 
@@ -177,7 +224,7 @@ def _parse_conll(text: str) -> tuple[list[list[str]], list[list[str]]]:
     return tokens, tags
 
 
-def load_masakhaner(lang: str = 'yor') -> dict:
+def load_masakhaner(lang: str = 'yor', normalize: str | None = NORMALIZE) -> dict:
     """MasakhaNER 2.0 for one language, read from the project's CoNLL files.
 
     NOT via load_dataset: that copy ships a custom loading script and HuggingFace no longer
@@ -187,8 +234,9 @@ def load_masakhaner(lang: str = 'yor') -> dict:
     The split sizes are printed and stored on the record. The comparison against MasakhaNER 2.0
     Table 4 is only valid if they match the published ones -- for Yoruba, 6,876 / 983 / 1,964.
     """
-    if lang in _NER_CACHE:
-        return _NER_CACHE[lang]
+    key = (lang, normalize)
+    if key in _NER_CACHE:
+        return _NER_CACHE[key]
 
     cache = os.path.join(DATA, 'masakhaner', lang)
     os.makedirs(cache, exist_ok=True)
@@ -209,13 +257,18 @@ def load_masakhaner(lang: str = 'yor') -> dict:
     names = ['O'] + [t for t in seen if t != 'O']    # 'O' is id 0 by construction
     t2i = {t: i for i, t in enumerate(names)}
 
-    out = {'tags': names, 'lang': lang, 'task': 'masakhaner'}
+    out = {'tags': names, 'lang': lang, 'task': 'masakhaner', 'normalize': normalize}
     for split, (toks, tags) in raw.items():
-        out[split] = {'tokens': toks, 'ner_tags': [[t2i[t] for t in row] for row in tags]}
+        out[split] = {'tokens': [[_norm(w, normalize) for w in s] for s in toks],
+                      'ner_tags': [[t2i[t] for t in row] for row in tags]}
 
     sizes = ' '.join(f'{s} {len(out[s]["tokens"])}' for s in ('train', 'validation', 'test'))
+    dec = decomposition_report(' '.join(s) for s in raw['train'][0])
     print(f'masakhaner2/{lang}: {sizes} | {len(names)} tags {names}')
-    _NER_CACHE[lang] = out
+    action = f'normalising to {normalize}' if normalize else 'LEFT AS-IS (normalize=None)'
+    print(f'  {dec["shrink"]:.1%} of characters are decomposed -> {action}'
+          + ('  (see the module docstring -- this one matters)' if dec['shrink'] > 0.02 else ''))
+    _NER_CACHE[key] = out
     return out
 
 
@@ -516,18 +569,23 @@ def _slug(model_path: str) -> str:
 
 
 def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: float,
-               steps: int) -> str:
+               steps: int, normalize: str | None = NORMALIZE) -> str:
     """The record's name. Everything that changes the number is in it, so two conditions cannot
-    overwrite each other and a sweep does not silently keep only its last cell."""
+    overwrite each other and a sweep does not silently keep only its last cell.
+
+    Normalisation is in the tag because it moves MasakhaNER fertility by 47% -- an NFC run and a
+    raw run are different measurements and must not land on the same file.
+    """
     n = 'full' if n_train is None else str(n_train)
-    return f'ft_{task}_{lang}_{_slug(model_path)}_n{n}_lr{lr:g}_st{steps}'
+    return (f'ft_{task}_{lang}_{_slug(model_path)}_n{n}_lr{lr:g}_st{steps}'
+            f'_{(normalize or "raw").lower()}')
 
 
 def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
              lr: float | None = None, seeds=SEEDS, steps: int | None = None,
              n_train: int | None = None, batch: int = FT_BATCH, max_length: int = MAX_LEN,
              label: str = '', n_boot: int = N_BOOT, reuse: bool = True,
-             data: dict | None = None) -> dict:
+             data: dict | None = None, normalize: str | None = NORMALIZE) -> dict:
     """Fine-tune over seeds, score, bootstrap, write runs/<tag>_ft.json, return the record.
 
     This is the call every notebook makes. reuse=True returns the existing record rather than
@@ -542,8 +600,12 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     if steps is None:
         steps = FT_STEPS if task == 'sib200' else NER_STEPS
     seeds = list(seeds)
+    # If a caller passed pre-loaded data, ITS normalisation is the one that applies -- otherwise
+    # the record would claim NFC while the tensors came from raw text.
+    if data is not None:
+        normalize = data.get('normalize', normalize)
 
-    tag = record_tag(model_path, task, lang, n_train, lr, steps)
+    tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize)
     path = os.path.join(RUNS, f'{tag}_ft.json')
     if reuse and os.path.exists(path):
         with open(path, encoding='utf-8') as f:
@@ -554,12 +616,12 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
             return rec
 
     if task == 'sib200':
-        data = data or load_sib200(lang)
+        data = data or load_sib200(lang, normalize=normalize)
         k = len(data['labels'])
         score_fn = lambda g, p: macro_f1(g, p, k)       # noqa: E731 - closes over k
         metric = 'macro_f1'
     else:
-        data = data or load_masakhaner(lang)
+        data = data or load_masakhaner(lang, normalize=normalize)
         score_fn = entity_f1
         metric = 'entity_f1'
 
@@ -582,6 +644,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         'model': model_path, 'model_slug': _slug(model_path),
         'n_train': used, 'n_train_requested': n_train, 'n_test': len(gold),
         'steps': steps, 'batch': batch, 'lr': lr, 'max_length': max_length,
+        'normalize': normalize,
         'seeds': seeds, 'scores': scores,
         'mean': mean, 'sd': sd, 'ci': [lo, hi],
         'seconds_per_seed': float(np.mean(secs)), 'n_boot': n_boot,
@@ -630,9 +693,10 @@ def table(pattern: str = '*', task: str | None = None, lang: str | None = None) 
     if not rows:
         print('no fine-tuning records yet')
         return rows
-    print(f'{"model":<26}{"task":<13}{"n_train":>8}{"lr":>8}{"steps":>7}'
+    print(f'{"model":<26}{"task":<13}{"n_train":>8}{"lr":>8}{"steps":>7}{"norm":>6}'
           f'{"score":>8}{"sd":>7}   95% CI')
     for r in rows:
         print(f'{r["label"]:<26}{r["task"]:<13}{r["n_train"]:>8}{r["lr"]:>8.0e}{r["steps"]:>7}'
+              f'{str(r.get("normalize") or "raw"):>6}'
               f'{r["mean"]:>8.3f}{r["sd"]:>7.3f}   [{r["ci"][0]:.3f}, {r["ci"][1]:.3f}]')
     return rows
