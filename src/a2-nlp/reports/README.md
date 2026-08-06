@@ -68,6 +68,14 @@ to 65,536 tokens per step moved the 16M rung from 5.494 to 5.342 — 0.15 agains
 and converged on the plateau just the same. Larger batches help in the expected direction and
 by nowhere near enough.
 
+## The seed spread is not one number
+
+**0.049 is the 33.8M model's spread. The 86M model's is 1.327** — 27× larger, measured over three
+seeds at two rungs of the English ladder. Anything comparing two 86M cells needs to clear that,
+and most of what we have measured does not. It is not the learning-rate collapse of report 03:
+all six seeds were still descending: they differ in *when* they break through the unigram
+plateau, and at 62,500 steps some have barely started.
+
 ## Two things not to quote yet
 
 - **XLM-R's 0.127 on topic classification** is almost certainly a fine-tuning failure, not a

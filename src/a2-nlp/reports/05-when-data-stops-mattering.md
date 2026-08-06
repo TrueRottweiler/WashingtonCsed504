@@ -32,7 +32,11 @@ undertraining rather than a verdict on capacity.
 
 Corpus: 1,096,781,996 tokens of FineWeb-Edu, tokenized with the committed `eng-bpe16k`
 (fingerprint `7820319faa75`), so these are directly comparable with the `multi_eng` run in
-[report 04](04-the-language-gradient.md). One seed per cell.
+[report 04](04-the-language-gradient.md).
+
+**One seed per cell, and that matters unevenly.** The 33.8M column is reproducible to ±0.049.
+The 86M column is not: seeding two of its cells three times each (§4) gives a spread of **1.327**,
+so read that column as one draw per rung rather than as a measurement.
 
 ---
 
@@ -46,6 +50,10 @@ Marginal gain from each 4× increase in data, at fixed compute:
 | 16M → 64M | +0.144 | −0.078 |
 | 64M → 256M | **+0.007** | +0.382 |
 | 256M → 1024M | **+0.017** | +0.321 |
+
+The 86M column is differences between single draws from a distribution whose spread is 1.327
+(§4). Its −0.078 in particular is the inversion that disappeared under seeding. Only the 33.8M
+column is read below.
 
 For the 33.8M model the data axis is spent by the time you *reach* 64M tokens. Beyond that point
 **a sixteen-fold increase in unique text buys 0.024 nats** — half the 0.049 seed spread measured
@@ -116,6 +124,9 @@ Yoruba, because there is no more Yoruba.
 
 ## 4. The bigger model still has not crossed over
 
+*Read this section against the seed measurement at the end of it — the single-seed numbers below
+turn out to sit inside a spread far larger than the differences they describe.*
+
 The 86M model loses at every rung. It has lost at every rung of every ladder run so far.
 
 But it is the only one still improving. Its last two steps gained 0.382 and 0.321 nats while the
@@ -132,12 +143,42 @@ justified by anything measured.
 the negative AfriBERTa result in the group's study is explained by budget rather than by
 architecture, which is a materially different claim from "the bigger model does not work".
 
-### One number that does not fit
+### The seed check, and what it cost this section
 
-The 86M model scores **3.278 at 64M tokens and 3.200 at 16M** — worse with four times the data,
-the only inversion in either column. Single seed, so it cannot be separated from noise, though it
-is larger than the 0.049 spread we have measured elsewhere. It should be repeated before it
-appears in any writeup. I have not repeated it.
+The paragraphs above were written from one seed per cell. The 86M model scored 3.278 at 64M
+tokens against 3.200 at 16M — worse with four times the data, the only inversion in either
+column — and that was flagged as needing a repeat. Repeating it changed more than the inversion.
+
+Three seeds per cell, 86M model, same 1.024B tokens of updates:
+
+| unique tokens | s0 | s1 | s2 | mean | sd |
+|---|---|---|---|---|---|
+| 16M | 3.200 | 3.760 | 5.661 | 4.207 | **1.290** |
+| 64M | 3.278 | 2.818 | 5.376 | 3.824 | **1.363** |
+
+**The inversion is gone** — 64M now comes out 0.383 *better* than 16M, the expected direction. It
+was noise.
+
+**The noise is the finding.** The seed spread within a single 86M cell is **1.327 nats**. The
+figure this project has been using as its significance threshold is 0.049, measured on the 33.8M
+model, and it is **27× too small for this preset.** Everything in this section that compares one
+86M rung to another was reading differences of 0.3–0.4 against a spread four times larger.
+
+What survives:
+
+- **The 86M model loses badly to 33.8M.** 4.207 against 2.361 at 16M, 3.824 against 2.217 at 64M.
+  That gap is larger than the spread and is not in doubt.
+- **It is undertrained rather than broken.** All six seeds were still descending at 62,500 steps —
+  none had flattened onto the plateau, so this is not the learning-rate collapse of
+  [report 03](03-efficiency.md) §6d. The seeds differ in *when* they break through the unigram
+  plateau, and at this budget some have barely started.
+
+What does not survive: **"the gap closes monotonically, 0.839 → 0.686 → 0.382"** and **"it is the
+only one still improving"** as quantitative claims. Both were computed from single seeds of a
+distribution with sd 1.3. The direction may well be right; the numbers cannot carry the weight
+this section put on them, and the 256M and 1024M rungs have not been re-seeded at all.
+
+Treat the whole 86M column of §1 as one draw each, not as measurements.
 
 ---
 
@@ -159,8 +200,12 @@ two languages rather than assumed from one, and they agree to within half the se
 the step that shows the curve going flat (64M → 256M) exists only in English, and no amount of
 work will make it exist in Yoruba.
 
-Every cell is a single seed. The seed spread we rely on for significance (0.049) was measured on
-a different corpus at a different budget.
+The 0.049 seed spread this project quotes for significance was measured on the **33.8M** model.
+§4 shows it is 1.327 on the 86M preset — 27× larger — so it is a per-preset property and not a
+constant. Every claim about 33.8M cells still stands on it; no claim about 86M cells does.
+
+Every 33.8M cell here is a single seed, and only the 16M and 64M cells of the 86M column have
+been seeded at all.
 
 No fine-tuning here — this is pretraining loss only, and the group's headline comparison is a
 downstream task score. A model that wins on validation loss has not thereby been shown to win on

@@ -183,6 +183,14 @@ def results(pattern: str = '*', include_smoke: bool = False) -> list[dict]:
 
     The history stays in the JSON on disk; this returns the one-row-per-run summary that a table
     or a scatter wants. Pass a glob to narrow it, e.g. results('yor_*').
+
+    Each row merges `<tag>_meta.json` under `<tag>_result.json`. The result file records what the
+    run achieved and the meta file records what it WAS -- which corpus, which preset, which seed
+    -- and without the merge no row said what language it trained on or what size the model was.
+    Every consumer then had to re-derive that from the tag, and the results notebook drew the
+    86M and 33.8M runs at one rung as a single series because it could not tell them apart.
+
+    The result wins on conflict: meta is written when the run starts, the result when it ends.
     """
     rows = []
     for path in sorted(glob.glob(os.path.join(RUNS, f'{pattern}_result.json'))):
@@ -196,8 +204,39 @@ def results(pattern: str = '*', include_smoke: bool = False) -> list[dict]:
             continue
         if 'steps' not in rec:      # a causal run from the LSTM-vs-GPT study; not this grid
             continue
-        rows.append({k: v for k, v in rec.items() if k != 'history'})
+
+        meta = {}
+        meta_path = path[:-len('_result.json')] + '_meta.json'
+        try:
+            with open(meta_path, encoding='utf-8') as f:
+                meta = json.load(f)
+        except (OSError, ValueError):
+            pass                    # a run from before meta files existed; the row is thinner
+
+        row = {k: v for k, v in meta.items() if k != 'history'}
+        row.update({k: v for k, v in rec.items() if k != 'history'})
+        row.setdefault('tag', base[:-len('_result.json')])
+        if not row.get('corpus'):
+            row['corpus'] = _corpus_from_tag(row['tag'])
+        rows.append(row)
     return rows
+
+
+def _corpus_from_tag(tag: str) -> str | None:
+    """Recover which corpus a run used from its name, for runs written before meta files existed.
+
+    Matched against the corpora actually prepared on this machine, longest name first, rather
+    than by splitting on underscores -- a corpus name can contain one (`eng_1b`), so splitting
+    would report the corpus as `eng` and silently merge two different studies.
+    """
+    prepared = sorted(
+        (os.path.basename(os.path.dirname(p))
+         for p in glob.glob(os.path.join(_data.P.out_dir('*'), 'stats.json'))),
+        key=len, reverse=True)
+    for name in prepared:
+        if tag == name or tag.startswith(name + '_'):
+            return name
+    return None
 
 
 def curve(tag: str) -> list[dict]:
