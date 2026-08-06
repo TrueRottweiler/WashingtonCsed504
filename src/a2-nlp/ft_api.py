@@ -84,11 +84,12 @@ import torch.nn as nn
 import mlm_api as factory
 
 # Bumped when a call here changes shape or a default moves. Pin against it if a script must not
-# silently change behaviour: assert ft_api.API_VERSION == (1, 2)
+# silently change behaviour: assert ft_api.API_VERSION == (1, 3)
 #   (1, 0)  extraction from POC_v4_factory.ipynb
 #   (1, 1)  NFC normalisation on by default; `normalize` added to the record and the tag
 #   (1, 2)  max_length added to the tag -- 128 and 256 runs were colliding
-API_VERSION = (1, 2)
+#   (1, 3)  chance / degenerate recorded for classification cells
+API_VERSION = (1, 3)
 
 RUNS = factory.RUNS
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -254,7 +255,7 @@ def load_masakhaner(lang: str = 'yor', normalize: str | None = NORMALIZE) -> dic
         with open(path, encoding='utf-8') as f:
             raw[split] = _parse_conll(f.read())
 
-    seen = sorted({t for toks, tags in raw.values() for row in tags for t in row})
+    seen = sorted({t for _, tags in raw.values() for row in tags for t in row})
     names = ['O'] + [t for t in seen if t != 'O']    # 'O' is id 0 by construction
     t2i = {t: i for i, t in enumerate(names)}
 
@@ -642,6 +643,14 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     lo, hi = pooled_ci(score_fn, gold, preds, n_boot=n_boot)
     mean, sd = float(np.mean(scores)), float(np.std(scores))
 
+    # Chance for balanced macro-F1 is 1/k. A cell at or below it has not learned the task, and
+    # its score is a fact about the optimiser rather than about the model's Yoruba -- the seed
+    # spread on such a cell is usually larger than any difference anyone wants to report from
+    # it. Worth saying out loud, because 0.073 and 0.127 look like small numbers rather than
+    # like the same non-result twice.
+    chance = 1.0 / len(data['labels']) if task == 'sib200' else None
+    degenerate = chance is not None and mean <= chance
+
     rec = {
         'tag': tag, 'label': label or _slug(model_path),
         'task': task, 'lang': lang, 'metric': metric,
@@ -651,6 +660,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         'normalize': normalize,
         'seeds': seeds, 'scores': scores,
         'mean': mean, 'sd': sd, 'ci': [lo, hi],
+        'chance': chance, 'degenerate': degenerate,
         'seconds_per_seed': float(np.mean(secs)), 'n_boot': n_boot,
         'gpu': gpu_name(), 'ft_api_version': list(API_VERSION),
         'created': _dt.datetime.now().isoformat(timespec='seconds'),
@@ -662,6 +672,11 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
 
     print(f'  {rec["label"]:<26} {metric} {mean:.3f} +/-{sd:.3f} (seed sd) '
           f'| 95% CI [{lo:.3f}, {hi:.3f}] | n_train {used} | {np.mean(secs):.0f}s/seed')
+    if degenerate:
+        print(f'    AT OR BELOW CHANCE ({chance:.3f}) — this cell did not learn the task. '
+              f'Per-seed {[round(s, 3) for s in scores]}.\n'
+              f'    Do not read it as a coverage result, and do not compare it with anything: '
+              f'a collapsed run\n    moves further between reruns than any effect being tested.')
     return rec
 
 
