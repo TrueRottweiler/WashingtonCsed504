@@ -84,10 +84,11 @@ import torch.nn as nn
 import mlm_api as factory
 
 # Bumped when a call here changes shape or a default moves. Pin against it if a script must not
-# silently change behaviour: assert ft_api.API_VERSION == (1, 1)
+# silently change behaviour: assert ft_api.API_VERSION == (1, 2)
 #   (1, 0)  extraction from POC_v4_factory.ipynb
 #   (1, 1)  NFC normalisation on by default; `normalize` added to the record and the tag
-API_VERSION = (1, 1)
+#   (1, 2)  max_length added to the tag -- 128 and 256 runs were colliding
+API_VERSION = (1, 2)
 
 RUNS = factory.RUNS
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -569,16 +570,19 @@ def _slug(model_path: str) -> str:
 
 
 def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: float,
-               steps: int, normalize: str | None = NORMALIZE) -> str:
-    """The record's name. Everything that changes the number is in it, so two conditions cannot
+               steps: int, normalize: str | None = NORMALIZE,
+               max_length: int = MAX_LEN) -> str:
+    """The record's name. EVERY setting that moves the number is in it, so two conditions cannot
     overwrite each other and a sweep does not silently keep only its last cell.
 
-    Normalisation is in the tag because it moves MasakhaNER fertility by 47% -- an NFC run and a
-    raw run are different measurements and must not land on the same file.
+    Two of these are easy to leave out and both bite. Normalisation moves MasakhaNER fertility by
+    47%. And max_length decides whether 13.3% of MasakhaNER is truncated under XLM-R (at 128) or
+    0.0% (at 256) -- with reuse=True, a tag missing it would hand back the 128 record when asked
+    for the 256 one, which is worse than a collision because it looks like a result.
     """
     n = 'full' if n_train is None else str(n_train)
     return (f'ft_{task}_{lang}_{_slug(model_path)}_n{n}_lr{lr:g}_st{steps}'
-            f'_{(normalize or "raw").lower()}')
+            f'_L{max_length}_{(normalize or "raw").lower()}')
 
 
 def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
@@ -605,7 +609,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     if data is not None:
         normalize = data.get('normalize', normalize)
 
-    tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize)
+    tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize, max_length)
     path = os.path.join(RUNS, f'{tag}_ft.json')
     if reuse and os.path.exists(path):
         with open(path, encoding='utf-8') as f:
