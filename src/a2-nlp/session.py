@@ -15,10 +15,17 @@ Usage — put this stub at the top of any new notebook and nothing else:
 
     import os, sys
     REPO = '/content/WashingtonCsed504'
+    FORK = 'https://github.com/<your-user>/WashingtonCsed504.git'   # YOUR fork, not upstream
     if not os.path.exists(REPO):
-        !git clone -q https://github.com/patlkwok/WashingtonCsed504.git {REPO}
+        !git clone -q {FORK} {REPO}
     sys.path.insert(0, f'{REPO}/src/a2-nlp')
     import session; factory = session.start()
+
+The URL is on its own line because it is the one part of the stub that differs per person, and
+getting it wrong is quiet rather than loud. Clone YOUR fork, not upstream: the runtime executes
+whatever it cloned, so code you pushed to your own fork simply is not there if the runtime cloned
+someone else's. `start()` runs `git pull` against that same clone, which is how an edit made on
+your laptop reaches the kernel.
 
 Options:
     session.start(corpus='fra')            # a different corpus
@@ -26,8 +33,8 @@ Options:
     session.start(prepare=False)    # fine-tuning only, no pretraining corpus needed
     session.start(pull=False)       # skip git pull (faster, but you may be running stale code)
 
-This is a local working file. It is committed to the fork so that the runtime's clone
-includes it, but it is not part of the upstream project and should not be sent there.
+This is setup infrastructure rather than study code, but it is tracked and shared: the runtime
+gets it by cloning, and every notebook imports it.
 """
 
 from __future__ import annotations
