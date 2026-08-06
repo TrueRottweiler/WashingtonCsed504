@@ -205,6 +205,14 @@ text does nothing measurable until there is enough training to use it.
 the *less* valuable axis at this budget. Spending on more training buys far more than scraping
 for more text would — fortunate, because there is no more text to scrape.
 
+> **Later measurement, stronger than this one.** This section infers that text is the cheaper
+> axis from a grid that was compute-bound, which is weak evidence — the data axis was never really
+> under test. [Report 05](05-when-data-stops-mattering.md) tests it properly, at fixed compute
+> across a 256× span of data, in English and then in Yoruba. The conclusion holds and the reason
+> is better: past roughly 64M tokens more text buys nothing measurable, and Yoruba's entire 69.1M
+> sits at the bottom of that band. Scarce, yes — but scarce in a way that costs less than this
+> section assumed.
+
 > ### ⚠ Honest caveat
 > The seed spread above was measured on one cell (three seeds) and assumed to characterise the
 > others. The pretraining differences clear it comfortably. The **downstream** differences do

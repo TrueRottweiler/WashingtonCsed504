@@ -22,7 +22,8 @@ projection.
 - **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7
   against a measured seed spread of 0.049 — 45–56× the noise. More *text* does nothing measurable
   until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
-  Convenient, since text is what they've run out of.
+  Convenient, since text is what they've run out of — and [report 05](05-when-data-stops-mattering.md)
+  shows the text they lack would have bought almost nothing anyway.
 - **The factory made the same work 2.07× faster** — 1.33× from batch size, the rest from using the
   second card at all — and the full study fits in 7.6 GPU-hours against a ~20 hour budget.
 - **Yoruba is under-served, not hard.** At matched data and compute, a from-scratch Yoruba model
