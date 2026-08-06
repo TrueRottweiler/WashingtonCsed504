@@ -10,7 +10,7 @@ projection.
 | 02 | [What the model actually learned](02-what-the-model-learned.md) | We trained a model — what did it *do*? Fill-in-the-blank predictions from the real checkpoint, what a loss of 2.886 means, and what the corpus does and doesn't contain. |
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
-| 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute. Where the data axis saturates, what that implies for Yoruba, and whether the bigger model ever catches up. |
+| 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
 
 ## The short version
 
@@ -33,9 +33,11 @@ projection.
   1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
-- **The data axis saturates around 64M tokens** — and all of Yoruba is 69.1M. Past that, 16× more
-  English text buys 0.024 nats, half the seed spread. If that threshold transfers, the study
-  cannot rest on "there is too little Yoruba text"; it has to rest on tokenizer fit.
+- **The data axis saturates between 64M and 256M tokens** — and all of Yoruba is 69.1M. Past 64M,
+  16× more English text buys 0.024 nats, half the seed spread. Checked in Yoruba rather than
+  assumed: the two curves agree to within 0.025 nats at the one step both languages can take, so
+  the text Yoruba lacks is probably worth about as little. The study cannot rest on "there is too
+  little Yoruba text"; it has to rest on tokenizer fit.
 
 ## The one that changes the study plan
 
