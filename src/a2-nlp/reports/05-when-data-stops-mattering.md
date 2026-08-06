@@ -47,34 +47,74 @@ Marginal gain from each 4× increase in data, at fixed compute:
 | 64M → 256M | **+0.007** | +0.382 |
 | 256M → 1024M | **+0.017** | +0.321 |
 
-For the 33.8M model the data axis is finished by 64M tokens. Beyond that, **a sixteen-fold
-increase in unique text buys 0.024 nats** — half the 0.049 seed spread measured on the Yoruba
-ladder. It is not a small effect; it is not an effect.
+For the 33.8M model the data axis is spent by the time you *reach* 64M tokens. Beyond that point
+**a sixteen-fold increase in unique text buys 0.024 nats** — half the 0.049 seed spread measured
+on the Yoruba ladder. It is not a small effect; it is not an effect.
+
+The distinction matters and the next subsection turns on it: arriving at 64M is still worth
++0.144, but going anywhere past it is worth nothing.
 
 So the Yoruba ladder's conclusion was right, and right for a reason it could not see. Data does
 stop mattering. It stops mattering at a threshold, and past that threshold the loss is set by
 compute and capacity alone.
 
-### What this says about Yoruba
+### Where the saturation point actually is
 
-The saturation point for this model at this budget is **around 64M tokens. All of Yoruba is
-69.1M.**
+An earlier draft of this report put it "around 64M tokens", which was too tidy. The 64M rung is
+where the *deceleration* is obvious, not where the curve flattens. English still gained **+0.144**
+going from 16M to 64M — 2.9× the 0.049 seed spread, so a real gain — and only went flat on the
+step after, at +0.007.
 
-If that threshold transfers, the group's language is not data-starved at the budgets anyone here
-is training at. It sits just past the point where more text would have stopped helping anyway.
-That reframes the study's central claim: the case for from-scratch Yoruba pretraining cannot rest
-on *"there is too little Yoruba text"*, because at these compute budgets there is enough. It has
-to rest on the tokenizer-fit argument in [report 04](04-the-language-gradient.md) §4, where
-Yoruba pays XLM-R a 1.65× penalty that no other language in the set pays.
-
-That is a **transfer assumption and it has not been tested.** The honest version is that the
-threshold was measured in English at one model size and one compute budget. Running two Yoruba
-rungs at this compute budget — 16M and 64M at 1.024B updates — would confirm or kill it for about
-ninety minutes of GPU time, and it is the single highest-value experiment left.
+**The saturation point is somewhere between 64M and 256M tokens.** That matters for Yoruba,
+because all of Yoruba is 69.1M — which lands at the bottom of that band rather than past it.
 
 ---
 
-## 3. The bigger model still has not crossed over
+## 3. The Yoruba check
+
+The claim above was a transfer assumption, so it got tested. Three Yoruba rungs at the same
+budget as the English ladder — 33.8M model, 1.024B tokens of updates, 62,500 steps:
+
+| unique tokens | Yoruba | English |
+|---|---|---|
+| 4M | 4.128 | 3.284 |
+| 16M | 2.484 | 2.361 |
+| 64M | **2.315** | **2.217** |
+
+Absolute losses across the two columns are **not** comparable — different corpora, different 16k
+vocabularies. What compares is the shape:
+
+| step | Yoruba | English |
+|---|---|---|
+| 4M → 16M | +1.644 | +0.923 |
+| 16M → 64M | **+0.169** | **+0.144** |
+| 64M → 256M | *(no such rung exists)* | +0.007 |
+
+**The curves track each other closely.** At the one step where both languages can be measured,
+they differ by 0.025 nats — half the seed spread. Yoruba decelerates on the same schedule English
+does, from a steeper start.
+
+Two conclusions, and they are not the same strength:
+
+**Supported: Yoruba is not badly data-starved.** English's next step after 64M was worth +0.007 —
+nothing. Since the two curves agree to within noise at 64M, the text Yoruba does not have is very
+probably worth about as little. The group's case cannot rest on *"there is too little Yoruba
+text"*; at these compute budgets, having more would buy almost nothing. It has to rest on the
+tokenizer-fit argument in [report 04](04-the-language-gradient.md) §4, where Yoruba pays XLM-R a
+1.65× penalty no other language in the set pays.
+
+**Not supported: that Yoruba has saturated.** It is still gaining **+0.169 at 64M**, which is 3.4×
+the seed spread. So Yoruba sits just *below* the flattening point, taking the last measurable
+gain, with no ability to take the step that would confirm the curve has gone flat. The earlier
+phrasing — "it sits just past the point where more text would have stopped helping" — was wrong,
+and this replaces it.
+
+The remaining gap is an extrapolation of one step in one language. It cannot be closed with more
+Yoruba, because there is no more Yoruba.
+
+---
+
+## 4. The bigger model still has not crossed over
 
 The 86M model loses at every rung. It has lost at every rung of every ladder run so far.
 
@@ -101,7 +141,7 @@ appears in any writeup. I have not repeated it.
 
 ---
 
-## 4. What this cost
+## 5. What this cost
 
 Ten cells, both cards, no failures. 86M cells ran ~93 min each at 184k tokens/sec; 33.8M cells
 ~40–52 min at 408k. Total wall clock about six hours.
@@ -114,8 +154,10 @@ rates were measured before committing to the run rather than estimated after it.
 
 ## What this does not settle
 
-The saturation threshold is one model size, one compute budget, one language. It is stated above
-as a transfer assumption precisely because it is one.
+The saturation threshold is one model size and one compute budget. It has now been measured in
+two languages rather than assumed from one, and they agree to within half the seed spread — but
+the step that shows the curve going flat (64M → 256M) exists only in English, and no amount of
+work will make it exist in Yoruba.
 
 Every cell is a single seed. The seed spread we rely on for significance (0.049) was measured on
 a different corpus at a different budget.

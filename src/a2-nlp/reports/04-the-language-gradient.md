@@ -159,6 +159,10 @@ That is a stronger statement than the single-language study can make. It separat
 hard"* from *"Yoruba is under-served"* — and the answer is the second one. Nothing about the
 language resists modelling. What is scarce is text.
 
+How much that scarcity actually costs is measured in [report 05](05-when-data-stops-mattering.md)
+§3, and the answer is: less than it sounds. At these compute budgets the text Yoruba does not
+have would have bought almost nothing.
+
 ### The units caveat, which is not small
 
 Matching on tokens means **not** matching on text. Applying §2's chars/token to the shared 50M
