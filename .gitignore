@@ -256,4 +256,6 @@ hpo_outputs/
 src/a1-cv/hpo_outputs/
 *.db-wal
 *.db-shm
-runs/_fleet_plan.json
+# The fleet's in-flight queue. Transient state for the dashboard, not a result --
+# it describes whatever run happens to be going right now.
+**/runs/_fleet_plan.json
