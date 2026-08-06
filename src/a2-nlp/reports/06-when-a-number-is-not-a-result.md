@@ -8,10 +8,12 @@ group's claim is a downstream score. Every finding in
 loss-space, on a project that has twice caught validation loss failing to predict fine-tuned
 quality.
 
-This note is the first pass at closing that gap. It did not get as far as new results, because it
-found something first: **two of the four numbers the study quotes downstream were not measurements
-of what they appear to measure.** One is a baseline that never trained. The other is a tokenizer
-comparison run on text in the wrong Unicode normalisation form, which reversed its own conclusion.
+This note is the first pass at closing that gap. Five downstream cells are now recorded, with
+seeds and pooled bootstrap intervals, in `runs/ft_*.json`. But the headline is not the new
+numbers — it is that **two of the numbers the study already quotes downstream were not
+measurements of what they appear to measure.** One is a baseline that never trained. The other is
+a tokenizer comparison run on text in the wrong Unicode normalisation form, which reversed its own
+conclusion.
 
 Both are fixed. The thesis survives one of them and is strengthened by the other.
 
@@ -75,10 +77,34 @@ decimal places. The third, at 0.105, sits in the two-to-three-class range.
 
 All three seeds score below uniform random guessing. Nothing was learned in any of them.
 
+**It also scores below the untrained control.** Random init on the same task, same harness, three
+seeds, is **0.107** — reproducing the ~0.10 already on record. A fully pretrained multilingual
+encoder is finishing below an untrained one, which is as clear as this gets: 0.127 was never a
+measurement of XLM-R's Yoruba coverage.
+
 This is not a property of the harness. mmBERT, through the identical code path, lands at
 0.507–0.558 across the same seeds, and reproduces the notebook's 0.537 to within 0.011. The
 failure is model-specific and looks like the textbook degenerate fine-tune, where a freshly
 initialised classification head never receives usable gradient.
+
+### The confidence interval does not catch this
+
+The project's stated practice is to lean on pooled bootstrap CIs. On this failure mode they are
+worse than useless:
+
+| cell | 95% CI | width |
+|---|---|---|
+| XLM-R, SIB-200 — collapsed | [0.062, 0.084] | **0.022** |
+| mmBERT, SIB-200 — learned | [0.461, 0.581] | **0.120** |
+
+The collapsed run's interval is **5.5× narrower** than the working one's. A model that answers
+"class 4" for every item is consistently wrong, so resampling test items finds almost no
+variation, and the interval reads as precision. Nothing about [0.062, 0.084] signals that the
+number inside it is an artifact.
+
+Seed spread does not catch it either — the sd is 0.022, comparable to mmBERT's 0.021. Only the
+comparison against chance does, which is why `ft_api` now derives it rather than leaving it to
+whoever reads the table.
 
 It is also not stable enough to be quoted as anything. The same configuration has now produced
 0.127, 0.128 and 0.073 on separate runs — a spread wider than the ~0.06 macro-F1 floor the project
@@ -164,6 +190,21 @@ Almost nothing is truncated for a fitted vocabulary, and at 256 nothing is trunc
 acts through representation quality — more fragments meaning each token carries less — which is a
 different claim needing different evidence.
 
+### Measured, not just inferred
+
+The encoding fix supplied the controlled version of this by accident. mmBERT's MasakhaNER
+truncation fell from **20.8% to 6.3%** under NFC — a 14.5-point change, same model, same
+2,150-step budget — and its entity F1 moved from 0.848 to **0.851**, against a seed sd of 0.007.
+XLM-R, whose truncation moved the other way (11.8% → 13.3%), went 0.843 to **0.841**.
+
+A 14.5-point swing in truncation is worth 0.003. The reason is in how the metric is built: gold
+labels are truncated identically to predictions, so truncated words leave the evaluation set
+rather than counting as errors. Truncation shrinks what is scored; it does not penalise.
+
+That is worth stating precisely because it cuts both ways. It confirms the window is not the
+mechanism — and it also means re-running the NER table at `max_length=256` buys accuracy of about
+0.003. Worth doing for tidiness, not for correctness.
+
 The same fact stated as capacity survives, and is what the poster should say instead:
 
 > In a 128-token window, a Yoruba-fitted vocabulary holds **77 Yoruba words**. XLM-R holds **44**.
@@ -178,17 +219,49 @@ downstream score.
 
 ---
 
-## 5. What this does to the study's claims
+## 5. The downstream table, and what it does to the study's claims
+
+Every cell below is three seeds, NFC text, fixed step budget, no early stopping, with a 95%
+interval bootstrapped over test items and pooled across seeds. This is the canonical table: the
+proposal and the poster should quote it rather than any number printed in a notebook.
+
+**SIB-200 Yoruba topic classification** — 701 train / 204 test, 7 classes, 352 steps, batch 16.
+Chance is 0.143 and the untrained control is 0.107, so both are printed as rows rather than left
+to the reader:
+
+| model | lr | macro-F1 | seed sd | 95% CI | |
+|---|---|---|---|---|---|
+| mmBERT base | 2e-5 | **0.529** | 0.021 | [0.461, 0.581] | |
+| from-scratch 33.8M | 5e-5 | *not re-measured* | | | checkpoint not available off the workstation |
+| random init (control) | 5e-5 | 0.107 | 0.011 | [0.086, 0.128] | at chance, as intended |
+| XLM-R base | 2e-5 | 0.073 | 0.022 | [0.062, 0.084] | **collapsed — not a result** |
+
+**MasakhaNER 2.0 Yoruba entity recognition** — 6,876 train / 1,964 test, 2,150 steps, batch 16,
+lr 3e-5:
+
+| model | entity F1 | seed sd | 95% CI | |
+|---|---|---|---|---|
+| mmBERT base | **0.851** | 0.007 | [0.837, 0.865] | |
+| XLM-R base | 0.841 | 0.008 | [0.827, 0.856] | |
+| from-scratch 33.8M | *not re-measured* | | | the one row the encoding fix can have moved |
+
+Two things to read off it. The two multilingual baselines are **indistinguishable on NER** —
+0.841 against 0.851, intervals overlapping across most of their width — so the study's NER task
+does not separate them. And the from-scratch row is missing from both tables for the same reason:
+no checkpoint exists outside the workstation.
+
+### What this does to the study's claims
 
 | claim | status |
 |---|---|
-| XLM-R scores 0.127 on Yoruba topic classification | **Withdraw.** A majority-class predictor scores 0.057; the run never trained. |
+| XLM-R scores 0.127 on Yoruba topic classification | **Withdraw.** A majority-class predictor scores 0.057 and the untrained control scores 0.107; the run never trained. |
 | mmBERT beats XLM-R by 0.41 on topic classification | **Withdraw.** mmBERT trained and XLM-R did not. |
 | The from-scratch model beats XLM-R on topic classification | **Withdraw** as evidence of tokenizer fit. It beat a baseline that never ran. |
 | A multilingual vocabulary costs Yoruba ~1.65× | **Hold, strengthened.** 1.60× and 1.74× on the two evaluation sets. |
-| 65% of the context window is spent on fragments | **Withdraw.** Nothing is truncated; use the 77-vs-44-words framing. |
+| 65% of the context window is spent on fragments | **Withdraw.** Nothing is truncated, and a 14.5-point change in truncation is worth 0.003 F1; use the 77-vs-44-words framing. |
 | MLM loss does not predict downstream quality | **Hold, but one leg is weaker.** One of its two supports was the SIB-200/NER divergence, and the SIB-200 half of that is the collapsed run above. |
-| The from-scratch model loses NER by 0.145 | **Unresolved.** Measured on decomposed text, where its tokenizer was fragmenting 88% worse than it should. Needs re-running under NFC. |
+| XLM-R and mmBERT both score ~0.84 on Yoruba NER | **Hold.** 0.841 and 0.851 under NFC, three seeds, overlapping CIs — the two are indistinguishable on this task. |
+| The from-scratch model loses NER by 0.145 | **Still open, but narrower.** Both baselines are now confirmed insensitive to the encoding fix (±0.003). The from-scratch tokenizer is the one whose fertility moved 47%, so its row is the only one the fix can plausibly have changed — and it is the one that needs a checkpoint to re-measure. |
 
 ---
 
@@ -199,8 +272,10 @@ downstream score.
   fraction of seeds clearing 0.133 rather than the mean — averaging collapsed and converged seeds
   describes neither. A negative result across the whole grid is still a finding, and a more honest
   poster line than 0.127.
-- **The MasakhaNER numbers under NFC**, for all three models. They were all measured on decomposed
-  text, two of the three tokenizers were affected, and they were affected unequally.
+- **The from-scratch row on MasakhaNER under NFC.** The two baselines have now been re-measured and
+  did not move (0.841 and 0.851, within 0.003 of their pre-fix values). The from-scratch model is
+  the one whose tokenizer changed by 47%, and it is the one still unmeasured, because no
+  from-scratch checkpoint exists outside the workstation.
 - **Whether the tokenizer penalty causes anything.** Nothing in the project establishes this. The
   swap experiment — same architecture, same corpus, same budget, one model on `yor-bpe16k` and one
   on XLM-R's vocabulary — is the only design that isolates it, and §4 above raises rather than
@@ -217,6 +292,23 @@ from the SIB-200 test labels. The tokenizer measurements in §3 and §4 are dete
 arithmetic over the committed `tokenizers/yor-bpe16k` and the two hub tokenizers, and need no GPU;
 `ft_api.token_lengths` and `ft_api.decomposition_report` produce them.
 
-Fine-tuning here ran on a Colab runtime rather than the CSED 504 workstation, so wall-clock
-figures do not transfer from reports 03–05. The card is recorded in the `gpu` field of every
-result record.
+Fine-tuning here ran on a Colab runtime with an **NVIDIA A100-SXM4-80GB**, not on the CSED 504
+workstation's RTX PRO 6000 Blackwell. Wall-clock figures therefore do not transfer from reports
+03–05, which are all Blackwell measurements; the working multiplier is roughly 2–3× slower here.
+The card is recorded in the `gpu` field of every result record, and it is worth checking rather
+than assuming — Colab does not always allocate the same hardware, and this session did not get
+what the handoff notes predict.
+
+Per seed, three seeds per cell:
+
+| cell | steps | s/seed |
+|---|---|---|
+| MasakhaNER, mmBERT base | 2,150 | 254 |
+| MasakhaNER, XLM-R base | 2,150 | 196 |
+| SIB-200, mmBERT base | 352 | 41 |
+| SIB-200, XLM-R base | 352 | 32 |
+| SIB-200, random init (33.8M) | 352 | 10 |
+
+The whole table is about 27 minutes of fine-tuning. Nothing in §2–§5 depends on the hardware — the
+tokenizer measurements are CPU arithmetic and the scores are comparisons within a fixed budget —
+but any *projection* from these timings needs the A100 figure, not a Blackwell one.
