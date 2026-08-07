@@ -158,7 +158,10 @@ def _log_field(tag: str, pattern: str, cast=str):
 # new language shows up readable-ish rather than breaking the description.
 LANGUAGES = {
     'eng': 'English', 'eng_1b': 'English', 'fra': 'French', 'ind': 'Indonesian', 'cmn': 'Mandarin',
-    'yor': 'Yoruba', 'swh': 'Swahili', 'hau': 'Hausa', 'ibo': 'Igbo',
+    'yor': 'Yoruba', 'ibo': 'Igbo',
+    'swh': 'Swahili', 'hau': 'Hausa', 'amh': 'Amharic', 'afr': 'Afrikaans',
+    'som': 'Somali', 'xho': 'Xhosa', 'kin': 'Kinyarwanda', 'sna': 'Shona',
+    'lug': 'Luganda', 'wol': 'Wolof', 'nya': 'Chichewa',
     'wikitext2': 'WikiText-2', 'wikitext103': 'WikiText-103', 'shakespeare': 'Shakespeare',
 }
 
@@ -336,6 +339,20 @@ def schedule_remaining(cells, n_gpu, rates, live):
     return max(cards) if cards else 0.0
 
 
+def _prefix_of(tag: str, corpus: str | None) -> str:
+    """The tag's namespace, rendered for a human: "lr15 · ".
+
+    Two configurations that differ only in learning rate or clipping produce the same
+    description -- same corpus, same size, same steps -- and a queue listing six of them reads as
+    one experiment repeated. The prefix is the only thing that distinguishes them, so it belongs
+    in the label rather than only in the tag.
+    """
+    if not corpus or not tag or tag.startswith(corpus + '_'):
+        return ''
+    head = tag.split(corpus + '_')[0].rstrip('_')
+    return f'{head} · ' if head else ''
+
+
 def fleet_plan(runs, hours: float) -> dict | None:
     """The queued study, with each cell's status derived rather than recorded.
 
@@ -370,7 +387,9 @@ def fleet_plan(runs, hours: float) -> dict | None:
                       'eta_s': None if state == 'done' else
                                full * (1 - live.get(tag, 0.0)) if state == 'running' else full,
                       'run_s': full,
-                      'description': describe_run(tag, plan.get('corpus'), c.get('tokens'),
+                      'description': _prefix_of(tag, c.get('corpus') or plan.get('corpus'))
+                      + describe_run(tag, c.get('corpus') or plan.get('corpus'),
+                                                  c.get('tokens'),
                                                   c.get('preset'), c.get('steps'),
                                                   plan.get('batch'), c.get('seed'))})
 
@@ -876,9 +895,9 @@ function runCard(r){
       <div><div class="k">step</div>
         <div class="v">${fmtN(r.step)}${r.steps?'<span class="sub"> / '+fmtN(r.steps)+'</span>':''}</div>
         <div class="sub">optimizer updates</div></div>
-      <div><div class="k">passes over data</div>
+      <div><div class="k">epochs</div>
         <div class="v">${fmtPasses(r.passes)}${r.total_passes==null?'':'<span class="sub"> / '+fmtPasses(r.total_passes)+'</span>'}</div>
-        <div class="sub">what an epoch would mean</div></div>
+        <div class="sub">passes over the data</div></div>
       <div><div class="k">speed</div><div class="v">${fmtN(r.tok_s)}</div>
         <div class="sub">tokens/sec</div></div>
       <div><div class="k">elapsed</div><div class="v">${fmtT(r.elapsed)}</div>
@@ -1238,7 +1257,9 @@ const EXP_NAMES = {ladder:'Yoruba data ladder', multi:'Five languages',
                    wikitext103:'WikiText-103 baselines',
                    batchtest:'Batch-size sweep', lrprobe:'Learning-rate sweep',
                    stabcheck:'Seed stability'};
-const LANG_NAMES = {eng:'English', eng_1b:'English', fra:'French', ind:'Indonesian', cmn:'Mandarin',
+const LANG_NAMES = {eng:'English', eng_1b:'English', swh:'Swahili', amh:'Amharic',
+                    afr:'Afrikaans', som:'Somali', xho:'Xhosa', kin:'Kinyarwanda',
+                    sna:'Shona', lug:'Luganda', wol:'Wolof', nya:'Chichewa', fra:'French', ind:'Indonesian', cmn:'Mandarin',
                     yor:'Yoruba', swh:'Swahili', hau:'Hausa', ibo:'Igbo'};
 
 const MY_VERSION = '__PAGE_VERSION__';

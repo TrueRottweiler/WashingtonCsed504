@@ -1,6 +1,6 @@
 {
-  "tag": "grad_hau_50M_12k_s0",
-  "corpus": "hau",
+  "tag": "grad_som_50M_12k_s0",
+  "corpus": "som",
   "preset": "poc",
   "steps": 12000,
   "batch": 128,
@@ -15,7 +15,7 @@
   "vocab_size": 16000,
   "random_loss": 9.680344001221918,
   "log_every": 200,
-  "started": 1786084638.55775,
+  "started": 1786084657.7880046,
   "params": 33758848,
   "nonemb_params": 25566848
 }

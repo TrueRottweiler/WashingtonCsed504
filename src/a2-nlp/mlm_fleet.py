@@ -195,6 +195,7 @@ def write_plan(queue, args):
     for spec in queue:
         tokens, update_tokens, seed, preset = unpack(spec, args.preset)
         cells.append({
+            'corpus': args.corpus,
             'tag': (f"{args.tag_prefix}_" if getattr(args, 'tag_prefix', '') else '')
                    + spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
             'tokens': tokens, 'update_tokens': update_tokens,
@@ -216,8 +217,13 @@ def write_plan(queue, args):
                 name = f.read().strip()
         except OSError:
             pass
+    try:
+        import torch
+        cards = max(1, torch.cuda.device_count())
+    except Exception:                       # noqa: BLE001 -- estimate, not correctness
+        cards = args.n_gpu
     plan = {'corpus': args.corpus, 'queue': name or args.queue, 'batch': args.batch,
-            'seq_len': args.seq_len, 'n_gpu': args.n_gpu, 'started': time.time(),
+            'seq_len': args.seq_len, 'n_gpu': cards, 'started': time.time(),
             'cells': cells}
     if name:
         try:
@@ -226,8 +232,9 @@ def write_plan(queue, args):
             if prev.get('queue') == name:
                 # Same queue, later fleet: keep the cells already declared and add ours, so the
                 # panel counts the whole night rather than restarting at each stage.
-                have = {c['tag'] for c in cells}
-                plan['cells'] = [c for c in prev.get('cells', []) if c['tag'] not in have] + cells
+                mine = {c['tag']: c for c in cells}
+                merged = [mine.pop(c['tag'], c) for c in prev.get('cells', [])]
+                plan['cells'] = merged + [c for c in cells if c['tag'] in mine]
                 plan['started'] = prev.get('started', plan['started'])
         except (OSError, ValueError, KeyError):
             pass
