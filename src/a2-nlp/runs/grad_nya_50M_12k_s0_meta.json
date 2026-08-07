@@ -1,6 +1,6 @@
 {
-  "tag": "grad_xho_50M_12k_s0",
-  "corpus": "xho",
+  "tag": "grad_nya_50M_12k_s0",
+  "corpus": "nya",
   "preset": "poc",
   "steps": 12000,
   "batch": 128,
@@ -15,7 +15,7 @@
   "vocab_size": 16000,
   "random_loss": 9.680344001221918,
   "log_every": 200,
-  "started": 1786085573.4601164,
+  "started": 1786086440.7952182,
   "params": 33758848,
   "nonemb_params": 25566848
 }

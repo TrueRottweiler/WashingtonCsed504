@@ -2,145 +2,163 @@
   {
     "corpus": "afr",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.555,
-    "xlmr": 1.6369,
-    "penalty": 1.0527
+    "own": 1.5104,
+    "xlmr": 1.6006,
+    "penalty": 1.0597
   },
   {
     "corpus": "amh",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.7644,
-    "xlmr": 2.3262,
-    "penalty": 1.3184
+    "own": 1.72,
+    "xlmr": 2.2834,
+    "penalty": 1.3276
   },
   {
     "corpus": "cmn",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "char",
-    "own": 0.6819,
-    "xlmr": 0.6515,
-    "penalty": 0.9554
+    "own": 0.7259,
+    "xlmr": 0.6905,
+    "penalty": 0.9512
   },
   {
     "corpus": "eng",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.4299,
-    "xlmr": 1.4782,
-    "penalty": 1.0338
+    "own": 1.4247,
+    "xlmr": 1.4765,
+    "penalty": 1.0363
   },
   {
     "corpus": "eng_1b",
     "in_xlmr": true,
+    "n_docs": 3325,
     "unit": "word",
-    "own": 1.4299,
-    "xlmr": 1.4782,
-    "penalty": 1.0338
+    "own": 1.4251,
+    "xlmr": 1.477,
+    "penalty": 1.0364
   },
   {
     "corpus": "fra",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.5433,
-    "xlmr": 1.6037,
-    "penalty": 1.0392
+    "own": 1.5243,
+    "xlmr": 1.59,
+    "penalty": 1.0431
   },
   {
     "corpus": "hau",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.242,
-    "xlmr": 1.6098,
-    "penalty": 1.2962
+    "own": 1.2798,
+    "xlmr": 1.6274,
+    "penalty": 1.2716
   },
   {
     "corpus": "ibo",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.4446,
-    "xlmr": 2.5085,
-    "penalty": 1.7365
+    "own": 1.4023,
+    "xlmr": 2.5575,
+    "penalty": 1.8237
   },
   {
     "corpus": "ind",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.5317,
-    "xlmr": 1.5413,
-    "penalty": 1.0063
+    "own": 1.5065,
+    "xlmr": 1.5195,
+    "penalty": 1.0087
   },
   {
     "corpus": "kin",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.5707,
-    "xlmr": 2.5003,
-    "penalty": 1.5918
+    "own": 1.5669,
+    "xlmr": 2.498,
+    "penalty": 1.5942
   },
   {
     "corpus": "lug",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.9113,
-    "xlmr": 2.6726,
-    "penalty": 1.3983
+    "own": 1.765,
+    "xlmr": 2.6404,
+    "penalty": 1.496
   },
   {
     "corpus": "nya",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.5943,
-    "xlmr": 2.5288,
-    "penalty": 1.5861
+    "own": 1.616,
+    "xlmr": 2.5407,
+    "penalty": 1.5722
   },
   {
     "corpus": "sna",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.8058,
-    "xlmr": 2.7005,
-    "penalty": 1.4954
+    "own": 1.7098,
+    "xlmr": 2.7185,
+    "penalty": 1.5899
   },
   {
     "corpus": "som",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.4868,
-    "xlmr": 1.764,
-    "penalty": 1.1864
+    "own": 1.4678,
+    "xlmr": 1.7822,
+    "penalty": 1.2142
   },
   {
     "corpus": "swh",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.4664,
-    "xlmr": 1.7224,
-    "penalty": 1.1746
+    "own": 1.4288,
+    "xlmr": 1.6689,
+    "penalty": 1.168
   },
   {
     "corpus": "wol",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.4343,
-    "xlmr": 1.9984,
-    "penalty": 1.3934
+    "own": 1.5019,
+    "xlmr": 1.9688,
+    "penalty": 1.3109
   },
   {
     "corpus": "xho",
     "in_xlmr": true,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.9289,
-    "xlmr": 2.6756,
-    "penalty": 1.3871
+    "own": 1.9295,
+    "xlmr": 2.7475,
+    "penalty": 1.4239
   },
   {
     "corpus": "yor",
     "in_xlmr": false,
+    "n_docs": 4000,
     "unit": "word",
-    "own": 1.3685,
-    "xlmr": 2.2922,
-    "penalty": 1.675
+    "own": 1.3153,
+    "xlmr": 2.3194,
+    "penalty": 1.7633
   }
 ]

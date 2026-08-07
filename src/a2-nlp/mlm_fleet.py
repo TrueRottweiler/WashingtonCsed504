@@ -237,12 +237,28 @@ def write_plan(queue, args):
                 plan['cells'] = merged + [c for c in cells if c['tag'] in mine]
                 plan['started'] = prev.get('started', plan['started'])
         except (OSError, ValueError, KeyError):
+            pass                # a concurrent writer, or no plan yet -- ours stands alone
+    # The plan is a display convenience. It must never be able to take down a fleet, and tonight
+    # it did: two fleets pinned to different cards write this file at the same time, and on
+    # Windows os.replace onto a path another process has open raises WinError 32. The fleet died
+    # AFTER launching its child, so the run kept going as an orphan while the driver moved on to
+    # the next language and started a second run on the same card. Both trained at half speed and
+    # the log said "failed" about runs that finished.
+    #
+    # A unique temp name per process, and every filesystem error swallowed.
+    try:
+        os.makedirs(RUNS_DIR, exist_ok=True)
+        tmp = os.path.join(RUNS_DIR, f'_fleet_plan.{os.getpid()}.tmp')
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(plan, f, indent=2)
+        os.replace(tmp, os.path.join(RUNS_DIR, '_fleet_plan.json'))
+    except OSError as e:
+        print(f'  (could not write the queue plan: {e.__class__.__name__}; '
+              f'the dashboard panel may lag. Training is unaffected.)', flush=True)
+        try:
+            os.remove(tmp)
+        except OSError:
             pass
-    os.makedirs(RUNS_DIR, exist_ok=True)
-    tmp = os.path.join(RUNS_DIR, '_fleet_plan.json.tmp')
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(plan, f, indent=2)
-    os.replace(tmp, os.path.join(RUNS_DIR, '_fleet_plan.json'))
 
 
 def run_fleet(args):
