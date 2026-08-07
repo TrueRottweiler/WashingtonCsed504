@@ -11,6 +11,7 @@ projection.
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
+| 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The first downstream runs. A baseline that never trained, a tokenizer comparison run on the wrong Unicode normalisation, and what survives of the study's downstream claims. |
 
 ## The short version
 
@@ -97,9 +98,11 @@ a failure rate of roughly 31%. So the practical rule for anyone continuing this 
 
 ## Two things not to quote yet
 
-- **XLM-R's 0.127 on topic classification** is almost certainly a fine-tuning failure, not a
-  coverage result — the same model scores 0.843 on entity recognition. The group's headline
-  contrast depends on this number and it needs re-running with more seeds.
+- **XLM-R's 0.127 on topic classification is confirmed to be a non-result**, and it is worse than
+  "a fine-tuning failure". Re-run with seeds in [report 06](06-when-a-number-is-not-a-result.md),
+  two of three seeds score 0.057 — exactly the majority-class predictor — and all three fall below
+  uniform random guessing. The group's headline contrast depends on this number, so the contrast
+  has to be withdrawn until a configuration is found in which XLM-R trains at all.
 - **The AfriBERTa ladder rows in `runs/` are collapsed runs**, kept as evidence for the finding
   above. They are not results and the ladder needs re-running at the corrected settings.
 - **The downstream numbers are still unresolved.** Seeds have now been run on the pretraining

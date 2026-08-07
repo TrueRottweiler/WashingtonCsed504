@@ -1,0 +1,43 @@
+{
+  "tag": "ft_sib200_yor_Latn_mmBERT-base_nfull_lr2e-05_st352_L128_nfc",
+  "label": "mmBERT base",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "jhu-clsp/mmBERT-base",
+  "model_slug": "mmBERT-base",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 204,
+  "steps": 352,
+  "batch": 16,
+  "lr": 2e-05,
+  "max_length": 128,
+  "normalize": "NFC",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.5226812876768998,
+    0.5074889729006979,
+    0.5575011892743851
+  ],
+  "mean": 0.5292238166173276,
+  "sd": 0.02093496215034197,
+  "ci": [
+    0.4607488661299842,
+    0.5807230628123536
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 41.169084231058754,
+  "n_boot": 500,
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "ft_api_version": [
+    1,
+    3
+  ],
+  "created": "2026-08-06T08:06:02"
+}
