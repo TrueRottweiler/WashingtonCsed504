@@ -83,8 +83,8 @@ project spent most of its life judging every comparison against a single borrowe
 |---|---|
 | 33.8M, Yoruba, 196.6M updates | 0.049 *(the figure everything was judged against)* |
 | 33.8M, English, 1.024B updates | **0.149** |
-| 33.8M, Yoruba, 1.024B updates | **0.103** |
-| 86M, English, 1.024B updates | **1.327** |
+| 33.8M, Yoruba, 1.024B updates | **0.103** *(one repeated cell)* |
+| 86M, English, 1.024B updates | **1.369** *(and see below — this is the wrong summary)* |
 
 So the old threshold understated the noise by 2–3× on the 33.8M ladders and by **27×** on the 86M
 column. [Report 05](05-when-data-stops-mattering.md) §2 restates the ladder against measured
