@@ -11,6 +11,7 @@ projection.
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
+| 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 | 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The first downstream runs. A baseline that never trained, a tokenizer comparison run on the wrong Unicode normalisation, and what survives of the study's downstream claims. |
 
 ## The short version
@@ -95,6 +96,30 @@ as **nine below 3.8 and four above 5.3, with nothing in between** — two popula
 distribution. Some seeds break through the unigram plateau within the budget and some do not, at
 a failure rate of roughly 31%. So the practical rule for anyone continuing this work is that
 **at 86M, one seed is not a measurement.**
+
+## The strongest form of the thesis
+
+**The tokenizer penalty separates by XLM-R coverage. From-scratch learnability does not.**
+
+Across seventeen corpora, XLM-R's vocabulary costs covered languages 1.150x on average and
+uncovered ones 1.593x — 1.244 against 1.593 if both sides are restricted to African languages.
+But pretrain a model from scratch on each and the context it gains is 4.618 against 4.808, with
+ranges that overlap almost entirely.
+
+So the disadvantage a multilingual model carries on an under-represented language lives in its
+vocabulary, not in the language being harder to learn. That is the group's argument, on seventeen
+languages instead of four, and it does not depend on any XLM-R fine-tuning run — which matters,
+since [report 06](06-when-a-number-is-not-a-result.md) withdrew those.
+
+One exception, not smoothed: Wolof at 1.31 sits inside the covered range.
+
+## The 86M model is badly clipped, not badly sized
+
+At the same cell, one changed hyperparameter each: clipping at **0.5** takes the mean from 3.824
+to **2.829** and the seed spread from 1.363 to 0.520. A *lower* learning rate does the opposite —
+every seed lands at 5.6 with a spread of 0.049, perfectly reproducible and completely useless,
+because at half the rate the model never leaves the plateau. See
+[report 07](07-the-night-of-diagnostics.md) §1.
 
 ## Things not to quote yet
 

@@ -63,16 +63,19 @@ def main():
         if not docs:
             continue
 
-        text = '\n'.join(docs[:400])
+        # Every committed sample document, not a slice. At 400 the xho/wol boundary
+        # separated the two groups by 0.006, and at 800 it reversed -- so a fixed
+        # small sample produced an ordering that looked perfect and was not stable.
+        text = '\n'.join(docs)
         # Per word where words exist, per character where they do not. Mandarin has no whitespace
         # boundaries, and measuring it per "word" once reported 15.57 tokens/word -- meaningless,
         # and plausible enough to reach a table.
         by_word = A.uses_word_boundaries(text)
         unit = 'word' if by_word else 'char'
-        f_own = A.fertility(own, docs[:400]) if by_word else A.fertility_per_char(own, docs[:400])
-        f_xlm = A.fertility(xlmr, docs[:400]) if by_word else A.fertility_per_char(xlmr, docs[:400])
+        f_own = A.fertility(own, docs) if by_word else A.fertility_per_char(own, docs)
+        f_xlm = A.fertility(xlmr, docs) if by_word else A.fertility_per_char(xlmr, docs)
 
-        rows.append({'corpus': name, 'in_xlmr': cover.get(name),
+        rows.append({'corpus': name, 'in_xlmr': cover.get(name), 'n_docs': len(docs),
                      'unit': unit, 'own': round(f_own, 4), 'xlmr': round(f_xlm, 4),
                      'penalty': round(f_xlm / f_own, 4) if f_own else None})
         print(f'  {name:8s} {unit:5s} own {f_own:6.3f}  xlmr {f_xlm:6.3f}  '
