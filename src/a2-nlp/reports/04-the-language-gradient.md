@@ -189,9 +189,15 @@ well at a budget English has barely started to use — not that the two would st
 allowed to run to the end of their data. That is the experiment this note does not contain, and it
 is the next one to run.
 
-Every figure is one seed. The Yoruba ladder's seed spread at a comparable budget was 0.049 nats,
-which is smaller than every gap in the context-gained column except Yoruba-to-English (0.208 — about
-four times the noise, so real but not comfortable).
+Every figure here is one seed, and the spread this originally cited (0.049) turned out to be the
+wrong yardstick — see [report 05](05-when-data-stops-mattering.md) §2. Re-seeding at a larger
+budget gives **0.149** for 33.8M English and **0.103** for 33.8M Yoruba, so the honest reference
+for these runs is somewhere near 0.1 rather than 0.05, and it has not been measured at *this*
+budget at all.
+
+Against ~0.1 the Yoruba-to-English gap of 0.208 is roughly twice the noise: still pointing the
+same way, with less room than the original figure suggested. The gaps between adjacent languages
+in the middle of the table are inside it and should not be read as an ordering.
 
 ---
 

@@ -85,6 +85,25 @@ QUEUES = {
     'engladder': [(d, 1_024_000_000, 0, p)
                   for p in ('afriberta', 'poc')          # slowest preset first; see below
                   for d in (1_024_000_000, 256_000_000, 64_000_000, 16_000_000, 4_000_000)],
+
+    # Seeds at the budget the ladder actually ran at. Reports 04 and 05 measure everything
+    # against a spread of 0.049, and that number came from the 33.8M model on Yoruba at 196.6M
+    # updates -- a different corpus, a different model budget, and 5x less compute than any rung
+    # it is used to judge. Two claims rest on it directly: that the data axis is flat past 64M
+    # (+0.007 and +0.017, "inside the spread") and that Yoruba and English decelerate alike
+    # (0.025 apart, "half the spread"). Both are unfalsifiable until the spread is measured here.
+    #
+    # The 86M rungs are the other half: seeding two of its cells gave sd 1.327, so the 256M and
+    # 1024M cells are single draws from a distribution nobody has characterised.
+    # Split into two queues, cheapest and most valuable first, because the scheduler orders by
+    # cost and would otherwise run four 1.6-hour 86M cells before the four 40-minute 33.8M ones.
+    # The 33.8M spread is what reports 04 and 05 actually lean on; the 86M column is already
+    # labelled anecdotal, so it is the part worth having late rather than early.
+    'seedcheck': [(d, 1_024_000_000, s, 'poc')
+                  for d in (256_000_000, 64_000_000) for s in (1, 2)],
+
+    'seedcheck86': [(d, 1_024_000_000, s, 'afriberta')
+                    for d in (1_024_000_000, 256_000_000) for s in (1, 2)],
 }
 
 

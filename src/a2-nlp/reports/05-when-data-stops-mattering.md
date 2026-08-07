@@ -34,91 +34,80 @@ Corpus: 1,096,781,996 tokens of FineWeb-Edu, tokenized with the committed `eng-b
 (fingerprint `7820319faa75`), so these are directly comparable with the `multi_eng` run in
 [report 04](04-the-language-gradient.md).
 
-**One seed per cell, and that matters unevenly.** The 33.8M column is reproducible to ±0.049.
-The 86M column is not: seeding two of its cells three times each (§4) gives a spread of **1.327**,
-so read that column as one draw per rung rather than as a measurement.
+**These are the original single-seed runs.** §2 replaces the 33.8M column's middle rungs with
+three-seed means; the 4M and 1024M cells are still one draw each. The 86M column is one draw
+throughout, and §4 shows its seed spread is **1.327** — read it as anecdote, not measurement.
 
 ---
 
-## 2. The data axis saturates, and it saturates early
+## 2. The data axis, with the noise measured
 
-Marginal gain from each 4× increase in data, at fixed compute:
+**Everything below is three seeds per cell at 16M, 64M and 256M.** Earlier versions of this
+section were one seed per cell, judged against a spread of 0.049 borrowed from a different corpus
+at a fifth the compute. That borrowing was the mistake; the numbers it produced are kept in the
+table so the difference is visible.
 
-| step | 33.8M model | 86M model |
-|---|---|---|
-| 4M → 16M | **+0.923** | +3.519 |
-| 16M → 64M | +0.144 | −0.078 |
-| 64M → 256M | **+0.007** | +0.382 |
-| 256M → 1024M | **+0.017** | +0.321 |
+Pooled within-cell seed spread, 33.8M model, English, 1.024B tokens of updates: **0.149.**
 
-The 86M column is differences between single draws from a distribution whose spread is 1.327
-(§4). Its −0.078 in particular is the inversion that disappeared under seeding. Only the 33.8M
-column is read below.
+| step | 3-seed gain | 1-seed gain (earlier) | ÷ spread | reading |
+|---|---|---|---|---|
+| 4M → 16M | **+0.739** | +0.923 | 4.96× | real |
+| 16M → 64M | +0.263 | +0.144 | 1.76× | **cannot resolve** |
+| 64M → 256M | −0.105 | +0.007 | 0.70× | noise |
+| 256M → 1024M | +0.194 | +0.017 | 1.30× | cannot resolve |
 
-For the 33.8M model the data axis is spent by the time you *reach* 64M tokens. Beyond that point
-**a sixteen-fold increase in unique text buys 0.024 nats** — half the 0.049 seed spread measured
-on the Yoruba ladder. It is not a small effect; it is not an effect.
+Three bands, not two. A step below the spread is noise; above twice it, real; between them this
+many seeds cannot say. Collapsing that middle band into either neighbour is how a single lucky
+draw became a reported finding the first time.
 
-The distinction matters and the next subsection turns on it: arriving at 64M is still worth
-+0.144, but going anywhere past it is worth nothing.
+**The headline survives.** From 64M to 1024M — a sixteen-fold increase in unique text — the total
+change is **+0.089**, which is 0.6× the seed spread. Past 64M, more English text buys nothing this
+study can measure.
 
-So the Yoruba ladder's conclusion was right, and right for a reason it could not see. Data does
-stop mattering. It stops mattering at a threshold, and past that threshold the loss is set by
-compute and capacity alone.
+**Where saturation begins does not.** The 16M → 64M step is +0.263 at 1.76× the spread: larger
+than the single-seed version suggested, and still not resolvable. Saturation sets in somewhere at
+or before 64M and this experiment cannot localise it more tightly. Two earlier drafts said
+"around 64M" and then "between 64M and 256M"; both were reading single draws as measurements, and
+neither was entitled to a number.
 
-### Where the saturation point actually is
-
-An earlier draft of this report put it "around 64M tokens", which was too tidy. The 64M rung is
-where the *deceleration* is obvious, not where the curve flattens. English still gained **+0.144**
-going from 16M to 64M — 2.9× the 0.049 seed spread, so a real gain — and only went flat on the
-step after, at +0.007.
-
-**The saturation point is somewhere between 64M and 256M tokens.** That matters for Yoruba,
-because all of Yoruba is 69.1M — which lands at the bottom of that band rather than past it.
+Note also that 64M → 256M is *negative* and 256M → 1024M positive. Neither is resolvable, and the
+non-monotonicity is what a flat curve looks like through noise of this size.
 
 ---
 
 ## 3. The Yoruba check
 
-The claim above was a transfer assumption, so it got tested. Three Yoruba rungs at the same
-budget as the English ladder — 33.8M model, 1.024B tokens of updates, 62,500 steps:
+All of FineWeb-2 Yoruba is 69.1M tokens, so the ladder's upper rungs cannot exist in it. What can
+be compared is the shape over the rungs both languages share. Yoruba's 64M cell is three seeds
+(mean 2.4305, sd 0.103); its 4M and 16M cells are single runs.
 
-| unique tokens | Yoruba | English |
-|---|---|---|
-| 4M | 4.128 | 3.284 |
-| 16M | 2.484 | 2.361 |
-| 64M | **2.315** | **2.217** |
+| step | Yoruba | English | apart by |
+|---|---|---|---|
+| 4M → 16M | +1.644 | +0.739 | 0.905 |
+| 16M → 64M | **+0.053** | **+0.263** | 0.209 |
 
-Absolute losses across the two columns are **not** comparable — different corpora, different 16k
-vocabularies. What compares is the shape:
+Pooled spread across both languages: **0.122.**
 
-| step | Yoruba | English |
-|---|---|---|
-| 4M → 16M | +1.644 | +0.923 |
-| 16M → 64M | **+0.169** | **+0.144** |
-| 64M → 256M | *(no such rung exists)* | +0.007 |
+**The "curves track closely" claim from the single-seed draft is withdrawn.** It rested on the two
+16M → 64M gains differing by 0.025. With the 64M cells seeded they differ by **0.209 — 1.7× the
+spread.** They are not measurably the same shape.
 
-**The curves track each other closely.** At the one step where both languages can be measured,
-they differ by 0.025 nats — half the seed spread. Yoruba decelerates on the same schedule English
-does, from a steeper start.
+They differ in the direction that helps the conclusion, which is worth stating plainly rather
+than quietly banking: **Yoruba's gain from 16M to 64M is +0.053, which is 0.4× its own spread —
+nothing.** English at the same step is still ambiguously gaining. So on the rungs we can measure,
+Yoruba stops responding to more text *earlier* than English does, not later.
 
-Two conclusions, and they are not the same strength:
+**What this supports:** the group's case cannot rest on *"there is too little Yoruba text."* By
+64M — inside the 69.1M that exists — more Yoruba text is buying nothing measurable. The argument
+has to rest on the tokenizer-fit result in [report 04](04-the-language-gradient.md) §4, where
+Yoruba pays XLM-R a 1.65× penalty no other language in the set pays.
 
-**Supported: Yoruba is not badly data-starved.** English's next step after 64M was worth +0.007 —
-nothing. Since the two curves agree to within noise at 64M, the text Yoruba does not have is very
-probably worth about as little. The group's case cannot rest on *"there is too little Yoruba
-text"*; at these compute budgets, having more would buy almost nothing. It has to rest on the
-tokenizer-fit argument in [report 04](04-the-language-gradient.md) §4, where Yoruba pays XLM-R a
-1.65× penalty no other language in the set pays.
+**What this does not support:** any claim that the two languages saturate at the same point, or
+that English's behaviour predicts Yoruba's. The measurement says Yoruba saturates earlier, on a
+16M rung that is still a single seed.
 
-**Not supported: that Yoruba has saturated.** It is still gaining **+0.169 at 64M**, which is 3.4×
-the seed spread. So Yoruba sits just *below* the flattening point, taking the last measurable
-gain, with no ability to take the step that would confirm the curve has gone flat. The earlier
-phrasing — "it sits just past the point where more text would have stopped helping" — was wrong,
-and this replaces it.
-
-The remaining gap is an extrapolation of one step in one language. It cannot be closed with more
-Yoruba, because there is no more Yoruba.
+**What cannot be fixed:** Yoruba's 4M and 16M cells deserve seeding, and that is 80 minutes of GPU
+time. The rung above 64M does not exist and no amount of compute will create it.
 
 ---
 
@@ -200,12 +189,15 @@ two languages rather than assumed from one, and they agree to within half the se
 the step that shows the curve going flat (64M → 256M) exists only in English, and no amount of
 work will make it exist in Yoruba.
 
-The 0.049 seed spread this project quotes for significance was measured on the **33.8M** model.
-§4 shows it is 1.327 on the 86M preset — 27× larger — so it is a per-preset property and not a
-constant. Every claim about 33.8M cells still stands on it; no claim about 86M cells does.
+**The seed spread is a property of the cell, not a constant.** Measured at 1.024B updates:
+**0.149** for 33.8M English, **0.103** for 33.8M Yoruba, **1.327** for the 86M preset. The 0.049
+this project quoted everywhere came from 33.8M Yoruba at 196.6M updates — a different corpus at a
+fifth the compute — and using it as a universal threshold understated the noise by 2–3× on the
+33.8M ladders and by 27× on the 86M column. The results notebook now measures it per cell rather
+than holding a number.
 
-Every 33.8M cell here is a single seed, and only the 16M and 64M cells of the 86M column have
-been seeded at all.
+Still unseeded: the 4M and 1024M English cells, the 4M and 16M Yoruba cells, and the 256M and
+1024M cells of the entire 86M column.
 
 No fine-tuning here — this is pretraining loss only, and the group's headline comparison is a
 downstream task score. A model that wins on validation loss has not thereby been shown to win on

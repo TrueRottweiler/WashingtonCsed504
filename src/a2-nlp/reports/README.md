@@ -34,11 +34,12 @@ projection.
   1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
-- **The data axis saturates between 64M and 256M tokens** — and all of Yoruba is 69.1M. Past 64M,
-  16× more English text buys 0.024 nats, half the seed spread. Checked in Yoruba rather than
-  assumed: the two curves agree to within 0.025 nats at the one step both languages can take, so
-  the text Yoruba lacks is probably worth about as little. The study cannot rest on "there is too
-  little Yoruba text"; it has to rest on tokenizer fit.
+- **Past 64M tokens, more English text buys nothing measurable.** Sixteen times more data moves
+  validation loss by +0.089 against a measured seed spread of 0.149. Where saturation *begins* is
+  not resolvable at three seeds. In Yoruba the effect arrives earlier still — its 16M → 64M gain
+  is +0.053, 0.4× its own spread — so inside the 69.1M that exists, more Yoruba text is already
+  buying nothing. The study cannot rest on "there is too little Yoruba text"; it has to rest on
+  tokenizer fit.
 
 ## The one that changes the study plan
 
@@ -70,11 +71,23 @@ by nowhere near enough.
 
 ## The seed spread is not one number
 
-**0.049 is the 33.8M model's spread. The 86M model's is 1.327** — 27× larger, measured over three
-seeds at two rungs of the English ladder. Anything comparing two 86M cells needs to clear that,
-and most of what we have measured does not. It is not the learning-rate collapse of report 03:
-all six seeds were still descending: they differ in *when* they break through the unigram
-plateau, and at 62,500 steps some have barely started.
+It is a property of the cell — the model size, the corpus and the compute budget — and this
+project spent most of its life judging every comparison against a single borrowed value.
+
+| | measured seed spread |
+|---|---|
+| 33.8M, Yoruba, 196.6M updates | 0.049 *(the figure everything was judged against)* |
+| 33.8M, English, 1.024B updates | **0.149** |
+| 33.8M, Yoruba, 1.024B updates | **0.103** |
+| 86M, English, 1.024B updates | **1.327** |
+
+So the old threshold understated the noise by 2–3× on the 33.8M ladders and by **27×** on the 86M
+column. [Report 05](05-when-data-stops-mattering.md) §2 restates the ladder against measured
+spreads; the results notebook now computes it per cell instead of holding a constant.
+
+The 86M variance is not the learning-rate collapse of report 03 — all six seeds were still
+descending at 62,500 steps. They differ in *when* they break through the unigram plateau, and at
+this budget some have barely started.
 
 ## Two things not to quote yet
 

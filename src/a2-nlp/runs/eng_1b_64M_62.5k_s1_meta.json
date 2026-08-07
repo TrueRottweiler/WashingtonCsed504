@@ -1,0 +1,20 @@
+{
+  "tag": "eng_1b_64M_62.5k_s1",
+  "corpus": "eng_1b",
+  "preset": "poc",
+  "steps": 62500,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 1024000000,
+  "n_tokens": 64000000,
+  "lr": 0.0005,
+  "seed": 1,
+  "vocab_size": 16000,
+  "random_loss": 9.680344001221918,
+  "log_every": 500,
+  "started": 1786048290.215165,
+  "params": 33758848,
+  "nonemb_params": 25566848
+}
