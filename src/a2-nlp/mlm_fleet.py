@@ -199,9 +199,36 @@ def write_plan(queue, args):
             'steps': steps_for(update_tokens, args.batch, args.seq_len),
             'preset': preset, 'seed': seed,
         })
-    plan = {'corpus': args.corpus, 'queue': args.queue, 'batch': args.batch,
+    # A driver script that runs several fleets one after another used to be invisible past its
+    # current step: each fleet overwrote this file, so the dashboard showed three cells of nine
+    # and predicted a finish time for the third of them. UW_FLEET_QUEUE lets the driver declare
+    # the whole queue up front; each fleet then contributes its own cells to it and leaves the
+    # others alone.
+    # Either an environment variable, for a driver launched with one, or a sentinel file --
+    # which is the only channel available to a driver that is ALREADY RUNNING, since each fleet
+    # is a fresh process that re-reads this module but inherits the driver's frozen environment.
+    name = os.environ.get('UW_FLEET_QUEUE') or ''
+    if not name:
+        try:
+            with open(os.path.join(RUNS_DIR, '_fleet_queue'), encoding='utf-8') as f:
+                name = f.read().strip()
+        except OSError:
+            pass
+    plan = {'corpus': args.corpus, 'queue': name or args.queue, 'batch': args.batch,
             'seq_len': args.seq_len, 'n_gpu': args.n_gpu, 'started': time.time(),
             'cells': cells}
+    if name:
+        try:
+            with open(os.path.join(RUNS_DIR, '_fleet_plan.json'), encoding='utf-8') as f:
+                prev = json.load(f)
+            if prev.get('queue') == name:
+                # Same queue, later fleet: keep the cells already declared and add ours, so the
+                # panel counts the whole night rather than restarting at each stage.
+                have = {c['tag'] for c in cells}
+                plan['cells'] = [c for c in prev.get('cells', []) if c['tag'] not in have] + cells
+                plan['started'] = prev.get('started', plan['started'])
+        except (OSError, ValueError, KeyError):
+            pass
     os.makedirs(RUNS_DIR, exist_ok=True)
     tmp = os.path.join(RUNS_DIR, '_fleet_plan.json.tmp')
     with open(tmp, 'w', encoding='utf-8') as f:

@@ -1,0 +1,146 @@
+[
+  {
+    "corpus": "afr",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.555,
+    "xlmr": 1.6369,
+    "penalty": 1.0527
+  },
+  {
+    "corpus": "amh",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.7644,
+    "xlmr": 2.3262,
+    "penalty": 1.3184
+  },
+  {
+    "corpus": "cmn",
+    "in_xlmr": true,
+    "unit": "char",
+    "own": 0.6819,
+    "xlmr": 0.6515,
+    "penalty": 0.9554
+  },
+  {
+    "corpus": "eng",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.4299,
+    "xlmr": 1.4782,
+    "penalty": 1.0338
+  },
+  {
+    "corpus": "eng_1b",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.4299,
+    "xlmr": 1.4782,
+    "penalty": 1.0338
+  },
+  {
+    "corpus": "fra",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.5433,
+    "xlmr": 1.6037,
+    "penalty": 1.0392
+  },
+  {
+    "corpus": "hau",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.242,
+    "xlmr": 1.6098,
+    "penalty": 1.2962
+  },
+  {
+    "corpus": "ibo",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.4446,
+    "xlmr": 2.5085,
+    "penalty": 1.7365
+  },
+  {
+    "corpus": "ind",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.5317,
+    "xlmr": 1.5413,
+    "penalty": 1.0063
+  },
+  {
+    "corpus": "kin",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.5707,
+    "xlmr": 2.5003,
+    "penalty": 1.5918
+  },
+  {
+    "corpus": "lug",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.9113,
+    "xlmr": 2.6726,
+    "penalty": 1.3983
+  },
+  {
+    "corpus": "nya",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.5943,
+    "xlmr": 2.5288,
+    "penalty": 1.5861
+  },
+  {
+    "corpus": "sna",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.8058,
+    "xlmr": 2.7005,
+    "penalty": 1.4954
+  },
+  {
+    "corpus": "som",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.4868,
+    "xlmr": 1.764,
+    "penalty": 1.1864
+  },
+  {
+    "corpus": "swh",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.4664,
+    "xlmr": 1.7224,
+    "penalty": 1.1746
+  },
+  {
+    "corpus": "wol",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.4343,
+    "xlmr": 1.9984,
+    "penalty": 1.3934
+  },
+  {
+    "corpus": "xho",
+    "in_xlmr": true,
+    "unit": "word",
+    "own": 1.9289,
+    "xlmr": 2.6756,
+    "penalty": 1.3871
+  },
+  {
+    "corpus": "yor",
+    "in_xlmr": false,
+    "unit": "word",
+    "own": 1.3685,
+    "xlmr": 2.2922,
+    "penalty": 1.675
+  }
+]

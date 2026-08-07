@@ -269,6 +269,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
 
     history, ema, best = [], None, float('inf')
     stall_warned = False
+    diverged_for, diverged_at = 0, None
     start_micro = 0
 
     # Resume BEFORE touching the JSONL, because whether this is a fresh run decides whether the
@@ -356,7 +357,15 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             # Number the intervals 1..n by counting them, not by dividing. step // log_every
             # gives the FINAL (partial) interval the same number as the one before it, so a
             # finished run reported 10 of 11 intervals and the dashboard drew it as STOPPED.
+            # `epoch` is a LOGGING-INTERVAL COUNTER, not an epoch. It is named that only
+            # because the causal study's dashboard reads that key, and inheriting the name has
+            # confused every reader who met it -- there is no sense in which this run is on its
+            # fourth epoch. `passes` is the real thing: how many times the model has now seen the
+            # corpus. The two diverge wildly and on purpose, because the compute axis is steps:
+            # 62,500 steps is one pass over a 1B-token rung and 256 passes over a 4M-token one.
             row = {'epoch': len(history) + 1, 'step': step, 'lr': sch.get_last_lr()[0],
+                   'passes': step * tokens_per_step / max(ds.n, 1),
+                   'total_passes': steps * tokens_per_step / max(ds.n, 1),
                    'elapsed': time.time() - t0, 'is_best': is_best,
                    'train': {'loss': ema, 'ppl': math.exp(min(20.0, ema)),
                              'sec': dt, 'tok_s': tok_s},
@@ -365,6 +374,29 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             # uniform-prediction loss and stays there; it will not recover, and every further
             # step is wasted. Warn loudly at the halfway mark rather than aborting, because a
             # slow start is not the same as a dead one and only the operator can tell.
+            # A DIFFERENT failure, and the one the stall detector below cannot see: a run that
+            # learns normally and then loses it. eng_1b_1024M_afriberta_s1 reached 6.182 at step
+            # 20,000 and ended at 7.469 -- English's unigram entropy is 7.491, so it fell all the
+            # way back to predicting word frequencies. The stall check compares against the FIRST
+            # point, so a run that descended and then diverged still shows plenty of movement and
+            # passes silently. It cost an hour of card time each of the four times it happened.
+            #
+            # Threshold on the best loss ever seen, not on the previous point, because the loss
+            # is noisy step to step and a single bad batch is not a divergence. Two consecutive
+            # evaluations 0.5 above the best is not noise at this scale: within a healthy run the
+            # interval-to-interval spread is under 0.1.
+            if best < random_loss - 0.5 and vl > best + 0.5:
+                diverged_for += 1
+                if diverged_for >= 2 and diverged_at is None:
+                    diverged_at = step
+                    print(f'[{tag}] WARNING: val loss has risen to {vl:.3f} from a best of '
+                          f'{best:.3f} at step {step:,} and stayed there. This run is diverging, '
+                          f'not converging slowly -- it learned and is losing it. The checkpoint '
+                          f'on disk is the best one, not the current one. A lower peak learning '
+                          f'rate is the first thing to try.', flush=True)
+            else:
+                diverged_for = 0
+
             if history and step >= steps // 2 and not stall_warned:
                 moved = history[0]['val']['loss'] - vl
                 if moved < 0.15:
@@ -411,6 +443,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
               'val_ppl': math.exp(min(20.0, val_loss)), 'random_loss': random_loss,
               'seconds': secs, 'tokens_per_s': steps * tokens_per_step / secs,
               'lr_used': lr, 'stalled': stall_warned,
+              'diverged': diverged_at is not None, 'diverged_at': diverged_at,
               'history': history}
     with open(os.path.join(RUNS, f'{tag}_result.json'), 'w') as f:
         json.dump(record, f, indent=2)
