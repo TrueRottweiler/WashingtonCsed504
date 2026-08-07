@@ -143,6 +143,8 @@ def launch(spec, gpu, args):
     tokens, update_tokens, seed, preset = unpack(spec, args.preset)
     steps = steps_for(update_tokens, args.batch, args.seq_len)
     base = spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len)
+    if getattr(args, 'tag_prefix', ''):
+        base = f'{args.tag_prefix}_{base}'
 
     stale = os.path.join(LOGS, f'{base}.log')
     if os.path.exists(stale):
@@ -152,6 +154,14 @@ def launch(spec, gpu, args):
            '--corpus', args.corpus, '--tokens', str(tokens), '--steps', str(steps),
            '--preset', preset, '--gpu', str(gpu), '--seed', str(seed),
            '--batch', str(args.batch), '--seq-len', str(args.seq_len)]
+    if getattr(args, 'tag_prefix', ''):
+        cmd += ['--tag', base]
+    if getattr(args, 'warmup', None) is not None:
+        cmd += ['--warmup', str(args.warmup)]
+    if getattr(args, 'lr', None) is not None:
+        cmd += ['--lr', str(args.lr)]
+    if getattr(args, 'clip', None) is not None:
+        cmd += ['--clip', str(args.clip)]
     if args.smoke:
         cmd.append('--smoke')
         base = f'smoke-{base}'
@@ -185,14 +195,49 @@ def write_plan(queue, args):
     for spec in queue:
         tokens, update_tokens, seed, preset = unpack(spec, args.preset)
         cells.append({
-            'tag': spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
+            'corpus': args.corpus,
+            'tag': (f"{args.tag_prefix}_" if getattr(args, 'tag_prefix', '') else '')
+                   + spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
             'tokens': tokens, 'update_tokens': update_tokens,
             'steps': steps_for(update_tokens, args.batch, args.seq_len),
             'preset': preset, 'seed': seed,
         })
-    plan = {'corpus': args.corpus, 'queue': args.queue, 'batch': args.batch,
-            'seq_len': args.seq_len, 'n_gpu': args.n_gpu, 'started': time.time(),
+    # A driver script that runs several fleets one after another used to be invisible past its
+    # current step: each fleet overwrote this file, so the dashboard showed three cells of nine
+    # and predicted a finish time for the third of them. UW_FLEET_QUEUE lets the driver declare
+    # the whole queue up front; each fleet then contributes its own cells to it and leaves the
+    # others alone.
+    # Either an environment variable, for a driver launched with one, or a sentinel file --
+    # which is the only channel available to a driver that is ALREADY RUNNING, since each fleet
+    # is a fresh process that re-reads this module but inherits the driver's frozen environment.
+    name = os.environ.get('UW_FLEET_QUEUE') or ''
+    if not name:
+        try:
+            with open(os.path.join(RUNS_DIR, '_fleet_queue'), encoding='utf-8') as f:
+                name = f.read().strip()
+        except OSError:
+            pass
+    try:
+        import torch
+        cards = max(1, torch.cuda.device_count())
+    except Exception:                       # noqa: BLE001 -- estimate, not correctness
+        cards = args.n_gpu
+    plan = {'corpus': args.corpus, 'queue': name or args.queue, 'batch': args.batch,
+            'seq_len': args.seq_len, 'n_gpu': cards, 'started': time.time(),
             'cells': cells}
+    if name:
+        try:
+            with open(os.path.join(RUNS_DIR, '_fleet_plan.json'), encoding='utf-8') as f:
+                prev = json.load(f)
+            if prev.get('queue') == name:
+                # Same queue, later fleet: keep the cells already declared and add ours, so the
+                # panel counts the whole night rather than restarting at each stage.
+                mine = {c['tag']: c for c in cells}
+                merged = [mine.pop(c['tag'], c) for c in prev.get('cells', [])]
+                plan['cells'] = merged + [c for c in cells if c['tag'] in mine]
+                plan['started'] = prev.get('started', plan['started'])
+        except (OSError, ValueError, KeyError):
+            pass
     os.makedirs(RUNS_DIR, exist_ok=True)
     tmp = os.path.join(RUNS_DIR, '_fleet_plan.json.tmp')
     with open(tmp, 'w', encoding='utf-8') as f:
@@ -214,7 +259,7 @@ def run_fleet(args):
     slots = [None] * args.n_gpu
     for g in range(args.n_gpu):
         if queue:
-            slots[g] = launch(queue.pop(0), g, args)
+            slots[g] = launch(queue.pop(0), g + args.gpu_base, args)
 
     print('\n  cards are busy. Watch:  python dashboard.py\n')
     try:
@@ -230,7 +275,7 @@ def run_fleet(args):
                 dt = time.time() - job['t0']
                 ok = 'done ' if ret == 0 else f'FAILED({ret})'
                 print(f'  [gpu {g}] {ok} {job["base"]:34s} in {dt/60:.1f} min', flush=True)
-                slots[g] = launch(queue.pop(0), g, args) if queue else None
+                slots[g] = launch(queue.pop(0), g + args.gpu_base, args) if queue else None
             time.sleep(1.0)
     except KeyboardInterrupt:
         print('\nCtrl+C received, stopping all runs...')
@@ -258,8 +303,25 @@ def main():
                    help='sequences per step; 128 measured 1.33x the throughput of 64 and the '
                         'token budget above keeps the work constant when this changes')
     p.add_argument('--seq-len', type=int, default=128)
+    p.add_argument('--gpu-base', type=int, default=0,
+                   help='first card this fleet may use. With --n-gpu 1 this pins a fleet to one '
+                        'card, so two fleets can run side by side on a two-card box -- which is '
+                        'what a queue of single-cell fleets needs, since each such fleet would '
+                        'otherwise take card 0 and leave the other idle.')
     p.add_argument('--n-gpu', type=int, default=None,
                    help='cards to spread across (default: however many this machine has)')
+    p.add_argument('--tag-prefix', default='',
+                   help='namespace every cell in this fleet, e.g. --tag-prefix warm15. '
+                        'Required when sweeping anything the cell tag does not carry: '
+                        'the tag is (corpus, tokens, steps, seed, preset), so two fleets '
+                        'differing only in learning rate or warmup would name their cells '
+                        'identically and the second would overwrite the first.')
+    p.add_argument('--warmup', type=float, default=None,
+                   help='warmup fraction, passed through to every cell')
+    p.add_argument('--lr', type=float, default=None,
+                   help='peak learning rate, passed through to every cell')
+    p.add_argument('--clip', type=float, default=None,
+                   help='gradient-norm clip, passed through to every cell')
     p.add_argument('--smoke', action='store_true')
     args = p.parse_args()
 

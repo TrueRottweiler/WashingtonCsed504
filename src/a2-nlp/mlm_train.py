@@ -180,7 +180,8 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
              lr: float | None = None, mlm_prob: float = 0.15, seed: int = 0, clip: float = 1.0,
              log_every: int | None = None, out_dir: str | None = None,
              val_batches=None, amp_dtype=None, accum: int = 1,
-             resume: bool = True, ckpt_every: int | None = None) -> dict:
+             resume: bool = True, ckpt_every: int | None = None,
+             warmup: float | None = None) -> dict:
     """Pretrain one grid cell and return its record.
 
     ds is an mlm_data.MlmTokens already sliced to this cell's token budget, so "how much unique
@@ -214,7 +215,13 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # steps and collapsed at a learning rate that trains reliably (3/3 seeds) over 4,000 steps
     # with 240. Short runs are exactly what people use to try things out, so the schedule has to
     # survive them.
-    pct_start = min(0.25, max(0.06, MIN_WARMUP_STEPS / max(steps, 1)))
+    #
+    # `warmup` overrides that rule outright, because the rule is now itself under test: at 86M
+    # roughly a third of seeds never leave the unigram plateau within their budget, and a warmup
+    # too short for that width is one of the two hypotheses that would explain it. A sweep has to
+    # be able to ask for a warmup the heuristic would not choose.
+    pct_start = warmup if warmup is not None else \
+        min(0.25, max(0.06, MIN_WARMUP_STEPS / max(steps, 1)))
     sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps,
                                               pct_start=pct_start)
 
@@ -249,7 +256,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # no finish estimate. Structured data belongs in a file, not in printed prose.
     meta = {'tag': tag, 'corpus': getattr(ds, 'name', None), 'preset': preset, 'steps': steps, 'batch': batch, 'accum': accum,
             'seq_len': ds.seq_len, 'tokens_per_step': tokens_per_step,
-            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr,
+            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr, 'warmup': pct_start,
             'seed': seed, 'vocab_size': ds.vocab_size, 'random_loss': random_loss,
             'log_every': log_every, 'started': time.time(),
             'params': total_p, 'nonemb_params': nonemb_p}
@@ -262,6 +269,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
 
     history, ema, best = [], None, float('inf')
     stall_warned = False
+    diverged_for, diverged_at = 0, None
     start_micro = 0
 
     # Resume BEFORE touching the JSONL, because whether this is a fresh run decides whether the
@@ -349,7 +357,15 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             # Number the intervals 1..n by counting them, not by dividing. step // log_every
             # gives the FINAL (partial) interval the same number as the one before it, so a
             # finished run reported 10 of 11 intervals and the dashboard drew it as STOPPED.
+            # `epoch` is a LOGGING-INTERVAL COUNTER, not an epoch. It is named that only
+            # because the causal study's dashboard reads that key, and inheriting the name has
+            # confused every reader who met it -- there is no sense in which this run is on its
+            # fourth epoch. `passes` is the real thing: how many times the model has now seen the
+            # corpus. The two diverge wildly and on purpose, because the compute axis is steps:
+            # 62,500 steps is one pass over a 1B-token rung and 256 passes over a 4M-token one.
             row = {'epoch': len(history) + 1, 'step': step, 'lr': sch.get_last_lr()[0],
+                   'passes': step * tokens_per_step / max(ds.n, 1),
+                   'total_passes': steps * tokens_per_step / max(ds.n, 1),
                    'elapsed': time.time() - t0, 'is_best': is_best,
                    'train': {'loss': ema, 'ppl': math.exp(min(20.0, ema)),
                              'sec': dt, 'tok_s': tok_s},
@@ -358,6 +374,29 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
             # uniform-prediction loss and stays there; it will not recover, and every further
             # step is wasted. Warn loudly at the halfway mark rather than aborting, because a
             # slow start is not the same as a dead one and only the operator can tell.
+            # A DIFFERENT failure, and the one the stall detector below cannot see: a run that
+            # learns normally and then loses it. eng_1b_1024M_afriberta_s1 reached 6.182 at step
+            # 20,000 and ended at 7.469 -- English's unigram entropy is 7.491, so it fell all the
+            # way back to predicting word frequencies. The stall check compares against the FIRST
+            # point, so a run that descended and then diverged still shows plenty of movement and
+            # passes silently. It cost an hour of card time each of the four times it happened.
+            #
+            # Threshold on the best loss ever seen, not on the previous point, because the loss
+            # is noisy step to step and a single bad batch is not a divergence. Two consecutive
+            # evaluations 0.5 above the best is not noise at this scale: within a healthy run the
+            # interval-to-interval spread is under 0.1.
+            if best < random_loss - 0.5 and vl > best + 0.5:
+                diverged_for += 1
+                if diverged_for >= 2 and diverged_at is None:
+                    diverged_at = step
+                    print(f'[{tag}] WARNING: val loss has risen to {vl:.3f} from a best of '
+                          f'{best:.3f} at step {step:,} and stayed there. This run is diverging, '
+                          f'not converging slowly -- it learned and is losing it. The checkpoint '
+                          f'on disk is the best one, not the current one. A lower peak learning '
+                          f'rate is the first thing to try.', flush=True)
+            else:
+                diverged_for = 0
+
             if history and step >= steps // 2 and not stall_warned:
                 moved = history[0]['val']['loss'] - vl
                 if moved < 0.15:
@@ -397,12 +436,14 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     record = {'tag': tag, 'path': out_dir, 'preset': preset, 'params': total_p,
               'vocab_fingerprint': vocab_fp,
               'nonemb_params': nonemb_p, 'n_tokens': int(ds.n), 'steps': steps, 'batch': batch,
-              'seq_len': ds.seq_len, 'lr': lr, 'seed': seed, 'passes': passes,
+              'seq_len': ds.seq_len, 'lr': lr, 'warmup': pct_start, 'seed': seed,
+              'passes': passes,
               'store_dtype': str(ds.store_dtype).replace('torch.', ''),
               'store_gb': ds.gb(), 'val_loss': val_loss, 'best_val_loss': best,
               'val_ppl': math.exp(min(20.0, val_loss)), 'random_loss': random_loss,
               'seconds': secs, 'tokens_per_s': steps * tokens_per_step / secs,
               'lr_used': lr, 'stalled': stall_warned,
+              'diverged': diverged_at is not None, 'diverged_at': diverged_at,
               'history': history}
     with open(os.path.join(RUNS, f'{tag}_result.json'), 'w') as f:
         json.dump(record, f, indent=2)

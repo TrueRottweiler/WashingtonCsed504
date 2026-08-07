@@ -1,0 +1,134 @@
+[
+  {
+    "corpus": "swh",
+    "lang": "swh_Latn",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 1.6,
+    "train_tokens": 57538612,
+    "chars": 260002006,
+    "chars_per_token": 4.479810888654608,
+    "fingerprint": "98cb03f5d406"
+  },
+  {
+    "corpus": "hau",
+    "lang": "hau_Latn",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 2.1,
+    "train_tokens": 61203187,
+    "chars": 260001807,
+    "chars_per_token": 4.213750045034141,
+    "fingerprint": "856b20a17ad9"
+  },
+  {
+    "corpus": "amh",
+    "lang": "amh_Ethi",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 3.8,
+    "train_tokens": 87345151,
+    "chars": 260056031,
+    "chars_per_token": 2.9603914164823966,
+    "fingerprint": "6b8e2ea2a776"
+  },
+  {
+    "corpus": "afr",
+    "lang": "afr_Latn",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 2.3,
+    "train_tokens": 66450597,
+    "chars": 260002727,
+    "chars_per_token": 3.8835012479425686,
+    "fingerprint": "bc947c8010a4"
+  },
+  {
+    "corpus": "som",
+    "lang": "som_Latn",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 2.8,
+    "train_tokens": 58368129,
+    "chars": 260003295,
+    "chars_per_token": 4.416707298443272,
+    "fingerprint": "44462c9acda7"
+  },
+  {
+    "corpus": "xho",
+    "lang": "xho_Latn",
+    "in_xlmr": true,
+    "status": "ok",
+    "minutes": 2.4,
+    "train_tokens": 59215759,
+    "chars": 260000367,
+    "chars_per_token": 4.35396570945368,
+    "fingerprint": "3b74e4a087e0"
+  },
+  {
+    "corpus": "ibo",
+    "lang": "ibo_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 2.5,
+    "train_tokens": 69624333,
+    "chars": 260003796,
+    "chars_per_token": 3.7077542826681857,
+    "fingerprint": "887ae25ca00c"
+  },
+  {
+    "corpus": "kin",
+    "lang": "kin_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 2.9,
+    "train_tokens": 57815034,
+    "chars": 260002842,
+    "chars_per_token": 4.458590249643,
+    "fingerprint": "8191944ba720"
+  },
+  {
+    "corpus": "sna",
+    "lang": "sna_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 2.0,
+    "train_tokens": 54680773,
+    "chars": 260000719,
+    "chars_per_token": 4.711799144241781,
+    "fingerprint": "12de5c1f0d8f"
+  },
+  {
+    "corpus": "lug",
+    "lang": "lug_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 1.2,
+    "train_tokens": 20123062,
+    "chars": 79191944,
+    "chars_per_token": 3.839970223626346,
+    "fingerprint": "7c9a77ec8acb"
+  },
+  {
+    "corpus": "wol",
+    "lang": "wol_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 0.5,
+    "train_tokens": 4842642,
+    "chars": 18292615,
+    "chars_per_token": 3.4238893416403346,
+    "fingerprint": "bf3bd1660eeb"
+  },
+  {
+    "corpus": "nya",
+    "lang": "nya_Latn",
+    "in_xlmr": false,
+    "status": "ok",
+    "minutes": 1.9,
+    "train_tokens": 56254190,
+    "chars": 260004541,
+    "chars_per_token": 4.581239570153323,
+    "fingerprint": "25d543f1b24a"
+  }
+]

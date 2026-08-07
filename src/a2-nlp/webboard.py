@@ -158,7 +158,10 @@ def _log_field(tag: str, pattern: str, cast=str):
 # new language shows up readable-ish rather than breaking the description.
 LANGUAGES = {
     'eng': 'English', 'eng_1b': 'English', 'fra': 'French', 'ind': 'Indonesian', 'cmn': 'Mandarin',
-    'yor': 'Yoruba', 'swh': 'Swahili', 'hau': 'Hausa', 'ibo': 'Igbo',
+    'yor': 'Yoruba', 'ibo': 'Igbo',
+    'swh': 'Swahili', 'hau': 'Hausa', 'amh': 'Amharic', 'afr': 'Afrikaans',
+    'som': 'Somali', 'xho': 'Xhosa', 'kin': 'Kinyarwanda', 'sna': 'Shona',
+    'lug': 'Luganda', 'wol': 'Wolof', 'nya': 'Chichewa',
     'wikitext2': 'WikiText-2', 'wikitext103': 'WikiText-103', 'shakespeare': 'Shakespeare',
 }
 
@@ -174,6 +177,43 @@ def _compact_n(n):
         if n >= size:
             return f'{n / size:.1f}'.rstrip('0').rstrip('.') + unit
     return str(n)
+
+
+def _tokens_per_step(meta, cli, result):
+    """batch x seq_len, from whichever record happens to carry them."""
+    for src in (meta, cli, result or {}):
+        b, sl = src.get('batch'), src.get('seq_len')
+        if b and sl:
+            return b * sl
+    return None
+
+
+def _passes(rows, meta, cli, result):
+    """How many times the model has seen the corpus, as of the last logged point.
+
+    Read from the record where it is present and derived where it is not, because every run
+    started before this field existed logs only steps -- and a stat that is blank for the run you
+    are actually watching is worse than no stat at all.
+    """
+    if rows and rows[-1].get('passes') is not None:
+        return rows[-1]['passes']
+    tps = _tokens_per_step(meta, cli, result)
+    n = meta.get('n_tokens') or (result or {}).get('n_tokens')
+    if not (rows and tps and n):
+        return None
+    return rows[-1].get('step', 0) * tps / n
+
+
+def _total_passes(rows, meta, cli, result):
+    """How many passes the whole run will make."""
+    if rows and rows[-1].get('total_passes') is not None:
+        return rows[-1]['total_passes']
+    tps = _tokens_per_step(meta, cli, result)
+    n = meta.get('n_tokens') or (result or {}).get('n_tokens')
+    steps = meta.get('steps') or cli.get('steps') or (result or {}).get('steps')
+    if not (tps and n and steps):
+        return None
+    return steps * tps / n
 
 
 def describe_run(tag, corpus, n_tokens, preset, steps, batch, seed, params=None):
@@ -299,6 +339,20 @@ def schedule_remaining(cells, n_gpu, rates, live):
     return max(cards) if cards else 0.0
 
 
+def _prefix_of(tag: str, corpus: str | None) -> str:
+    """The tag's namespace, rendered for a human: "lr15 · ".
+
+    Two configurations that differ only in learning rate or clipping produce the same
+    description -- same corpus, same size, same steps -- and a queue listing six of them reads as
+    one experiment repeated. The prefix is the only thing that distinguishes them, so it belongs
+    in the label rather than only in the tag.
+    """
+    if not corpus or not tag or tag.startswith(corpus + '_'):
+        return ''
+    head = tag.split(corpus + '_')[0].rstrip('_')
+    return f'{head} · ' if head else ''
+
+
 def fleet_plan(runs, hours: float) -> dict | None:
     """The queued study, with each cell's status derived rather than recorded.
 
@@ -333,7 +387,9 @@ def fleet_plan(runs, hours: float) -> dict | None:
                       'eta_s': None if state == 'done' else
                                full * (1 - live.get(tag, 0.0)) if state == 'running' else full,
                       'run_s': full,
-                      'description': describe_run(tag, plan.get('corpus'), c.get('tokens'),
+                      'description': _prefix_of(tag, c.get('corpus') or plan.get('corpus'))
+                      + describe_run(tag, c.get('corpus') or plan.get('corpus'),
+                                                  c.get('tokens'),
                                                   c.get('preset'), c.get('steps'),
                                                   plan.get('batch'), c.get('seed'))})
 
@@ -477,6 +533,8 @@ def snapshot(hours: float) -> dict:
             'batch': (meta.get('batch') or cli.get('batch')
                       or (result or {}).get('batch')),
             'stalled': (result or {}).get('stalled'),
+            'passes': _passes(rows, meta, cli, result),
+            'total_passes': _total_passes(rows, meta, cli, result),
             'curve': [{'x': r.get('step') or r['epoch'],
                        'train': r['train']['loss'], 'val': r['val']['loss']} for r in rows],
             'result': result,
@@ -835,7 +893,11 @@ function runCard(r){
       <div><div class="k">val loss</div><div class="v">${r.val_loss.toFixed(3)}</div>
         <div class="sub">train ${r.train_loss.toFixed(3)}</div></div>
       <div><div class="k">step</div>
-        <div class="v">${fmtN(r.step)}${r.steps?'<span class="sub"> / '+fmtN(r.steps)+'</span>':''}</div></div>
+        <div class="v">${fmtN(r.step)}${r.steps?'<span class="sub"> / '+fmtN(r.steps)+'</span>':''}</div>
+        <div class="sub">optimizer updates</div></div>
+      <div><div class="k">epochs</div>
+        <div class="v">${fmtPasses(r.passes)}${r.total_passes==null?'':'<span class="sub"> / '+fmtPasses(r.total_passes)+'</span>'}</div>
+        <div class="sub">passes over the data</div></div>
       <div><div class="k">speed</div><div class="v">${fmtN(r.tok_s)}</div>
         <div class="sub">tokens/sec</div></div>
       <div><div class="k">elapsed</div><div class="v">${fmtT(r.elapsed)}</div>
@@ -856,6 +918,9 @@ function runCard(r){
 const HUES = ["#3987e5","#199e70","#9085e9","#d9a441","#d95926","#e66767"];
 const SIZES = {poc: "33.8M", afriberta: "86M"};
 const isBig = r => (r.preset || 'poc') !== 'poc';
+const fmtPasses = p => p == null ? "\u2013"
+  : p >= 100 ? Math.round(p).toString()
+  : p >= 10 ? p.toFixed(1) : p.toFixed(2);
 const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(0)+'M' : fmtN(n);
 
 // One row per (data rung x model size), seeds averaged, so three seeds of one cell are one bar
@@ -1192,7 +1257,9 @@ const EXP_NAMES = {ladder:'Yoruba data ladder', multi:'Five languages',
                    wikitext103:'WikiText-103 baselines',
                    batchtest:'Batch-size sweep', lrprobe:'Learning-rate sweep',
                    stabcheck:'Seed stability'};
-const LANG_NAMES = {eng:'English', eng_1b:'English', fra:'French', ind:'Indonesian', cmn:'Mandarin',
+const LANG_NAMES = {eng:'English', eng_1b:'English', swh:'Swahili', amh:'Amharic',
+                    afr:'Afrikaans', som:'Somali', xho:'Xhosa', kin:'Kinyarwanda',
+                    sna:'Shona', lug:'Luganda', wol:'Wolof', nya:'Chichewa', fra:'French', ind:'Indonesian', cmn:'Mandarin',
                     yor:'Yoruba', swh:'Swahili', hau:'Hausa', ibo:'Igbo'};
 
 const MY_VERSION = '__PAGE_VERSION__';

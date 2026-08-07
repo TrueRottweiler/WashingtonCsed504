@@ -68,6 +68,9 @@ def main():
     p.add_argument('--mlm-prob', type=float, default=0.15)
     p.add_argument('--seed', type=int, default=0)
     p.add_argument('--clip', type=float, default=1.0)
+    p.add_argument('--warmup', type=float, default=None,
+                   help='warmup fraction of the run; default is per-length (see '
+                        'pretrain). Set explicitly to sweep the schedule itself.')
     p.add_argument('--accum', type=int, default=1,
                    help='micro-batches per optimizer step; effective batch is batch x accum')
     p.add_argument('--no-resume', action='store_true',
@@ -153,7 +156,7 @@ def main():
                       store_dtype=args.store_dtype)
     record = M.pretrain(ds, tokenizer, tag, steps, preset=args.preset, batch=args.batch,
                         lr=args.lr, mlm_prob=args.mlm_prob, seed=args.seed, clip=args.clip,
-                        accum=args.accum, resume=not args.no_resume,
+                        accum=args.accum, resume=not args.no_resume, warmup=args.warmup,
                         val_batches=val.fixed_val_batches(mlm_prob=args.mlm_prob))
     print(json.dumps({k: v for k, v in record.items() if k != 'history'}, indent=2))
 
