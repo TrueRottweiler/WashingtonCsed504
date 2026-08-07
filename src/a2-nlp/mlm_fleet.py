@@ -160,6 +160,8 @@ def launch(spec, gpu, args):
         cmd += ['--warmup', str(args.warmup)]
     if getattr(args, 'lr', None) is not None:
         cmd += ['--lr', str(args.lr)]
+    if getattr(args, 'clip', None) is not None:
+        cmd += ['--clip', str(args.clip)]
     if args.smoke:
         cmd.append('--smoke')
         base = f'smoke-{base}'
@@ -250,7 +252,7 @@ def run_fleet(args):
     slots = [None] * args.n_gpu
     for g in range(args.n_gpu):
         if queue:
-            slots[g] = launch(queue.pop(0), g, args)
+            slots[g] = launch(queue.pop(0), g + args.gpu_base, args)
 
     print('\n  cards are busy. Watch:  python dashboard.py\n')
     try:
@@ -266,7 +268,7 @@ def run_fleet(args):
                 dt = time.time() - job['t0']
                 ok = 'done ' if ret == 0 else f'FAILED({ret})'
                 print(f'  [gpu {g}] {ok} {job["base"]:34s} in {dt/60:.1f} min', flush=True)
-                slots[g] = launch(queue.pop(0), g, args) if queue else None
+                slots[g] = launch(queue.pop(0), g + args.gpu_base, args) if queue else None
             time.sleep(1.0)
     except KeyboardInterrupt:
         print('\nCtrl+C received, stopping all runs...')
@@ -294,6 +296,11 @@ def main():
                    help='sequences per step; 128 measured 1.33x the throughput of 64 and the '
                         'token budget above keeps the work constant when this changes')
     p.add_argument('--seq-len', type=int, default=128)
+    p.add_argument('--gpu-base', type=int, default=0,
+                   help='first card this fleet may use. With --n-gpu 1 this pins a fleet to one '
+                        'card, so two fleets can run side by side on a two-card box -- which is '
+                        'what a queue of single-cell fleets needs, since each such fleet would '
+                        'otherwise take card 0 and leave the other idle.')
     p.add_argument('--n-gpu', type=int, default=None,
                    help='cards to spread across (default: however many this machine has)')
     p.add_argument('--tag-prefix', default='',
@@ -306,6 +313,8 @@ def main():
                    help='warmup fraction, passed through to every cell')
     p.add_argument('--lr', type=float, default=None,
                    help='peak learning rate, passed through to every cell')
+    p.add_argument('--clip', type=float, default=None,
+                   help='gradient-norm clip, passed through to every cell')
     p.add_argument('--smoke', action='store_true')
     args = p.parse_args()
 

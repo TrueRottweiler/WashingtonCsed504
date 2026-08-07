@@ -150,6 +150,34 @@ happened. A study that reports one seed per cell at 86M is reporting coin flips.
 That is the most practical finding in this report for anyone continuing the work: **at 86M, one
 seed is not a measurement.**
 
+### Correction in progress: two failure modes, not one
+
+This section describes the 86M failures as seeds that "never break through the unigram plateau."
+That is true of some of them and **false of others**, and collapsing the two cost the report a
+claim it should not have made.
+
+`eng_1b_1024M_afriberta_s1` reached **6.182 at step 20,000** and finished at **7.469**. English's
+unigram entropy is 7.491, so it did not fail to leave the plateau — it left, learned for twenty
+thousand steps, and fell all the way back. That single run is what gives the 1024M cell its
+standard deviation of 2.699.
+
+A schedule sweep run to test the warmup hypothesis found the same thing deliberately, and gave a
+clean result on the way:
+
+| warmup | diverged | 
+|---|---|
+| 0.06 (the default) | **0 of 3** |
+| 0.15 | **2 of 2** |
+
+Both 0.15 seeds peaked — 6.209 and 6.190 — and then fell back to ~7.48. Longer warmup holds the
+peak learning rate higher for longer, and at 86M that is enough to turn a run that was learning
+into one that is not. The remaining configuration at 0.25 was dropped rather than run: it would
+have held the rate higher still, and the direction was no longer in question.
+
+So the mechanism is **mid-training divergence, not failure to start**, and the recommendation
+that follows is the opposite of the hypothesis: at this width, *less* warmup and a *lower* peak
+rate. Sections above will be restated once the lower-rate and tighter-clipping runs finish.
+
 ### What would explain it
 
 Not tested, and stated as hypotheses so nobody mistakes them for results:
