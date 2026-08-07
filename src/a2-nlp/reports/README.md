@@ -34,13 +34,18 @@ projection.
   1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
-- **The data axis saturates between 64M and 256M tokens** — and all of Yoruba is 69.1M. Past 64M,
-  16× more English text buys 0.024 nats, half the seed spread. Checked in Yoruba rather than
-  assumed: the two curves agree to within 0.025 nats at the one step both languages can take, so
-  the text Yoruba lacks is probably worth about as little. The study cannot rest on "there is too
-  little Yoruba text"; it has to rest on tokenizer fit.
+- **Past 64M tokens, more English text buys nothing measurable.** Sixteen times more data moves
+  validation loss by +0.089 against a measured seed spread of 0.149. Where saturation *begins* is
+  not resolvable at three seeds. In Yoruba the effect arrives earlier still — its 16M → 64M gain
+  is +0.053, 0.4× its own spread — so inside the 69.1M that exists, more Yoruba text is already
+  buying nothing. The study cannot rest on "there is too little Yoruba text"; it has to rest on
+  tokenizer fit.
 
 ## The one that changes the study plan
+
+> **Superseded in part by [report 05](05-when-data-stops-mattering.md) §4.** The runs below are
+> one seed per cell. At 86M that is a coin flip, not a measurement — see the bimodality note
+> above. The direction of this finding survives; the specific numbers are single draws.
 
 **Scaling the model up made it worse, at every rung.** The proposal sizes the real study at
 AfriBERTa scale (86M) on the assumption that bigger is better once the pipeline works. Run at
@@ -67,6 +72,28 @@ smaller model reaches 3.008 on that rung with a third of the budget.
 to 65,536 tokens per step moved the 16M rung from 5.494 to 5.342 — 0.15 against a gap of 2.3 —
 and converged on the plateau just the same. Larger batches help in the expected direction and
 by nowhere near enough.
+
+## The seed spread is not one number
+
+It is a property of the cell — the model size, the corpus and the compute budget — and this
+project spent most of its life judging every comparison against a single borrowed value.
+
+| | measured seed spread |
+|---|---|
+| 33.8M, Yoruba, 196.6M updates | 0.049 *(the figure everything was judged against)* |
+| 33.8M, English, 1.024B updates | **0.149** |
+| 33.8M, Yoruba, 1.024B updates | **0.103** |
+| 86M, English, 1.024B updates | **1.327** |
+
+So the old threshold understated the noise by 2–3× on the 33.8M ladders and by **27×** on the 86M
+column. [Report 05](05-when-data-stops-mattering.md) §2 restates the ladder against measured
+spreads; the results notebook now computes it per cell instead of holding a constant.
+
+And at 86M the spread is the wrong summary altogether. Thirteen runs on the English corpus land
+as **nine below 3.8 and four above 5.3, with nothing in between** — two populations, not a
+distribution. Some seeds break through the unigram plateau within the budget and some do not, at
+a failure rate of roughly 31%. So the practical rule for anyone continuing this work is that
+**at 86M, one seed is not a measurement.**
 
 ## Two things not to quote yet
 
