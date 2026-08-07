@@ -36,7 +36,8 @@ Corpus: 1,096,781,996 tokens of FineWeb-Edu, tokenized with the committed `eng-b
 
 **These are the original single-seed runs.** §2 replaces the 33.8M column's middle rungs with
 three-seed means; the 4M and 1024M cells are still one draw each. The 86M column is one draw
-throughout, and §4 shows its seed spread is **1.327** — read it as anecdote, not measurement.
+throughout, and §4 shows that column is bimodal rather than noisy — read it as anecdote, not
+measurement.
 
 ---
 
@@ -193,7 +194,8 @@ the step that shows the curve going flat (64M → 256M) exists only in English, 
 work will make it exist in Yoruba.
 
 **The seed spread is a property of the cell, not a constant.** Measured at 1.024B updates:
-**0.149** for 33.8M English, **0.103** for 33.8M Yoruba, **1.327** for the 86M preset. The 0.049
+**0.149** for 33.8M English (three repeated cells), **0.103** for 33.8M Yoruba (one), and
+**1.369** for the 86M preset — where §4 shows a standard deviation is the wrong summary. The 0.049
 this project quoted everywhere came from 33.8M Yoruba at 196.6M updates — a different corpus at a
 fifth the compute — and using it as a universal threshold understated the noise by 2–3× on the
 33.8M ladders and by 27× on the 86M column. The results notebook now measures it per cell rather

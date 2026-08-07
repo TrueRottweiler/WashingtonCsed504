@@ -200,7 +200,8 @@ Against that, the training effects are 45–56× the spread and the text effect 
 13×, so all of those are real.
 
 That 0.049 is this grid's number and does not travel. Re-measured at 5× the compute it is 0.149
-for 33.8M English and 0.103 for 33.8M Yoruba, and it is **1.327** for the 86M preset — see
+for 33.8M English and 0.103 for 33.8M Yoruba, and on the 86M preset it is not one number at all
+— that column is bimodal, with a roughly 31% chance of never leaving the plateau. See
 [report 05](05-when-data-stops-mattering.md) §2. Later work quoted 0.049 as a universal threshold
 and understated its own noise for it. The comparisons in this section are between cells of one
 grid at one budget, which is the case where it applies. The text effect at *low* training — 0.075 — is **1.5× the
