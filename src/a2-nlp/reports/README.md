@@ -43,6 +43,10 @@ projection.
 
 ## The one that changes the study plan
 
+> **Superseded in part by [report 05](05-when-data-stops-mattering.md) §4.** The runs below are
+> one seed per cell. At 86M that is a coin flip, not a measurement — see the bimodality note
+> above. The direction of this finding survives; the specific numbers are single draws.
+
 **Scaling the model up made it worse, at every rung.** The proposal sizes the real study at
 AfriBERTa scale (86M) on the assumption that bigger is better once the pipeline works. Run at
 matched budgets against the 33.8M model, it lost every time — 2.612 vs 5.315 on the 64M rung.
@@ -85,9 +89,11 @@ So the old threshold understated the noise by 2–3× on the 33.8M ladders and b
 column. [Report 05](05-when-data-stops-mattering.md) §2 restates the ladder against measured
 spreads; the results notebook now computes it per cell instead of holding a constant.
 
-The 86M variance is not the learning-rate collapse of report 03 — all six seeds were still
-descending at 62,500 steps. They differ in *when* they break through the unigram plateau, and at
-this budget some have barely started.
+And at 86M the spread is the wrong summary altogether. Thirteen runs on the English corpus land
+as **nine below 3.8 and four above 5.3, with nothing in between** — two populations, not a
+distribution. Some seeds break through the unigram plateau within the budget and some do not, at
+a failure rate of roughly 31%. So the practical rule for anyone continuing this work is that
+**at 86M, one seed is not a measurement.**
 
 ## Two things not to quote yet
 

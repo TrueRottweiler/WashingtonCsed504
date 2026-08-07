@@ -111,63 +111,66 @@ time. The rung above 64M does not exist and no amount of compute will create it.
 
 ---
 
-## 4. The bigger model still has not crossed over
+## 4. The bigger model, and why its column cannot be read as a curve
 
-*Read this section against the seed measurement at the end of it — the single-seed numbers below
-turn out to sit inside a spread far larger than the differences they describe.*
+Three seeds at every rung except 4M. The single-seed version of this section, and the two claims
+it made, are gone — what replaced them is stranger and more useful.
 
-The 86M model loses at every rung. It has lost at every rung of every ladder run so far.
-
-But it is the only one still improving. Its last two steps gained 0.382 and 0.321 nats while the
-smaller model gained 0.007 and 0.017, and the gap between them closes monotonically once past the
-smallest rungs: **0.839 → 0.686 → 0.382**.
-
-That is consistent with the undertraining reading — the extra capacity is real but needs more
-compute and more data than it has been given — and inconsistent with "86M is simply the wrong
-architecture here". Extrapolating the gap naively puts a crossover somewhere past 4B tokens of
-data at a proportionally larger compute budget, which is the two-day run and is not yet
-justified by anything measured.
-
-**It has not crossed over. Nothing here licenses saying that it will.** What can be said is that
-the negative AfriBERTa result in the group's study is explained by budget rather than by
-architecture, which is a materially different claim from "the bigger model does not work".
-
-### The seed check, and what it cost this section
-
-The paragraphs above were written from one seed per cell. The 86M model scored 3.278 at 64M
-tokens against 3.200 at 16M — worse with four times the data, the only inversion in either
-column — and that was flagged as needing a repeat. Repeating it changed more than the inversion.
-
-Three seeds per cell, 86M model, same 1.024B tokens of updates:
-
-| unique tokens | s0 | s1 | s2 | mean | sd |
+| data | 86M mean | 86M sd | 33.8M mean | gap | 86M, 1 seed (earlier) |
 |---|---|---|---|---|---|
-| 16M | 3.200 | 3.760 | 5.661 | 4.207 | **1.290** |
-| 64M | 3.278 | 2.818 | 5.376 | 3.824 | **1.363** |
+| 4M | 6.7196 | *(1 seed)* | 3.2836 | 3.44 | 6.720 |
+| 16M | 4.2071 | 1.290 | 2.5444 | 1.66 | 3.200 |
+| 64M | 3.8241 | 1.364 | 2.2819 | 1.54 | 3.278 |
+| 256M | **2.7547** | **0.123** | 2.3869 | **0.37** | 2.896 |
+| 1024M | **4.3649** | **2.699** | 2.1930 | **2.17** | 2.575 |
 
-**The inversion is gone** — 64M now comes out 0.383 *better* than 16M, the expected direction. It
-was noise.
+**The variance is not a constant, and it is not monotonic.** At 256M the 86M model is as
+reproducible as the small one — sd 0.123 — and posts its best result, within 0.37 of a model less
+than half its size. At 1024M the spread is **2.699**, which is larger than the entire span of the
+33.8M column across a 256× range of data. That cell is a coin flip between a model that learned
+and one that barely left the plateau.
 
-**The noise is the finding.** The seed spread within a single 86M cell is **1.327 nats**. The
-figure this project has been using as its significance threshold is 0.049, measured on the 33.8M
-model, and it is **27× too small for this preset.** Everything in this section that compares one
-86M rung to another was reading differences of 0.3–0.4 against a spread four times larger.
+**Withdrawn.** The earlier draft said the gap "closes monotonically, 0.839 → 0.686 → 0.382" and
+that the 86M model was "the only one still improving". On seeded means the gap goes
+**1.54 → 0.37 → 2.17**, and the 2.575 reported at 1024M was a lucky draw from a distribution whose
+mean is 4.365. Neither claim survives; both were single draws read as a trend.
 
-What survives:
+**What can be said.** The 86M model is not incapable — 2.7547 ± 0.123 at 256M is a real result
+from a stable cell. It is *unreliable*, and unreliable in a way that depends on the rung. Whatever
+governs whether a seed breaks through the unigram plateau within 62,500 steps is not simply "more
+data helps"; at 1024M it evidently gets worse.
 
-- **The 86M model loses badly to 33.8M.** 4.207 against 2.361 at 16M, 3.824 against 2.217 at 64M.
-  That gap is larger than the spread and is not in doubt.
-- **It is undertrained rather than broken.** All six seeds were still descending at 62,500 steps —
-  none had flattened onto the plateau, so this is not the learning-rate collapse of
-  [report 03](03-efficiency.md) §6d. The seeds differ in *when* they break through the unigram
-  plateau, and at this budget some have barely started.
+**What this means for the group's AfriBERTa result.** It is still explained by budget rather than
+by architecture — but the mechanism is not the one this report proposed. It is not that the model
+is uniformly undertrained and improving steadily with scale. It is that at this step budget the
+model *sometimes* trains and sometimes does not, and a single run per cell cannot tell you which
+happened. A study that reports one seed per cell at 86M is reporting coin flips.
 
-What does not survive: **"the gap closes monotonically, 0.839 → 0.686 → 0.382"** and **"it is the
-only one still improving"** as quantitative claims. Both were computed from single seeds of a
-distribution with sd 1.3. The direction may well be right; the numbers cannot carry the weight
-this section put on them, and the 256M and 1024M rungs have not been re-seeded at all.
+That is the most practical finding in this report for anyone continuing the work: **at 86M, one
+seed is not a measurement.**
 
-Treat the whole 86M column of §1 as one draw each, not as measurements.
+### What would explain it
+
+Not tested, and stated as hypotheses so nobody mistakes them for results:
+
+- The warmup floor (`MIN_WARMUP_STEPS = 250`, so `pct_start` bottoms out at 0.06) may be too short
+  for this width at long budgets, leaving the model's early trajectory seed-dependent.
+- The plateau breakout looks like a **threshold crossing rather than a gradual effect**, in which
+  case the standard deviations above are the wrong summary entirely. All thirteen 86M runs on
+  this corpus, sorted:
+
+  ```
+  2.57  2.67  2.70  2.82  2.90  3.05  3.20  3.28  3.76   |   5.38  5.66  6.72  7.47
+  ```
+
+  Nine below 3.8, four above 5.3, and **nothing between 3.8 and 5.3**. That is not a spread, it
+  is two populations: runs that broke through the unigram plateau and runs that did not. A mean
+  and an sd describe neither, and the honest parameter is the failure rate — 4 of 13, about 31%,
+  on this evidence.
+
+Either would be worth a learning-rate or warmup sweep before anyone runs an 86M study for real.
+The second also means the sd column above should be read as "how often did this cell fail",
+not as a precision.
 
 ---
 
