@@ -180,7 +180,8 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
              lr: float | None = None, mlm_prob: float = 0.15, seed: int = 0, clip: float = 1.0,
              log_every: int | None = None, out_dir: str | None = None,
              val_batches=None, amp_dtype=None, accum: int = 1,
-             resume: bool = True, ckpt_every: int | None = None) -> dict:
+             resume: bool = True, ckpt_every: int | None = None,
+             warmup: float | None = None) -> dict:
     """Pretrain one grid cell and return its record.
 
     ds is an mlm_data.MlmTokens already sliced to this cell's token budget, so "how much unique
@@ -214,7 +215,13 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # steps and collapsed at a learning rate that trains reliably (3/3 seeds) over 4,000 steps
     # with 240. Short runs are exactly what people use to try things out, so the schedule has to
     # survive them.
-    pct_start = min(0.25, max(0.06, MIN_WARMUP_STEPS / max(steps, 1)))
+    #
+    # `warmup` overrides that rule outright, because the rule is now itself under test: at 86M
+    # roughly a third of seeds never leave the unigram plateau within their budget, and a warmup
+    # too short for that width is one of the two hypotheses that would explain it. A sweep has to
+    # be able to ask for a warmup the heuristic would not choose.
+    pct_start = warmup if warmup is not None else \
+        min(0.25, max(0.06, MIN_WARMUP_STEPS / max(steps, 1)))
     sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps,
                                               pct_start=pct_start)
 
@@ -249,7 +256,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # no finish estimate. Structured data belongs in a file, not in printed prose.
     meta = {'tag': tag, 'corpus': getattr(ds, 'name', None), 'preset': preset, 'steps': steps, 'batch': batch, 'accum': accum,
             'seq_len': ds.seq_len, 'tokens_per_step': tokens_per_step,
-            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr,
+            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr, 'warmup': pct_start,
             'seed': seed, 'vocab_size': ds.vocab_size, 'random_loss': random_loss,
             'log_every': log_every, 'started': time.time(),
             'params': total_p, 'nonemb_params': nonemb_p}
@@ -397,7 +404,8 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     record = {'tag': tag, 'path': out_dir, 'preset': preset, 'params': total_p,
               'vocab_fingerprint': vocab_fp,
               'nonemb_params': nonemb_p, 'n_tokens': int(ds.n), 'steps': steps, 'batch': batch,
-              'seq_len': ds.seq_len, 'lr': lr, 'seed': seed, 'passes': passes,
+              'seq_len': ds.seq_len, 'lr': lr, 'warmup': pct_start, 'seed': seed,
+              'passes': passes,
               'store_dtype': str(ds.store_dtype).replace('torch.', ''),
               'store_gb': ds.gb(), 'val_loss': val_loss, 'best_val_loss': best,
               'val_ppl': math.exp(min(20.0, val_loss)), 'random_loss': random_loss,

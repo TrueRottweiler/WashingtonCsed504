@@ -143,6 +143,8 @@ def launch(spec, gpu, args):
     tokens, update_tokens, seed, preset = unpack(spec, args.preset)
     steps = steps_for(update_tokens, args.batch, args.seq_len)
     base = spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len)
+    if getattr(args, 'tag_prefix', ''):
+        base = f'{args.tag_prefix}_{base}'
 
     stale = os.path.join(LOGS, f'{base}.log')
     if os.path.exists(stale):
@@ -152,6 +154,12 @@ def launch(spec, gpu, args):
            '--corpus', args.corpus, '--tokens', str(tokens), '--steps', str(steps),
            '--preset', preset, '--gpu', str(gpu), '--seed', str(seed),
            '--batch', str(args.batch), '--seq-len', str(args.seq_len)]
+    if getattr(args, 'tag_prefix', ''):
+        cmd += ['--tag', base]
+    if getattr(args, 'warmup', None) is not None:
+        cmd += ['--warmup', str(args.warmup)]
+    if getattr(args, 'lr', None) is not None:
+        cmd += ['--lr', str(args.lr)]
     if args.smoke:
         cmd.append('--smoke')
         base = f'smoke-{base}'
@@ -185,7 +193,8 @@ def write_plan(queue, args):
     for spec in queue:
         tokens, update_tokens, seed, preset = unpack(spec, args.preset)
         cells.append({
-            'tag': spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
+            'tag': (f"{args.tag_prefix}_" if getattr(args, 'tag_prefix', '') else '')
+                   + spec_tag(args.corpus, spec, args.preset, args.batch, args.seq_len),
             'tokens': tokens, 'update_tokens': update_tokens,
             'steps': steps_for(update_tokens, args.batch, args.seq_len),
             'preset': preset, 'seed': seed,
@@ -260,6 +269,16 @@ def main():
     p.add_argument('--seq-len', type=int, default=128)
     p.add_argument('--n-gpu', type=int, default=None,
                    help='cards to spread across (default: however many this machine has)')
+    p.add_argument('--tag-prefix', default='',
+                   help='namespace every cell in this fleet, e.g. --tag-prefix warm15. '
+                        'Required when sweeping anything the cell tag does not carry: '
+                        'the tag is (corpus, tokens, steps, seed, preset), so two fleets '
+                        'differing only in learning rate or warmup would name their cells '
+                        'identically and the second would overwrite the first.')
+    p.add_argument('--warmup', type=float, default=None,
+                   help='warmup fraction, passed through to every cell')
+    p.add_argument('--lr', type=float, default=None,
+                   help='peak learning rate, passed through to every cell')
     p.add_argument('--smoke', action='store_true')
     args = p.parse_args()
 
