@@ -96,7 +96,7 @@ distribution. Some seeds break through the unigram plateau within the budget and
 a failure rate of roughly 31%. So the practical rule for anyone continuing this work is that
 **at 86M, one seed is not a measurement.**
 
-## Two things not to quote yet
+## Things not to quote yet
 
 - **XLM-R's 0.127 on topic classification is confirmed to be a non-result**, and it is worse than
   "a fine-tuning failure". Re-run with seeds in [report 06](06-when-a-number-is-not-a-result.md),
@@ -105,10 +105,12 @@ a failure rate of roughly 31%. So the practical rule for anyone continuing this 
   has to be withdrawn until a configuration is found in which XLM-R trains at all.
 - **The AfriBERTa ladder rows in `runs/` are collapsed runs**, kept as evidence for the finding
   above. They are not results and the ladder needs re-running at the corrected settings.
-- **The downstream numbers are still unresolved.** Seeds have now been run on the pretraining
-  side (sd 0.049), and the pretraining differences clear it easily. But the four models score
-  0.448–0.527 on topic classification with overlapping CIs, so *which* grid cell fine-tunes best
-  is not yet answerable.
+- **The downstream numbers are still unresolved.** The pretraining side is seeded and its
+  differences clear the measured spread easily — but that spread is per-cell, not the single
+  0.049 this bullet used to quote (see above). Downstream, the four models score 0.448–0.527 on
+  topic classification with overlapping CIs, so *which* grid cell fine-tunes best is not yet
+  answerable, and [report 06](06-when-a-number-is-not-a-result.md) removes XLM-R from the
+  comparison entirely.
 
 ## Reproducing
 
