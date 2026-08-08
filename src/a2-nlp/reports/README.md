@@ -11,8 +11,8 @@ projection.
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
-| 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 | 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The first downstream runs. A baseline that never trained, a tokenizer comparison run on the wrong Unicode normalisation, and what survives of the study's downstream claims. |
+| 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 
 ## The short version
 
@@ -45,9 +45,12 @@ projection.
 
 ## The one that changes the study plan
 
-> **Superseded in part by [report 05](05-when-data-stops-mattering.md) §4.** The runs below are
-> one seed per cell. At 86M that is a coin flip, not a measurement — see the bimodality note
-> above. The direction of this finding survives; the specific numbers are single draws.
+> **Largely superseded — read [report 07](07-the-night-of-diagnostics.md) §1 first.** The runs
+> below are one seed per cell, at gradient clipping 1.0. At 86M one seed is a coin flip rather
+> than a measurement, and clipping at 0.5 changes the answer: at 256M the two model sizes become
+> indistinguishable (2.481 ±0.026 against 2.387 ±0.154) where this section has the larger model
+> losing by 2.7. What survives is that the 86M model never wins. What does not survive is the
+> explanation below — it was not "finished, not merely slow", it was badly clipped.
 
 **Scaling the model up made it worse, at every rung.** The proposal sizes the real study at
 AfriBERTa scale (86M) on the assumption that bigger is better once the pipeline works. Run at
