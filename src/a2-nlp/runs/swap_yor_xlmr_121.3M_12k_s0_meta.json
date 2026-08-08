@@ -1,0 +1,22 @@
+{
+  "tag": "swap_yor_xlmr_121.3M_12k_s0",
+  "corpus": "yor_xlmr",
+  "preset": "poc",
+  "steps": 12000,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 196608000,
+  "n_tokens": 121339416,
+  "lr": 0.0005,
+  "warmup": 0.06,
+  "clip": 1.0,
+  "seed": 0,
+  "vocab_size": 250002,
+  "random_loss": 12.429224196812383,
+  "log_every": 200,
+  "started": 1786159713.8403125,
+  "params": 153801874,
+  "nonemb_params": 25800850
+}

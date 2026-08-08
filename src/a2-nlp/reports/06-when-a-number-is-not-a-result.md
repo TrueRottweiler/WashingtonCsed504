@@ -358,7 +358,7 @@ run on NER at all, which after §6 is a gap rather than a detail.
 | 65% of the context window is spent on fragments | **Withdraw.** Nothing is truncated, and a 14.5-point change in truncation is worth 0.003 F1; use the 77-vs-44-words framing. |
 | MLM loss does not predict downstream quality | **Hold, one leg weaker.** The surviving support is the 2M-token cell where loss improved 5.72 → 4.57 while F1 fell 0.489 → 0.451. |
 | XLM-R and mmBERT both score ~0.84 on Yoruba NER | **Hold.** 0.841 and 0.851 under NFC, overlapping CIs. |
-| The from-scratch model loses NER by 0.145 | **Still open.** Both baselines are confirmed insensitive to the encoding fix (±0.003); the from-scratch tokenizer is the one whose fertility moved 47%, and its row still needs a checkpoint. |
+| The from-scratch model loses NER by 0.145 | **Withdraw — it loses by 0.053.** Measured under NFC in [report 08](08-what-the-tokenizer-costs.md) §2: 0.7877 against 0.8410 and 0.8507. The prediction on this row held exactly — both baselines moved by ≤0.003 and the from-scratch row, the only one whose tokenizer fertility changed, moved by 0.092. |
 
 ---
 

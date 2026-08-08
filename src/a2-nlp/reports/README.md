@@ -13,6 +13,7 @@ projection.
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
 | 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalisation, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
 | 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
+| 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched compute, 0.144 bits/char. At matched *steps*, nothing — and why that reading was wrong. Plus the downstream rows, where a 33.8M from-scratch model beats mmBERT on topic classification. |
 
 ## The short version
 
@@ -99,6 +100,44 @@ as **nine below 3.8 and four above 5.3, with nothing in between** — two popula
 distribution. Some seeds break through the unigram plateau within the budget and some do not, at
 a failure rate of roughly 31%. So the practical rule for anyone continuing this work is that
 **at 86M, one seed is not a measurement.**
+
+## What the tokenizer costs, measured at last
+
+Everything before [report 08](08-what-the-tokenizer-costs.md) measured that the penalty *exists*.
+The swap measures what it *costs*: same Yoruba text, same architecture, only the vocabulary
+differs.
+
+| | steps | min/seed | bits/char |
+|---|---|---|---|
+| our 16k BPE | 12k | 8 | 1.135 ±0.035 |
+| XLM-R's 250k | 12k | **41** | 1.056 ±0.142 |
+| our 16k BPE | 62.5k | 40 | **0.912 ±0.042** |
+
+**At matched compute our vocabulary wins by 0.144 bits/char, 1.6× the seed spread.** At matched
+*steps* the two look identical — but the 250k arm burned 5.1× the compute to get there, because
+its output projection is fifteen times wider. Same three runs, opposite conclusions, and only one
+of the two axes is the question anyone has.
+
+## Downstream: the small model wins the semantic task
+
+At 1,056 steps, the budget where models actually train:
+
+| SIB-200 (topic) | | MasakhaNER (entities) | |
+|---|---|---|---|
+| **from-scratch, ours** | **0.632** | mmBERT | 0.851 |
+| mmBERT | 0.574 | XLM-R | 0.841 |
+| XLM-R | 0.408 | **from-scratch, ours** | **0.788** |
+| our arch, untrained | 0.403 | our arch, untrained | 0.414 |
+| XLM-R arch, untrained | 0.369 | | |
+
+A 33.8M model pretrained on 64M tokens of Yoruba **beats mmBERT on topic classification** (CIs
+overlap) and loses entity recognition by 0.053 — not the 0.145 report 06 recorded before the
+Unicode fix reached that row.
+
+Two things the controls settle. **XLM-R's pretraining is worth +0.039 over the same architecture
+with random weights** — for Yoruba it contributes nothing measurable. And the NER floor of 0.414
+is 49% of the achievable score against SIB-200's 64%, which is why the two tasks disagree: entity
+recognition hands half its score to a model that knows no Yoruba at all.
 
 ## The strongest form of the thesis
 
