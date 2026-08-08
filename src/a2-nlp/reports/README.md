@@ -1,27 +1,30 @@
 # Reports
 
 Written investigations behind the A2-NLP factory. Each one is self-contained and every number in
-them was measured on the CSED 504 workstation (2 × RTX PRO 6000 Blackwell) unless labelled as a
+them was measured on the CSED 504 workstation (2 × RTX PRO 6000 Blackwell) unless labeled as a
 projection.
 
 | | report | what it answers |
 |---|---|---|
 | 01 | [What we're building](01-what-were-building.md) | What is the group's research question, what does the factory provide, and where are the data and hardware limits? Start here. |
 | 02 | [What the model actually learned](02-what-the-model-learned.md) | We trained a model — what did it *do*? Fill-in-the-blank predictions from the real checkpoint, what a loss of 2.886 means, and what the corpus does and doesn't contain. |
-| 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
+| 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilization was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
-| 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalisation, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
+| 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalization, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
 | 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 | 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched compute, 0.144 bits/char. At matched *steps*, nothing — and why that reading was wrong. Plus the downstream rows, where a 33.8M from-scratch model beats mmBERT on topic classification. |
+| **09** | **[The plain-language version](09-the-poster.md)** | **Start here if you are not on this project.** The whole study explained for someone who has taken one ML course: the problem, what we built, what it cost in hardware and electricity, what we found, and the five times a setting nobody questioned decided a result. Thirteen sections, one per poster panel. |
 
 ## The short version
 
 - **Yoruba is scarce.** All of it on FineWeb-2 is 69.1M tokens — less than one English benchmark
   dataset. The group's top rung uses 93% of everything available.
-- **The small from-scratch model works.** 33.8M parameters, ten minutes on one card, and it
-  matches mmBERT on topic classification (0.527 vs 0.537). It does *not* match on entity
-  recognition (0.698 vs 0.848), so the easy task was flattering it.
+- **The small from-scratch model works.** 33.8M parameters trained on 64M tokens of Yoruba. Best
+  rate against best rate it **beats** mmBERT on topic classification (0.666 vs 0.595) and loses
+  entity recognition by 0.026 (0.837 vs 0.863). Earlier versions of this line quoted 0.527/0.537
+  and 0.698/0.848, from before the step budget, the Unicode normalization and the learning rates
+  were fixed.
 - **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7
   against a measured seed spread of 0.049 — 45–56× the noise. More *text* does nothing measurable
   until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
@@ -32,13 +35,13 @@ projection.
 - **Yoruba is under-served, not hard.** At matched data and compute, a from-scratch Yoruba model
   gains 4.114 nats of context against English's 3.906 — measured after subtracting each corpus's
   unigram entropy, since raw loss across two vocabularies compares nothing. Nothing about the
-  language resists modelling.
+  language resists modeling.
 - **A multilingual vocabulary is not inherently worse.** XLM-R costs English 1.04×, Indonesian
   1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
 - **Past 64M tokens, more English text buys nothing measurable.** Sixteen times more data moves
-  validation loss by +0.089 against a measured seed spread of 0.149. Where saturation *begins* is
+  validation loss by −0.080 against a measured seed spread of 0.185. Where saturation *begins* is
   not resolvable at three seeds. In Yoruba the effect arrives earlier still — its 16M → 64M gain
   is +0.053, 0.4× its own spread — so inside the 69.1M that exists, more Yoruba text is already
   buying nothing. The study cannot rest on "there is too little Yoruba text"; it has to rest on
@@ -122,17 +125,19 @@ of the two axes is the question anyone has.
 
 At 1,056 steps, the budget where models actually train:
 
+Every model at its own best learning rate, three seeds:
+
 | SIB-200 (topic) | | MasakhaNER (entities) | |
 |---|---|---|---|
-| **from-scratch, ours** | **0.632** | mmBERT | 0.851 |
-| mmBERT | 0.574 | XLM-R | 0.841 |
-| XLM-R | 0.408 | **from-scratch, ours** | **0.788** |
+| **from-scratch, ours** | **0.666** | mmBERT | 0.863 |
+| mmBERT | 0.595 | XLM-R | 0.851 |
+| XLM-R | 0.408 | **from-scratch, ours** | **0.837** |
 | our arch, untrained | 0.403 | our arch, untrained | 0.414 |
 | XLM-R arch, untrained | 0.369 | | |
 
-A 33.8M model pretrained on 64M tokens of Yoruba **beats mmBERT on topic classification** (CIs
-overlap) and loses entity recognition by 0.053 — not the 0.145 report 06 recorded before the
-Unicode fix reached that row.
+A 33.8M model pretrained on 64M tokens of Yoruba **beats mmBERT on topic classification by 0.071**
+(CIs overlap) and loses entity recognition by 0.026 — not the 0.145 report 06 recorded, most of
+which was the wrong Unicode normalization and an unswept learning rate.
 
 Two things the controls settle. **XLM-R's pretraining is worth +0.039 over the same architecture
 with random weights** — for Yoruba it contributes nothing measurable. And the NER floor of 0.414

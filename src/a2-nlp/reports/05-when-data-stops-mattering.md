@@ -59,7 +59,7 @@ Pooled within-cell seed spread, 33.8M model, English, 1.024B tokens of updates: 
 | 256M → 1024M | +0.025 | +0.017 | 0.14× | noise |
 
 Three bands, not two. A step below the spread is noise; above twice it, real; between them this
-many seeds cannot say. Collapsing that middle band into either neighbour is how a single lucky
+many seeds cannot say. Collapsing that middle band into either neighbor is how a single lucky
 draw became a reported finding the first time.
 
 **The headline survives.** From 64M to 1024M — a sixteen-fold increase in unique text — the total
@@ -105,7 +105,7 @@ has to rest on the tokenizer-fit result in [report 04](04-the-language-gradient.
 Yoruba pays XLM-R a 1.65× penalty no other language in the set pays.
 
 **What this does not support:** any claim that the two languages saturate at the same point, or
-that English's behaviour predicts Yoruba's. The measurement says Yoruba saturates earlier, on a
+that English's behavior predicts Yoruba's. The measurement says Yoruba saturates earlier, on a
 16M rung that is still a single seed.
 
 **What cannot be fixed:** Yoruba's 4M and 16M cells deserve seeding, and that is 80 minutes of GPU

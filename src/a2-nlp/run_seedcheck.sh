@@ -9,7 +9,7 @@
 # the spread is measured here.
 #
 # Ordered cheapest-and-most-valuable first. Within a fleet the scheduler runs the longest cells
-# first, which is right for card utilisation and wrong for what a person wants to see when they
+# first, which is right for card utilization and wrong for what a person wants to see when they
 # check back in two hours -- so the ordering that matters is done here, between fleets.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

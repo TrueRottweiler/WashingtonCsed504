@@ -182,7 +182,7 @@ grammatical slot, and narrows 16,000 possibilities to roughly 18. Ten minutes of
 GPU, from 32 million tokens of web text.
 
 That representation is then reused: the fine-tuning stage keeps the model's learned innards and
-bolts a small classifier on top, which is why 701 labelled examples are enough to reach 0.527 on
+bolts a small classifier on top, which is why 701 labeled examples are enough to reach 0.527 on
 topic classification. The pretraining did the expensive part.
 
 **The number that proves it was worth doing** is the untrained control. Same architecture, same

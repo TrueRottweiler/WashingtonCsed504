@@ -23,7 +23,7 @@ card -- which is what makes a number from a notebook comparable with a number fr
 fleet run. Corpora live under data/<name>/ and survive kernel restarts.
 
 Nothing here fine-tunes. The fine-tuning half of the POC -- SIB-200, MasakhaNER, the seeded
-harness with pooled bootstrap CIs -- stays exactly as it is. It runs on a few hundred labelled
+harness with pooled bootstrap CIs -- stays exactly as it is. It runs on a few hundred labeled
 examples in seconds, so the factory has nothing to offer it, and the checkpoints produced below
 are ordinary save_pretrained directories that AutoModelFor*.from_pretrained already loads.
 """
@@ -40,7 +40,7 @@ import mlm_train as _train
 import text_data as _text
 
 # Bumped when a call here changes shape. Pin against it if a script must not silently change
-# behaviour: assert mlm_api.API_VERSION == (1, 0)
+# behavior: assert mlm_api.API_VERSION == (1, 0)
 API_VERSION = (1, 0)
 
 RUNS = _train.RUNS

@@ -15,7 +15,7 @@ not measurements of what they appeared to measure** — and that each one was fo
 firing, not by anyone noticing something looked wrong.
 
 Two of them were bugs in the ordinary sense: a baseline that never trained, and a tokenizer
-comparison run on text in the wrong Unicode normalisation form, which reversed its own conclusion.
+comparison run on text in the wrong Unicode normalization form, which reversed its own conclusion.
 The other two are more uncomfortable, because nothing was broken. A fixed step budget and an
 untrained control both looked like neutral scaffolding, and both turned out to be deciding the
 answer.
@@ -30,7 +30,7 @@ each wants its own small notebook. Copied into three notebooks, that becomes thr
 inside a week, and a seed count changed in one silently makes its numbers incomparable with the
 others.
 
-It is now `ft_api.py`, alongside `mlm_api.py` and mirroring its shape. One behavioural change was
+It is now `ft_api.py`, alongside `mlm_api.py` and mirroring its shape. One behavioral change was
 made deliberately, and it matters more than it looks:
 
 **The epoch loop became a fixed step budget.** The notebook trained `for _ in range(FT_EPOCHS)`.
@@ -70,7 +70,7 @@ At `lr 2e-5, 352 steps` — the configuration the study quoted — five seeds gi
 Now the reference points. SIB-200's Yoruba test split is 204 items across 7 classes, distributed
 19 / 17 / 22 / 30 / 51 / 25 / 40:
 
-| behaviour | macro-F1 |
+| behavior | macro-F1 |
 |---|---|
 | collapse to a single class | 0.022 – **0.057** |
 | collapse to two classes | 0.038 – 0.099 |
@@ -153,7 +153,7 @@ went unnoticed: the dataset the group looked at most is the one that hides it.
 
 **The fix belongs in the data, not the tokenizer.** Adding a normalizer to `yor-bpe16k` would move
 its fingerprint off `15abd33de5af` and make every Yoruba pretraining run incomparable. `ft_api`
-normalises to NFC on the way in, records the setting on every result, and puts it in the record
+normalizes to NFC on the way in, records the setting on every result, and puts it in the record
 key so an NFC run and a raw run cannot land on the same file.
 
 **The thesis comes out stronger.** With the encoding corrected, XLM-R costs:
@@ -224,7 +224,7 @@ it proposed was wrong.
 The sweep that settled it: five learning rates extending *downward* from 2e-5, two step budgets,
 five seeds each — 50 fine-tuning runs, reported as **the fraction of seeds clearing the
 uniform-random bar** rather than as a mean, because a mean over collapsed seeds averages a broken
-optimiser with a working one and reports the result as a property of the model.
+optimizer with a working one and reports the result as a property of the model.
 
 | lr | 352 steps | 1056 steps |
 |---|---|---|
@@ -241,7 +241,7 @@ the classification head was never failing to receive gradient. It was undertrain
 count nobody had chosen for it.
 
 `FT_STEPS = 352` came from `POC_v4_factory.ipynb`'s 8-epoch loop, preserved so the extraction
-would be behaviour-preserving (§1). It was never selected for this question, and it produced the
+would be behavior-preserving (§1). It was never selected for this question, and it produced the
 study's central downstream conclusion. **This is the sixth or seventh instance of the project's
 recurring failure mode — a result produced by a fixed arbitrary constant rather than by the thing
 under study — and the most consequential one so far.**
