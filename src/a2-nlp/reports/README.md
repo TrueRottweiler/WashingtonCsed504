@@ -19,9 +19,11 @@ projection.
 
 - **Yoruba is scarce.** All of it on FineWeb-2 is 69.1M tokens — less than one English benchmark
   dataset. The group's top rung uses 93% of everything available.
-- **The small from-scratch model works.** 33.8M parameters, ten minutes on one card, and it
-  matches mmBERT on topic classification (0.527 vs 0.537). It does *not* match on entity
-  recognition (0.698 vs 0.848), so the easy task was flattering it.
+- **The small from-scratch model works.** 33.8M parameters trained on 64M tokens of Yoruba. Best
+  rate against best rate it **beats** mmBERT on topic classification (0.666 vs 0.595) and loses
+  entity recognition by 0.026 (0.837 vs 0.863). Earlier versions of this line quoted 0.527/0.537
+  and 0.698/0.848, from before the step budget, the Unicode normalisation and the learning rates
+  were fixed.
 - **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7
   against a measured seed spread of 0.049 — 45–56× the noise. More *text* does nothing measurable
   until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
@@ -38,7 +40,7 @@ projection.
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
 - **Past 64M tokens, more English text buys nothing measurable.** Sixteen times more data moves
-  validation loss by +0.089 against a measured seed spread of 0.149. Where saturation *begins* is
+  validation loss by −0.080 against a measured seed spread of 0.185. Where saturation *begins* is
   not resolvable at three seeds. In Yoruba the effect arrives earlier still — its 16M → 64M gain
   is +0.053, 0.4× its own spread — so inside the 69.1M that exists, more Yoruba text is already
   buying nothing. The study cannot rest on "there is too little Yoruba text"; it has to rest on
@@ -122,17 +124,19 @@ of the two axes is the question anyone has.
 
 At 1,056 steps, the budget where models actually train:
 
+Every model at its own best learning rate, three seeds:
+
 | SIB-200 (topic) | | MasakhaNER (entities) | |
 |---|---|---|---|
-| **from-scratch, ours** | **0.632** | mmBERT | 0.851 |
-| mmBERT | 0.574 | XLM-R | 0.841 |
-| XLM-R | 0.408 | **from-scratch, ours** | **0.788** |
+| **from-scratch, ours** | **0.666** | mmBERT | 0.863 |
+| mmBERT | 0.595 | XLM-R | 0.851 |
+| XLM-R | 0.408 | **from-scratch, ours** | **0.837** |
 | our arch, untrained | 0.403 | our arch, untrained | 0.414 |
 | XLM-R arch, untrained | 0.369 | | |
 
-A 33.8M model pretrained on 64M tokens of Yoruba **beats mmBERT on topic classification** (CIs
-overlap) and loses entity recognition by 0.053 — not the 0.145 report 06 recorded before the
-Unicode fix reached that row.
+A 33.8M model pretrained on 64M tokens of Yoruba **beats mmBERT on topic classification by 0.071**
+(CIs overlap) and loses entity recognition by 0.026 — not the 0.145 report 06 recorded, most of
+which was the wrong Unicode normalisation and an unswept learning rate.
 
 Two things the controls settle. **XLM-R's pretraining is worth +0.039 over the same architecture
 with random weights** — for Yoruba it contributes nothing measurable. And the NER floor of 0.414

@@ -82,17 +82,20 @@ All at 1,056 steps, the budget at which models actually train — see
 
 **SIB-200, Yoruba topic classification**
 
-| | macro-F1 | 95% CI |
-|---|---|---|
-| **from-scratch, ours (33.8M)** | **0.6324** | [0.574, 0.678] |
-| mmBERT (best cell) | 0.5736 | [0.501, 0.627] |
-| XLM-R (best cell) | 0.4077 | [0.351, 0.455] |
-| our architecture, untrained | 0.4034 | [0.351, 0.446] |
-| XLM-R's architecture, untrained | 0.3692 | [0.318, 0.417] |
+| | macro-F1 | 95% CI | best lr |
+|---|---|---|---|
+| **from-scratch, ours (33.8M)** | **0.6659** | [0.603, 0.711] | 3e-5 |
+| mmBERT | 0.5949 | [0.520, 0.652] | 7e-5 |
+| XLM-R | 0.4077 | [0.351, 0.455] | 1e-5 |
+| our architecture, untrained | 0.4034 | [0.351, 0.446] | — |
+| XLM-R's architecture, untrained | 0.3692 | [0.318, 0.417] | — |
 
-**A 33.8M model pretrained on 64M tokens of Yoruba beats mmBERT**, which was pretrained on 3
-trillion tokens across 1,800 languages. The intervals overlap, so this is not a decisive win — but
-it is ahead, and it is the result the study set out to look for.
+**A 33.8M model pretrained on 64M tokens of Yoruba beats mmBERT by 0.071**, which was pretrained
+on 3 trillion tokens across 1,800 languages. The intervals overlap, so this is not a decisive win
+— but it is ahead, and it is the result the study set out to look for.
+
+Every model here is its own best of a learning-rate sweep. That symmetry took three passes to
+reach and is the subject of §2b.
 
 The bottom three rows are the more interesting part. **XLM-R's pretraining is worth +0.039 over
 the same architecture with random weights**, with intervals that overlap almost completely. For
@@ -101,17 +104,46 @@ Yoruba, XLM-R's pretraining contributes nothing measurable. That is a sharper st
 
 **MasakhaNER 2.0, Yoruba entity recognition** (2,150 steps, NFC)
 
-| | entity F1 | 95% CI |
-|---|---|---|
-| mmBERT | 0.8507 | [0.837, 0.865] |
-| XLM-R | 0.8410 | [0.827, 0.856] |
-| **from-scratch, ours** | **0.7877** | [0.770, 0.804] |
-| our architecture, untrained | 0.4140 | [0.390, 0.435] |
+| | entity F1 | 95% CI | best lr |
+|---|---|---|---|
+| mmBERT | 0.8628 | [0.850, 0.877] | 7e-5 |
+| XLM-R | 0.8513 | [0.836, 0.866] | 7e-5 |
+| **from-scratch, ours** | **0.8373** | [0.821, 0.852] | 1e-4 |
+| our architecture, untrained | 0.4140 | [0.390, 0.435] | — |
 
 Report 06 recorded the from-scratch NER gap as **0.145** and predicted this row was the only one
 the Unicode fix could move, because the from-scratch tokenizer was the only one whose fertility
-changed (by 47%). Measured under NFC, the gap is **0.053** — cut by nearly two thirds, exactly
-where it was predicted to move and nowhere else.
+changed (by 47%). Under NFC it became 0.053, exactly where predicted. Sweeping every model's
+learning rate takes it to **0.014 against XLM-R** — overlapping intervals, though the baselines
+are still ahead.
+
+So most of what looked like a deficit for from-scratch pretraining on entity recognition was
+measurement: the wrong Unicode normalisation, then an unswept learning rate. What remains is
+0.014.
+
+### 2b. Three passes to a fair comparison
+
+The sweep that produced those numbers had to be run three times, and each pass was unfair in a
+different direction:
+
+| | SIB-200 (ours − mmBERT) | NER (ours − XLM-R) |
+|---|---|---|
+| everything at defaults | +0.058 | −0.145 → −0.053 after NFC |
+| **only our model swept** | +0.092 | −0.004 |
+| every model swept | **+0.071** | **−0.014** |
+
+The middle row is the trap. Our downstream numbers were at a default while both baselines had
+been swept on SIB-200 — an asymmetry against us — so sweeping ours looked like simple fairness.
+It was, on SIB-200. On NER *nobody* had swept anything, so the same action created an asymmetry
+in our favour, and for a few hours the project believed it had drawn level with XLM-R.
+
+Two further edge cases fell out of checking. Our NER peak sat at 5e-5, the top of the range, so
+the range was extended and the true peak is 1e-4. mmBERT's SIB-200 peak sat at 5e-5, the top of
+Patrick's range, so that was extended too and its true peak is 7e-5 — which is why the SIB
+margin is 0.071 and not the 0.092 an unextended comparison would have given.
+
+**A best-of-sweep number is only meaningful if the sweep contains the best.** Three of the five
+sweeps in this project peaked at their own boundary.
 
 ### The two tasks disagree, and the control explains why
 
@@ -135,19 +167,19 @@ not an anomaly and it was not a bug. It is what the tasks measure.
 |---|---|
 | A language-specific vocabulary is worth building for an under-served language | **Hold, now measured.** 0.144 bits/char at matched compute, 1.6× the seed spread. Previously only the fertility ratio was measured. |
 | The tokenizer penalty is 1.65× for Yoruba | **Hold.** Reproduced three independent ways: fertility on the pretraining corpus, on two evaluation sets, and as a 1.75× token-count ratio in the swap corpus. |
-| From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification** (0.632 vs 0.574, overlapping CIs). **Does not hold on entity recognition** (0.788 vs 0.851). The task decides. |
+| From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification** (0.666 vs 0.595 best-against-best, overlapping CIs). **Does not hold on entity recognition** (0.837 vs 0.863), though the gap is 0.026 rather than the 0.145 first recorded. The task decides. |
 | XLM-R is a usable Yoruba baseline | **Withdrawn** in report 06, and now explained: its pretraining is worth +0.039 over the same architecture untrained. |
-| The from-scratch model loses NER by 0.145 | **Withdrawn.** 0.053 under the correct Unicode normalisation. |
+| The from-scratch model loses NER by 0.145 | **Withdrawn.** 0.014 against XLM-R once the Unicode normalisation is right and every model gets its own best learning rate. |
 | MLM loss does not predict downstream quality | **Weakened further.** Our model has the best SIB-200 score and the third-best NER score; loss ordering predicts one and not the other. |
 
 ---
 
 ## What this does not settle
 
-Every downstream row is three seeds at one learning rate per model, chosen as the best cell of a
-sweep for the baselines and the default for ours. A sweep for the from-scratch model might move
-its numbers the way it moved XLM-R's — nobody has run one, and after report 06 that omission
-should be stated rather than assumed harmless.
+Every downstream row is now three seeds at each model's own best learning rate, and three of the
+five sweeps had to be extended because they peaked at their own boundary. The two untrained
+controls are still single-rate: they are floors rather than competitors, but a swept floor could
+be higher than the one quoted, and neither has been swept.
 
 The swap is one language and one model size, at one compute budget. It says the penalty costs
 something on Yoruba at 33.8M parameters and forty minutes. It does not say the cost scales, or
