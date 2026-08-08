@@ -3,8 +3,28 @@
 *A2-NLP · CSED 504 · the plain-language version*
 
 Written for someone who has taken an introductory machine learning course and has not built a
-training pipeline before. Every technical term is explained where it first appears. The thirteen
-sections below are the thirteen poster panels.
+training pipeline before. Every technical term is explained where it first appears.
+
+## Two posters, stacked
+
+The group is presenting **two posters, hung one above the other**, because the project genuinely
+has two halves and squeezing both onto one board would serve neither.
+
+**The top poster is Patrick and Leon's: the experiment.** When is it better to train a small
+language model from scratch on one under-served language than to reuse a big multilingual model?
+Yoruba as the test case, the downstream tasks, the comparison against XLM-R and mmBERT, and what
+the answer turned out to be.
+
+**The bottom poster is mine: the factory.** The machinery that produced the models the top poster
+compares — corpus preparation, the training fleet, the interfaces the other two called, the
+dashboards, and what building it taught us about when a number is a result and when it is an
+artifact.
+
+They are meant to be read in that order, and the join between them is the point: the top poster
+asks a question, the bottom poster is why it was answerable a hundred and five times instead of
+twice. **The thirteen sections below are the thirteen panels of the bottom poster.** Where a
+finding belongs upstairs it is stated here only as far as needed to explain what the factory was
+for; the top poster carries it properly.
 
 ---
 
@@ -15,8 +35,8 @@ from scratch on one under-served language than to reuse a big multilingual model
 hundred languages at once?** Yoruba — spoken by around 45 million people, and badly served by
 most language technology — was the test case.
 
-My half of the project was not that question. My half was **building the machinery that could
-answer it**, and then finding out what building it teaches you.
+That question is the **top poster**. My half was **building the machinery that could answer it**,
+and then finding out what building it teaches you — and that is this poster, the one below it.
 
 Six things we can now say, none of which we believed at the start:
 
@@ -77,7 +97,8 @@ like a scientific result turned out to be an artifact of a setting nobody had qu
 
 ## 2. The problem, in two halves
 
-Think of the project as a building with two floors.
+Think of the project as a building with two floors — which is literally how the two posters are
+hung, one above the other.
 
 **Upstairs, Patrick and Leon** are asking the research question. Does a small, language-specific
 model beat a large multilingual one for Yoruba? To answer that they need trained models to
@@ -109,7 +130,10 @@ The split matters because the two floors fail differently. Upstairs, a wrong ans
 wrong answer — you argue about it. Downstairs, a wrong answer looks like **a perfectly reasonable
 number**, and nobody argues with it at all.
 
-Almost everything this project got wrong, it got wrong downstairs.
+Almost everything this project got wrong, it got wrong downstairs. That asymmetry is why the
+downstairs half is worth a poster of its own rather than a footnote on Patrick and Leon's: the
+failures that cost this project the most time were never wrong *answers*, they were reasonable
+numbers produced by machinery nobody was looking at.
 
 **So why did we train models on English, Mandarin, French, Indonesian, and twelve more?** Not
 drift. Three of those languages are doing specific jobs no Yoruba run could do:
@@ -727,7 +751,10 @@ you scale it up, because at a hundred times the model size that 20% is the whole
 
 ## 11. Enabling the upstairs half
 
-The measure of the factory is not what it computed. It is whether two other people could use it.
+The measure of the factory is not what it computed. It is whether two other people could use it —
+and the honest test of that is the poster hanging above this one. Every trained model, every
+score, and every comparison on Patrick and Leon's board came out of this machinery. If their
+poster stands up, that is the result this panel is reporting.
 
 **Something they could call.** Nine functions, documented where they are defined, and nothing else
 to import.
