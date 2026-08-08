@@ -11,7 +11,7 @@ projection.
 | 03 | [The throughput investigation](03-efficiency.md) | Why GPU utilisation was poor, what we measured, what we changed, and which of our guesses were wrong. The engineering log. |
 | 04 | [The language gradient](04-the-language-gradient.md) | Five languages, prepared identically. Is Yoruba hard, or under-served? What a multilingual vocabulary actually costs, and where the tooling had Latin-script assumptions in it. |
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
-| 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The first downstream runs. A baseline that never trained, a tokenizer comparison run on the wrong Unicode normalisation, and what survives of the study's downstream claims. |
+| 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalisation, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
 | 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 
 ## The short version
@@ -137,19 +137,21 @@ A *lower* learning rate does the opposite of helping: every seed lands at 5.6 wi
 
 ## Things not to quote yet
 
-- **XLM-R's 0.127 on topic classification is confirmed to be a non-result**, and it is worse than
-  "a fine-tuning failure". Re-run with seeds in [report 06](06-when-a-number-is-not-a-result.md),
-  two of three seeds score 0.057 — exactly the majority-class predictor — and all three fall below
-  uniform random guessing. The group's headline contrast depends on this number, so the contrast
-  has to be withdrawn until a configuration is found in which XLM-R trains at all.
+- **XLM-R's 0.127 on topic classification is a non-result, and the configuration question is now
+  settled.** [Report 06](06-when-a-number-is-not-a-result.md) originally called it a degenerate
+  fine-tune; the sweep since shows it was **undertrained** — 2 of 25 seeds clear uniform random at
+  352 steps, 18 of 25 at 1056. But at 1056 steps XLM-R reaches 0.408 against a random-init control
+  of **0.403**, intervals overlapping, so there is still no working XLM-R baseline. The headline
+  contrast stays withdrawn, and not for want of a better learning rate.
 - **The AfriBERTa ladder rows in `runs/` are collapsed runs**, kept as evidence for the finding
   above. They are not results and the ladder needs re-running at the corrected settings.
-- **The downstream numbers are still unresolved.** The pretraining side is seeded and its
-  differences clear the measured spread easily — but that spread is per-cell, not the single
-  0.049 this bullet used to quote (see above). Downstream, the four models score 0.448–0.527 on
-  topic classification with overlapping CIs, so *which* grid cell fine-tunes best is not yet
-  answerable, and [report 06](06-when-a-number-is-not-a-result.md) removes XLM-R from the
-  comparison entirely.
+- **Downstream comparisons need a control measured at the same step budget.** The random-init
+  floor is **0.107 at 352 steps and 0.403 at 1056** — it is a measurement, not a constant, and
+  carrying it across budgets is what made XLM-R's 0.408 look like a recovered baseline. On
+  SIB-200 the usable range between that floor and the best mmBERT cell is 0.171, which at the
+  0.06 resolution of 204 test items is under three distinguishable levels — so *which* pretraining
+  grid cell fine-tunes best is still not answerable. **MasakhaNER has no control at all yet**, so
+  0.841 against 0.851 should not be read as a gap over anything.
 
 ## Reproducing
 

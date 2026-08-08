@@ -1,6 +1,6 @@
 {
-  "tag": "ft_sib200_yor_Latn_xlm-roberta-base_nfull_lr2e-05_st352_L128_nfc",
-  "label": "XLM-R lr2e-05 st352",
+  "tag": "ft_sib200_yor_Latn_xlm-roberta-base_nfull_lr5e-05_st352_L128_nfc",
+  "label": "XLM-R lr5e-05 st352",
   "task": "sib200",
   "lang": "yor_Latn",
   "metric": "macro_f1",
@@ -11,7 +11,7 @@
   "n_test": 204,
   "steps": 352,
   "batch": 16,
-  "lr": 2e-05,
+  "lr": 5e-05,
   "max_length": 128,
   "normalize": "NFC",
   "seeds": [
@@ -24,24 +24,24 @@
   "scores": [
     0.05714285714285715,
     0.05714285714285715,
-    0.10476190476190475,
-    0.24123699606228177,
-    0.08940138088120152
+    0.05714285714285715,
+    0.05714285714285715,
+    0.05714285714285715
   ],
-  "mean": 0.10993719919822047,
-  "sd": 0.06820942056507054,
+  "mean": 0.05714285714285715,
+  "sd": 0.0,
   "ci": [
-    0.09441139378155514,
-    0.12506858309244012
+    0.04585537918871252,
+    0.06659505907626208
   ],
   "chance": 0.14285714285714285,
   "degenerate": true,
-  "seconds_per_seed": 32.00345149040222,
+  "seconds_per_seed": 31.94719018936157,
   "n_boot": 500,
   "gpu": "NVIDIA A100-SXM4-80GB",
   "ft_api_version": [
     1,
     3
   ],
-  "created": "2026-08-07T21:52:28"
+  "created": "2026-08-07T21:58:29"
 }
