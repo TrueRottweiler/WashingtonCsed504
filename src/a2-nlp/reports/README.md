@@ -14,6 +14,7 @@ projection.
 | 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalisation, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
 | 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
 | 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched compute, 0.144 bits/char. At matched *steps*, nothing — and why that reading was wrong. Plus the downstream rows, where a 33.8M from-scratch model beats mmBERT on topic classification. |
+| **09** | **[The plain-language version](09-the-poster.md)** | **Start here if you are not on this project.** The whole study explained for someone who has taken one ML course: the problem, what we built, what it cost in hardware and electricity, what we found, and the five times a setting nobody questioned decided a result. Thirteen sections, one per poster panel. |
 
 ## The short version
 
