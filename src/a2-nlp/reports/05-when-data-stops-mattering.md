@@ -24,48 +24,49 @@ undertraining rather than a verdict on capacity.
 
 | unique tokens | 33.8M model | 86M model | gap |
 |---|---|---|---|
-| 4M | 3.284 | 6.720 | +3.436 |
-| 16M | 2.361 | 3.200 | +0.839 |
-| 64M | 2.217 | 3.278 | +1.061 |
-| 256M | 2.210 | 2.896 | +0.686 |
-| 1024M | **2.193** | **2.575** | +0.382 |
+| 4M | 3.621 ±0.333 | 6.720 | +3.099 |
+| 16M | 2.544 ±0.179 | 3.200 | +0.656 |
+| 64M | 2.282 ±0.115 | 3.278 | +0.996 |
+| 256M | 2.387 ±0.154 | 2.896 | +0.509 |
+| 1024M | **2.362 ±0.146** | **2.575** | +0.213 |
 
 Corpus: 1,096,781,996 tokens of FineWeb-Edu, tokenized with the committed `eng-bpe16k`
 (fingerprint `7820319faa75`), so these are directly comparable with the `multi_eng` run in
 [report 04](04-the-language-gradient.md).
 
-**These are the original single-seed runs.** §2 replaces the 33.8M column's middle rungs with
-three-seed means; the 4M and 1024M cells are still one draw each. The 86M column is one draw
-throughout, and §4 shows that column is bimodal rather than noisy — read it as anecdote, not
-measurement.
+**The 33.8M column is now three seeds at every rung** — the values above are means with their
+spreads. The 86M column is one draw per rung at gradient clipping 1.0, and §4 shows that column
+is bimodal rather than noisy. [Report 07](07-the-night-of-diagnostics.md) §1 supersedes it
+entirely: clipping at 0.5 moves that column by up to 1.8 nats, and its table should be read
+instead of this one.
 
 ---
 
 ## 2. The data axis, with the noise measured
 
-**Everything below is three seeds per cell at 16M, 64M and 256M.** Earlier versions of this
-section were one seed per cell, judged against a spread of 0.049 borrowed from a different corpus
-at a fifth the compute. That borrowing was the mistake; the numbers it produced are kept in the
-table so the difference is visible.
+**Every rung is now three seeds.** Earlier versions of this section were one seed per cell,
+judged against a spread of 0.049 borrowed from a different corpus at a fifth the compute. That
+borrowing was the mistake; the single-seed values are kept in the table so the difference is
+visible.
 
-Pooled within-cell seed spread, 33.8M model, English, 1.024B tokens of updates: **0.149.**
+Pooled within-cell seed spread, 33.8M model, English, 1.024B tokens of updates: **0.185.**
 
 | step | 3-seed gain | 1-seed gain (earlier) | ÷ spread | reading |
 |---|---|---|---|---|
-| 4M → 16M | **+0.739** | +0.923 | 4.96× | real |
-| 16M → 64M | +0.263 | +0.144 | 1.76× | **cannot resolve** |
-| 64M → 256M | −0.105 | +0.007 | 0.70× | noise |
-| 256M → 1024M | +0.194 | +0.017 | 1.30× | cannot resolve |
+| 4M → 16M | **+1.076** | +0.923 | 5.81× | real |
+| 16M → 64M | +0.263 | +0.144 | 1.42× | **cannot resolve** |
+| 64M → 256M | −0.105 | +0.007 | 0.57× | noise |
+| 256M → 1024M | +0.025 | +0.017 | 0.14× | noise |
 
 Three bands, not two. A step below the spread is noise; above twice it, real; between them this
 many seeds cannot say. Collapsing that middle band into either neighbour is how a single lucky
 draw became a reported finding the first time.
 
 **The headline survives.** From 64M to 1024M — a sixteen-fold increase in unique text — the total
-change is **+0.089**, which is 0.6× the seed spread. Past 64M, more English text buys nothing this
-study can measure.
+change is **−0.080**, which is 0.43× the seed spread and points slightly the wrong way. Past 64M,
+more English text buys nothing this study can measure.
 
-**Where saturation begins does not.** The 16M → 64M step is +0.263 at 1.76× the spread: larger
+**Where saturation begins does not.** The 16M → 64M step is +0.263 at 1.42× the spread: larger
 than the single-seed version suggested, and still not resolvable. Saturation sets in somewhere at
 or before 64M and this experiment cannot localise it more tightly. Two earlier drafts said
 "around 64M" and then "between 64M and 256M"; both were reading single draws as measurements, and
@@ -84,7 +85,7 @@ be compared is the shape over the rungs both languages share. Yoruba's 64M cell 
 
 | step | Yoruba | English | apart by |
 |---|---|---|---|
-| 4M → 16M | +1.644 | +0.739 | 0.905 |
+| 4M → 16M | +1.644 | +1.076 | 0.568 |
 | 16M → 64M | **+0.053** | **+0.263** | 0.209 |
 
 Pooled spread across both languages: **0.122.**

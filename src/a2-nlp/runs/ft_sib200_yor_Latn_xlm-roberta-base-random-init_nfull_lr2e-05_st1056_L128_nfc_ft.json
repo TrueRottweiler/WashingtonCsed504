@@ -1,0 +1,44 @@
+{
+  "tag": "ft_sib200_yor_Latn_xlm-roberta-base-random-init_nfull_lr2e-05_st1056_L128_nfc",
+  "label": "XLM-R arch, untrained",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "runs/xlm-roberta-base_random_init",
+  "model_slug": "xlm-roberta-base-random-init",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 204,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 2e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.4108366081395381,
+    0.37573377162962995,
+    0.3210440879879894
+  ],
+  "mean": 0.3692048225857192,
+  "sd": 0.036947210544280226,
+  "ci": [
+    0.3180868189940744,
+    0.41734548377786695
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 79.883731285731,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    3
+  ],
+  "created": "2026-08-07T23:23:42"
+}

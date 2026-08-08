@@ -326,16 +326,14 @@ def schedule_remaining(cells, n_gpu, rates, live):
     for c in cells:
         if c['state'] != 'running':
             continue
-        rate = rates.get(c['preset']) or default
         frac = live.get(c['tag']) or 0.0
-        cards[cards.index(min(cards))] += c['update_tokens'] * max(0.0, 1 - frac) / rate
+        cards[cards.index(min(cards))] += (c.get('run_s') or 0) * max(0.0, 1 - frac)
 
     todo = sorted((c for c in cells if c['state'] == 'pending'),
                   key=lambda c: -c['update_tokens'] / (rates.get(c['preset']) or default))
     for c in todo:
-        rate = rates.get(c['preset']) or default
         i = cards.index(min(cards))
-        cards[i] += c['update_tokens'] / rate
+        cards[i] += c.get('run_s') or 0
     return max(cards) if cards else 0.0
 
 
@@ -374,24 +372,34 @@ def fleet_plan(runs, hours: float) -> dict | None:
     cells, done, pending, running = [], 0, 0, 0
     for c in plan.get('cells', []):
         tag = c['tag']
+        # A night is not only pretraining fleets. Fine-tuning work writes <tag>_ft.json, takes
+        # minutes rather than hours, and was invisible here -- so a queue panel showing six cells
+        # was hiding four more that a person waiting on the machine would want to see.
+        kind = c.get('kind', 'pretrain')
+        record = f'{tag}_ft.json' if kind == 'finetune' else f'{tag}_result.json'
         if tag in live:
             state, running = 'running', running + 1
-        elif os.path.exists(os.path.join(RUNS, f'{tag}_result.json')):
+        elif os.path.exists(os.path.join(RUNS, record)):
             state, done = 'done', done + 1
         else:
             state, pending = 'pending', pending + 1
 
-        rate = rates.get(c['preset']) or default
-        full = c['update_tokens'] / rate
+        if kind == 'finetune':
+            # Measured from the fine-tunes already on disk rather than guessed; they are all a
+            # few minutes and the panel only needs the order of magnitude right.
+            full = c.get('eta_s', 300)
+        else:
+            rate = rates.get(c['preset']) or default
+            full = c['update_tokens'] / rate
         cells.append({**c, 'state': state,
                       'eta_s': None if state == 'done' else
                                full * (1 - live.get(tag, 0.0)) if state == 'running' else full,
                       'run_s': full,
-                      'description': _prefix_of(tag, c.get('corpus') or plan.get('corpus'))
-                      + describe_run(tag, c.get('corpus') or plan.get('corpus'),
-                                                  c.get('tokens'),
-                                                  c.get('preset'), c.get('steps'),
-                                                  plan.get('batch'), c.get('seed'))})
+                      'description': c.get('label') or (
+                          _prefix_of(tag, c.get('corpus') or plan.get('corpus'))
+                          + describe_run(tag, c.get('corpus') or plan.get('corpus'),
+                                         c.get('tokens'), c.get('preset'), c.get('steps'),
+                                         plan.get('batch'), c.get('seed')))})
 
     n_gpu = plan.get('n_gpu') or 1
     left = schedule_remaining(cells, n_gpu, rates, live)

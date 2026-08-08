@@ -44,11 +44,11 @@ each, everything else identical. All at 1.024B tokens of updates.
 
 | data | 86M, clip 1.0 | 86M, clip 0.5 | 33.8M | 86M − 33.8M |
 |---|---|---|---|---|
-| 4M | 6.720 *(n=1)* | 6.738 ±0.018 | 3.284 *(n=1)* | +3.455 |
+| 4M | 6.720 *(n=1)* | 6.738 ±0.018 | 3.621 ±0.333 | +3.117 |
 | 16M | 4.207 ±1.290 | 4.347 ±1.620 | 2.544 ±0.179 | +1.803 |
 | 64M | 3.824 ±1.363 | **2.829 ±0.520** | 2.282 ±0.115 | +0.547 |
 | 256M | 2.755 ±0.123 | **2.481 ±0.026** | 2.387 ±0.154 | **+0.094** |
-| 1024M | 4.365 ±2.699 | **2.544 ±0.071** | 2.193 *(n=1)* | +0.351 |
+| 1024M | 4.365 ±2.699 | **2.544 ±0.071** | 2.362 ±0.146 | **+0.182** |
 
 **Clipping helps only where there is enough data.** At 4M and 16M it changes nothing — the two
 columns are within each other's spread, and both are terrible. From 64M upward it is decisive.
@@ -63,8 +63,13 @@ unpredictable, and clipping is what makes it a measurement rather than a coin fl
 the first time the comparison has been made with both sides properly seeded.
 
 **There is still no crossover.** The 86M model does not beat the 33.8M model at any rung. The gap
-narrows monotonically to 256M and then widens slightly at 1024M, which is within the spread and
-should not be read as a trend.
+narrows to 0.094 at 256M and sits at 0.182 at 1024M — both inside the 33.8M model's own spread of
+0.185, so the two sizes are indistinguishable at the top two rungs and the ordering between those
+two rungs should not be read as a trend.
+
+Patrick's guard on the first version of this table was right: the 1024M row then rested on a
+single 33.8M seed and put the gap at +0.351. Seeded, it is +0.182 — the row moved by more than
+the gap it was reporting.
 
 Where the failures live has also moved. Runs ending on the plateau, by rung:
 

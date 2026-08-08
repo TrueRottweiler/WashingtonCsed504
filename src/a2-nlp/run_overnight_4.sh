@@ -22,19 +22,23 @@ echo "=== D. the from-scratch rows report 06 is missing ==="
 bash "$HERE/py.sh" downstream_rows.py || echo "  downstream block failed, continuing"
 
 echo
-echo "=== E. the tokenizer swap at the ladder budget ==="
-# The first swap ran at 196.6M tokens of updates, which matches multi_yor and leaves both arms
-# well short of their asymptote. At 1.024B both get closer to what they can actually do, which is
-# the fairer question: does the penalty still cost something once neither model is starved?
+echo "=== E. the swap at MATCHED COMPUTE, which the first pass did not have ==="
+# The first swap matched STEPS, and that was a design error. A 250k output projection makes each
+# step 5.1x more expensive, so the two arms did not get the same compute at all:
+#
+#     16k BPE    12,000 steps   8 min/seed    1.135 +-0.035 bits/char
+#     250k      12,000 steps   41 min/seed    1.056 +-0.142 bits/char
+#
+# Read as matched steps that says the vocabularies are indistinguishable. Read honestly it says
+# the 250k vocabulary needed FIVE TIMES THE COMPUTE to draw level, which is the penalty rather
+# than its absence.
+#
+# The matched-compute comparison is 250k at 12k steps against 16k at ~61k steps -- same wall
+# clock. Only the 16k arm is missing, and it is cheap. The 250k arm at 62.5k steps would cost
+# ten hours to answer the confounded question again, so it is dropped.
 printf 'swap62k' > "$HERE/runs/_fleet_queue"
 
-bash "$HERE/py.sh" mlm_fleet.py --corpus yor \
-     --data 69096452 --update-tokens 1024000000 --seeds 0 1 2 --preset poc \
-     --tag-prefix swap62k || echo "  own-BPE arm failed, continuing"
-
-bash "$HERE/py.sh" mlm_fleet.py --corpus yor_xlmr \
-     --data 121339416 --update-tokens 1024000000 --seeds 0 1 2 --preset poc \
-     --tag-prefix swap62k || echo "  xlmr-vocab arm failed, continuing"
+bash "$HERE/py.sh" mlm_fleet.py --corpus yor      --data 69096452 --update-tokens 1024000000 --seeds 0 1 2 --preset poc      --tag-prefix swap62k || echo "  matched-compute arm failed, continuing"
 
 echo
 echo "all configurations done"
