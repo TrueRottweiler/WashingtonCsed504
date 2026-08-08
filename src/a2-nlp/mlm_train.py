@@ -256,7 +256,7 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     # no finish estimate. Structured data belongs in a file, not in printed prose.
     meta = {'tag': tag, 'corpus': getattr(ds, 'name', None), 'preset': preset, 'steps': steps, 'batch': batch, 'accum': accum,
             'seq_len': ds.seq_len, 'tokens_per_step': tokens_per_step,
-            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr, 'warmup': pct_start,
+            'total_work': steps * tokens_per_step, 'n_tokens': int(ds.n), 'lr': lr, 'warmup': pct_start, 'clip': clip,
             'seed': seed, 'vocab_size': ds.vocab_size, 'random_loss': random_loss,
             'log_every': log_every, 'started': time.time(),
             'params': total_p, 'nonemb_params': nonemb_p}
@@ -436,7 +436,8 @@ def pretrain(ds, tokenizer, tag: str, steps: int, preset: str = 'poc', batch: in
     record = {'tag': tag, 'path': out_dir, 'preset': preset, 'params': total_p,
               'vocab_fingerprint': vocab_fp,
               'nonemb_params': nonemb_p, 'n_tokens': int(ds.n), 'steps': steps, 'batch': batch,
-              'seq_len': ds.seq_len, 'lr': lr, 'warmup': pct_start, 'seed': seed,
+              'seq_len': ds.seq_len, 'lr': lr, 'warmup': pct_start,
+              'clip': clip, 'seed': seed,
               'passes': passes,
               'store_dtype': str(ds.store_dtype).replace('torch.', ''),
               'store_gb': ds.gb(), 'val_loss': val_loss, 'best_val_loss': best,

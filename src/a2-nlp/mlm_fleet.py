@@ -104,6 +104,21 @@ QUEUES = {
 
     'seedcheck86': [(d, 1_024_000_000, s, 'afriberta')
                     for d in (1_024_000_000, 256_000_000) for s in (1, 2)],
+
+    # The 86M ladder again, at clip 0.5. Report 05's 86M column measures a badly-clipped model:
+    # at the 64M cell, clipping at 0.5 rather than 1.0 moved the mean from 3.824 to 2.829 and the
+    # seed spread from 1.363 to 0.520, so every rung in that column is a measurement of the wrong
+    # configuration. Three seeds per rung because the spread is still 0.520 -- better than 1.363
+    # and nowhere near the 33.8M model's 0.149.
+    #
+    # Longest first, which here means largest data rung first: the cells cost the same in compute
+    # but the big rungs page more from disk, and finishing them early keeps the tail short.
+    # 64M is absent on purpose: it was run at clip 0.5 with three seeds during the mitigation
+    # sweep (2.493, 2.567, 3.428) and re-running it would cost five hours to reproduce numbers
+    # already on disk.
+    'clipladder': [(d, 1_024_000_000, s, 'afriberta')
+                   for d in (1_024_000_000, 256_000_000, 16_000_000, 4_000_000)
+                   for s in (0, 1, 2)],
 }
 
 
