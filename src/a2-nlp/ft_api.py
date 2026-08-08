@@ -89,7 +89,9 @@ import mlm_api as factory
 #   (1, 1)  NFC normalisation on by default; `normalize` added to the record and the tag
 #   (1, 2)  max_length added to the tag -- 128 and 256 runs were colliding
 #   (1, 3)  chance / degenerate recorded for classification cells
-API_VERSION = (1, 3)
+#   (1, 4)  eval_split -- score a cell on the dev split so a sweep can SELECT without
+#           selecting on the number it will later report
+API_VERSION = (1, 4)
 
 RUNS = factory.RUNS
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -114,6 +116,20 @@ NER_STEPS = 2150
 
 SEEDS = (0, 1, 2)
 N_BOOT = 500
+
+# Which split a cell is SCORED on. 'test' is the reported number and stays the default, so every
+# record already on disk keeps its name and its meaning.
+#
+# 'validation' exists because of an asymmetry, not a preference. The baselines were swept over
+# five learning rates and the best cell quoted; the from-scratch model and both untrained controls
+# were run at one learning rate each. Best-of-five is a selection, and applying it to two rows and
+# not the other three tilts every comparison between them -- against our model where it is being
+# compared with mmBERT, and in XLM-R's favour where it is being compared with its own control.
+#
+# Sweeping the missing arms fixes the asymmetry but not the second problem, which is that the
+# baselines' best cells were picked on the 204 test items they are then reported on. SIB-200 ships
+# a 99-item validation split that nothing in this study has used. Select there, report on test.
+EVAL_SPLIT = 'test'
 
 # The subsample is drawn with its own seed, NOT the training seed, so every model and every
 # training seed sees the IDENTICAL 701 sentences. Varying the subsample with the seed would fold
@@ -272,6 +288,20 @@ def load_masakhaner(lang: str = 'yor', normalize: str | None = NORMALIZE) -> dic
           + ('  (see the module docstring -- this one matters)' if dec['shrink'] > 0.02 else ''))
     _NER_CACHE[key] = out
     return out
+
+
+def _eval_split(data: dict, name: str) -> dict:
+    """The split a cell is scored on, with a real error if it is not there.
+
+    Silently falling back to test would be the worst possible failure here: a sweep that meant to
+    select on dev would select on test, report a number picked on the items it was picked with,
+    and look exactly like a sweep that had done the right thing.
+    """
+    if name not in data:
+        have = [k for k in ('train', 'validation', 'test') if k in data]
+        raise KeyError(f'no {name!r} split in this dataset (have {have}); '
+                       f'eval_split cannot silently fall back')
+    return data[name]
 
 
 def subsample(split: dict, n: int | None, seed: int = SUBSAMPLE_SEED) -> dict:
@@ -453,7 +483,7 @@ def _train_steps(model, loader, opt, sch, steps: int, forward,
 
 def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
                   n_train: int | None, batch: int, max_length: int,
-                  clip: float = FT_CLIP):
+                  clip: float = FT_CLIP, eval_split: str = EVAL_SPLIT):
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     set_seed(seed)
@@ -469,7 +499,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
     train = subsample(data['train'], n_train)
     tr = torch.utils.data.DataLoader(pack(train), batch_size=batch, shuffle=True, drop_last=False)
-    te = torch.utils.data.DataLoader(pack(data['test']), batch_size=64)
+    te = torch.utils.data.DataLoader(pack(_eval_split(data, eval_split)), batch_size=64)
 
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
     sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=max(1, steps),
@@ -497,7 +527,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
 def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
                   n_train: int | None, batch: int, max_length: int,
-                  clip: float = FT_CLIP):
+                  clip: float = FT_CLIP, eval_split: str = EVAL_SPLIT):
     from transformers import AutoModelForTokenClassification, AutoTokenizer
 
     set_seed(seed)
@@ -522,7 +552,7 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
     train = subsample(data['train'], n_train)
     tr = torch.utils.data.DataLoader(pack(train), batch_size=batch, shuffle=True, drop_last=False)
-    te = torch.utils.data.DataLoader(pack(data['test']), batch_size=64)
+    te = torch.utils.data.DataLoader(pack(_eval_split(data, eval_split)), batch_size=64)
 
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
     sch = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=max(1, steps),
@@ -554,7 +584,7 @@ def finetune_once(model_path: str, task: str = 'sib200', lang: str | None = None
                   lr: float | None = None, seed: int = 0, steps: int | None = None,
                   n_train: int | None = None, batch: int = FT_BATCH,
                   max_length: int = MAX_LEN, data: dict | None = None,
-                  clip: float = FT_CLIP):
+                  clip: float = FT_CLIP, eval_split: str = EVAL_SPLIT):
     """One fine-tuning run. Returns (predictions, gold, seconds, n_train_used).
 
     Mostly you want evaluate(), which does this over seeds and writes the record. This is here
@@ -565,12 +595,12 @@ def finetune_once(model_path: str, task: str = 'sib200', lang: str | None = None
         data = data or load_sib200(lang or 'yor_Latn')
         return _finetune_clf(model_path, data, lr if lr is not None else FT_LR, seed,
                              steps if steps is not None else FT_STEPS, n_train, batch,
-                             max_length, clip)
+                             max_length, clip, eval_split)
     if task == 'masakhaner':
         data = data or load_masakhaner(lang or 'yor')
         return _finetune_ner(model_path, data, lr if lr is not None else NER_LR, seed,
                              steps if steps is not None else NER_STEPS, n_train, batch,
-                             max_length, clip)
+                             max_length, clip, eval_split)
     raise ValueError(f'unknown task {task!r}; known: sib200, masakhaner')
 
 
@@ -586,7 +616,8 @@ def _slug(model_path: str) -> str:
 
 def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: float,
                steps: int, normalize: str | None = NORMALIZE,
-               max_length: int = MAX_LEN, clip: float = FT_CLIP) -> str:
+               max_length: int = MAX_LEN, clip: float = FT_CLIP,
+               eval_split: str = EVAL_SPLIT) -> str:
     """The record's name. EVERY setting that moves the number is in it, so two conditions cannot
     overwrite each other and a sweep does not silently keep only its last cell.
 
@@ -600,8 +631,12 @@ def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: f
     # record already on disk, and with reuse=True a renamed record is not a collision -- it is a
     # silent re-run of work that was already done.
     c = '' if clip == FT_CLIP else f'_clip{clip:g}'
+    # Same rule for the eval split, and for a sharper reason than tidiness: a dev-scored cell and
+    # a test-scored one differ ONLY in the number they contain. Sharing a tag would let a
+    # selection sweep overwrite the record it is selecting for, or hand it back under reuse=True.
+    e = '' if eval_split == EVAL_SPLIT else f'_on{eval_split[:3]}'
     return (f'ft_{task}_{lang}_{_slug(model_path)}_n{n}_lr{lr:g}_st{steps}'
-            f'_L{max_length}_{(normalize or "raw").lower()}{c}')
+            f'_L{max_length}_{(normalize or "raw").lower()}{c}{e}')
 
 
 def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
@@ -609,7 +644,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
              n_train: int | None = None, batch: int = FT_BATCH, max_length: int = MAX_LEN,
              label: str = '', n_boot: int = N_BOOT, reuse: bool = True,
              data: dict | None = None, normalize: str | None = NORMALIZE,
-             clip: float = FT_CLIP) -> dict:
+             clip: float = FT_CLIP, eval_split: str = EVAL_SPLIT) -> dict:
     """Fine-tune over seeds, score, bootstrap, write runs/<tag>_ft.json, return the record.
 
     This is the call every notebook makes. reuse=True returns the existing record rather than
@@ -617,6 +652,10 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
 
     Never claim a difference below ~0.06 macro-F1 on SIB-200: 204 test items do not resolve it,
     and the CI on the record is there to be quoted rather than worked around.
+
+    eval_split='validation' scores the cell on the held-out dev split instead. Use it to CHOOSE a
+    learning rate, then report the chosen cell at the default. A number that was both selected and
+    reported on the same 204 items is optimistic by an amount nobody has measured.
     """
     lang = lang or ('yor_Latn' if task == 'sib200' else 'yor')
     if lr is None:
@@ -630,7 +669,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         normalize = data.get('normalize', normalize)
 
     tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize,
-                     max_length, clip)
+                     max_length, clip, eval_split)
     path = os.path.join(RUNS, f'{tag}_ft.json')
     if reuse and os.path.exists(path):
         with open(path, encoding='utf-8') as f:
@@ -653,7 +692,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     preds, gold, secs, used = [], None, [], None
     for s in seeds:
         p, g, t, used = finetune_once(model_path, task=task, lang=lang, lr=lr, seed=s,
-                                      clip=clip,
+                                      clip=clip, eval_split=eval_split,
                                       steps=steps, n_train=n_train, batch=batch,
                                       max_length=max_length, data=data)
         preds.append(p)
@@ -678,7 +717,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         'model': model_path, 'model_slug': _slug(model_path),
         'n_train': used, 'n_train_requested': n_train, 'n_test': len(gold),
         'steps': steps, 'batch': batch, 'lr': lr, 'max_length': max_length, 'clip': clip,
-        'normalize': normalize,
+        'normalize': normalize, 'eval_split': eval_split,
         'seeds': seeds, 'scores': scores,
         'mean': mean, 'sd': sd, 'ci': [lo, hi],
         'chance': chance, 'degenerate': degenerate,
@@ -705,11 +744,17 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
 # reading results back
 # ----------------------------------------------------------------------------------------------
 
-def results(pattern: str = '*', task: str | None = None, lang: str | None = None) -> list[dict]:
+def results(pattern: str = '*', task: str | None = None, lang: str | None = None,
+            eval_split: str | None = EVAL_SPLIT) -> list[dict]:
     """Every completed fine-tuning record, as rows ready for a table.
 
     This is what makes the canonical downstream table a query rather than a reconciliation: the
     numbers on the poster come from here, not from whichever notebook last printed them.
+
+    Test-scored cells ONLY by default. Dev-scored cells exist to choose a learning rate and are
+    not reportable numbers -- they are picked on the items they are scored on. Mixed into this
+    table they would be indistinguishable from real rows, which is how a selection number ends up
+    on a poster. Pass eval_split='validation' for the sweep, or None for everything.
     """
     rows = []
     for p in sorted(glob.glob(os.path.join(RUNS, f'ft_{pattern}_ft.json'))):
@@ -722,21 +767,29 @@ def results(pattern: str = '*', task: str | None = None, lang: str | None = None
             continue
         if lang and rec.get('lang') != lang:
             continue
+        # Records written before API_VERSION (1, 4) have no eval_split and were all test-scored.
+        if eval_split and rec.get('eval_split', EVAL_SPLIT) != eval_split:
+            continue
         rows.append(rec)
     return sorted(rows, key=lambda r: (r['task'], r['lang'], -r['mean']))
 
 
-def table(pattern: str = '*', task: str | None = None, lang: str | None = None) -> list[dict]:
+def table(pattern: str = '*', task: str | None = None, lang: str | None = None,
+          eval_split: str | None = EVAL_SPLIT) -> list[dict]:
     """results(), printed. Shows the CI next to every mean because that is the number that
     decides whether two rows differ."""
-    rows = results(pattern, task=task, lang=lang)
+    rows = results(pattern, task=task, lang=lang, eval_split=eval_split)
     if not rows:
         print('no fine-tuning records yet')
         return rows
     print(f'{"model":<26}{"task":<13}{"n_train":>8}{"lr":>8}{"steps":>7}{"norm":>6}'
           f'{"score":>8}{"sd":>7}   95% CI')
     for r in rows:
-        print(f'{r["label"]:<26}{r["task"]:<13}{r["n_train"]:>8}{r["lr"]:>8.0e}{r["steps"]:>7}'
+        # A dev-scored row is marked in the one place a reader looks, so it cannot be copied out
+        # of a printed table as though it were reportable.
+        es = r.get('eval_split', EVAL_SPLIT)
+        name = r['label'] if es == EVAL_SPLIT else f'{r["label"]} [on {es[:3]}]'
+        print(f'{name:<26}{r["task"]:<13}{r["n_train"]:>8}{r["lr"]:>8.0e}{r["steps"]:>7}'
               f'{str(r.get("normalize") or "raw"):>6}'
               f'{r["mean"]:>8.3f}{r["sd"]:>7.3f}   [{r["ci"][0]:.3f}, {r["ci"][1]:.3f}]')
     return rows
