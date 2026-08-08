@@ -3,7 +3,7 @@
 *A2-NLP · August 2026 · the first downstream runs, and what it took before any of them could be
 trusted*
 
-Eighty pretraining runs exist in `runs/`. Until this week, zero downstream runs did — and the
+Ninety-two pretraining runs exist in `runs/`. Until this week, zero downstream runs did — and the
 group's claim is a downstream score. Every finding in
 [report 04](04-the-language-gradient.md) and [report 05](05-when-data-stops-mattering.md) lives in
 loss-space, on a project that has twice caught validation loss failing to predict fine-tuned
@@ -385,7 +385,10 @@ run on NER at all, which after §6 is a gap rather than a detail.
 ## 10. Reproducing
 
 The scores come from `ft_api.evaluate`, which writes `runs/ft_*.json`; `ft_api.results()` and
-`ft_api.table()` read them back. The two notebooks are
+`ft_api.table()` read them back. The pretraining count in the opening line is
+`len(mlm_api.results())` — the `*_result.json` files less the Part 1 causal runs it filters out.
+**Recompute it rather than quoting it.** It moves whenever a ladder is merged, and an earlier
+version of this report was wrong by 18 because the figure had been carried forward by hand. The two notebooks are
 [`exp_xlmr_lr_sweep.ipynb`](../exp_xlmr_lr_sweep.ipynb) and
 [`exp_budget_matched_baselines.ipynb`](../exp_budget_matched_baselines.ipynb), both committed with
 their outputs. The collapse reference points in §2 are computed directly from the SIB-200 test
