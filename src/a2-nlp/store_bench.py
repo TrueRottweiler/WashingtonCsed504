@@ -135,7 +135,7 @@ def aggregate(runs: list[dict]) -> list[dict]:
     Repeats are not ceremony here. An early version of this script measured each width once and
     reported int16 gathering at 546 M tok/s against int32's 819 M -- a 1.5x gap that vanished on
     the next run, where both sat at 818 M. Whatever produced it (allocator state, a cold page,
-    clock behaviour) was not the store width, and a single sample could not tell the difference.
+    clock behavior) was not the store width, and a single sample could not tell the difference.
     The median over interleaved repeats can.
     """
     out = []

@@ -2,7 +2,7 @@
 
 Report 08 reports the from-scratch model beating mmBERT on SIB-200, 0.632 against 0.574. But
 mmBERT's number is the best of a five-rate sweep and ours is a single default. That asymmetry
-favours us, and after report 06 -- where a step budget nobody questioned produced the project's
+favors us, and after report 06 -- where a step budget nobody questioned produced the project's
 central downstream conclusion -- it is exactly the kind of thing to measure rather than caveat.
 
 Two outcomes and both are worth having. If a better rate exists the win grows and is on firmer

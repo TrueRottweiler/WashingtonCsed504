@@ -71,7 +71,7 @@ Every training run records the vocabulary it scored against too, so if two sets 
 disagree you can tell immediately whether you were measuring the same thing. See
 [`tokenizers/README.md`](tokenizers/README.md).
 
-It prints a decoded sample at the end. **Read it.** If it isn't recognisable Yoruba, stop there —
+It prints a decoded sample at the end. **Read it.** If it isn't recognizable Yoruba, stop there —
 that check has already caught one real problem for us.
 
 ---
@@ -184,7 +184,7 @@ the compute axis.
 ## What we are *not* taking over
 
 Your fine-tuning half — SIB-200, MasakhaNER, the seeded harness with pooled bootstrap CIs — is
-untouched and should stay that way. It runs on a few hundred labelled examples in seconds; a
+untouched and should stay that way. It runs on a few hundred labeled examples in seconds; a
 GPU-resident token stream has nothing to offer it. `POC_v4_factory.ipynb` is your v3 notebook
 with only the pretraining plumbing swapped out, each change marked
 `# BEGIN: factory` / `# END: factory` with the old code left commented underneath. **v3 is

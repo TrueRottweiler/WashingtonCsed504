@@ -9,7 +9,7 @@ copies of each other, and two files in the *same* folder can share nothing.
 
 The axis that actually predicts what can be reused is **what a component has to know**. A
 scheduler that hands work to GPUs doesn't need to know whether the work is images or text. A
-masking function can't exist without knowing it's doing masked language modelling. Sorting by
+masking function can't exist without knowing it's doing masked language modeling. Sorting by
 that gives four layers, and a component belongs to the highest layer whose vocabulary it uses.
 
 ---
@@ -111,7 +111,7 @@ is real and compounding:
 - Three fleet schedulers means a scheduling fix lands in one and not the others. The
   longest-first ordering was learned in a1-cv and had to be re-applied to `mlm_fleet.py`.
 - The queue-plan panel, the stale-page banner, and the per-cell grouping fixes all went into
-  `webboard.py` only. `a2-nlp/dashboard.py` and `a1-cv/dashboard.py` still have the old behaviour.
+  `webboard.py` only. `a2-nlp/dashboard.py` and `a1-cv/dashboard.py` still have the old behavior.
 - `models.py` sharing 18 lines is *correct* — a ResNet builder and an LSTM builder have nothing
   in common. That row is not duplication and should not be "fixed".
 

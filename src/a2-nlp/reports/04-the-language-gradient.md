@@ -147,7 +147,7 @@ loss is measuring its own tokenizers.
 The last column is the one that compares. **Context gained** is the corpus's unigram entropy minus
 the model's final loss: the loss a model would score by predicting token frequencies and ignoring
 context entirely, less what the model actually scored. What remains is what it learned *from
-context*, with each vocabulary's own entropy cancelled out.
+context*, with each vocabulary's own entropy canceled out.
 
 On that measure, **Yoruba (4.114) sits mid-pack and ahead of English (3.906)**. Given the same
 amount of data and the same amount of compute, a from-scratch Yoruba model extracts as much
@@ -157,7 +157,7 @@ something.
 
 That is a stronger statement than the single-language study can make. It separates *"Yoruba is
 hard"* from *"Yoruba is under-served"* — and the answer is the second one. Nothing about the
-language resists modelling. What is scarce is text.
+language resists modeling. What is scarce is text.
 
 How much that scarcity actually costs is measured in [report 05](05-when-data-stops-mattering.md)
 §3, and the answer is: less than it sounds. At these compute budgets the text Yoruba does not

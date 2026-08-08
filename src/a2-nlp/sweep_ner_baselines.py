@@ -3,7 +3,7 @@
 Patrick swept SIB-200 for both baselines. Nobody swept MasakhaNER for anything -- every NER row
 in the project uses NER_LR = 3e-5, the default. That was symmetric and therefore fair.
 
-Sweeping only OUR model broke that symmetry in our favour, and it matters: our number moved from
+Sweeping only OUR model broke that symmetry in our favor, and it matters: our number moved from
 0.788 at the default to 0.837 at 1e-4. Publishing that against baselines pinned at a default
 would be precisely the asymmetry this sweep was run to remove.
 

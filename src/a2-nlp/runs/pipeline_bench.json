@@ -1,0 +1,54 @@
+{
+  "corpus": "yor",
+  "chars": 259864169,
+  "docs": 79999,
+  "train_tokens": 69096452,
+  "stages": [
+    {
+      "name": "1. read documents",
+      "seconds": 0.06,
+      "docs": 4000,
+      "chars_per_s": 196082839,
+      "extrapolated_full_s": 1
+    },
+    {
+      "name": "2. train 16k BPE tokenizer",
+      "seconds": 20.7,
+      "trained_on_chars": 12745110,
+      "device": "CPU"
+    },
+    {
+      "name": "3. encode to token ids",
+      "seconds": 1.1,
+      "tokens": 3437890,
+      "tokens_per_s": 3253320,
+      "extrapolated_full_s": 21,
+      "dtype": "uint16",
+      "device": "CPU"
+    },
+    {
+      "name": "4. token store",
+      "disk_gb": 0.129,
+      "bytes_per_token": 2,
+      "note": "uint16 holds a 16k vocabulary; a 250k vocabulary needs uint32 and doubles this"
+    },
+    {
+      "name": "5. corpus onto the GPU",
+      "seconds": 11.4,
+      "resident_gb": 0.129,
+      "note": "the whole corpus lives on the card; there is no DataLoader in the loop"
+    },
+    {
+      "name": "6. train step, 33.8M model",
+      "tokens_per_s": 469602,
+      "peak_gb": 5.79,
+      "hours_for_62500_steps": 0.61
+    },
+    {
+      "name": "6. train step, 98M model",
+      "tokens_per_s": 201212,
+      "peak_gb": 10.0,
+      "hours_for_62500_steps": 1.41
+    }
+  ]
+}

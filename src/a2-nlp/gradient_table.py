@@ -7,7 +7,7 @@ under-represented, which is the group's thesis with a control arm.
 
 That was four languages. The study's headline contrast is computed from two per group and the
 POC's own output says it has no degrees of freedom behind it. This recomputes the same
-measurement over every corpus on disk, labelled by whether XLM-R pretrained on the language, so
+measurement over every corpus on disk, labeled by whether XLM-R pretrained on the language, so
 the claim rests on a gradient rather than on two points.
 
 Uses each corpus's committed sample_docs, so it measures the same text the corpus was built from
@@ -29,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = os.path.join(HERE, 'runs', 'gradient_languages.json')
 OUT = os.path.join(HERE, 'runs', 'gradient_table.json')
 
-# Which languages XLM-R pretrained on. The corpora prepared before this sweep are labelled here;
+# Which languages XLM-R pretrained on. The corpora prepared before this sweep are labeled here;
 # anything added by prepare_gradient_languages.py carries its own flag in that file.
 KNOWN = {'eng': True, 'fra': True, 'ind': True, 'cmn': True, 'yor': False, 'eng_1b': True}
 

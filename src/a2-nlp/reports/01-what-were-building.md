@@ -3,7 +3,7 @@
 *A2-NLP · August 2026 · a plain-language walkthrough*
 
 Every figure here was measured on the CSED 504 workstation (2 × RTX PRO 6000 Blackwell), except
-the AfriBERTa-scale projection, which is scaled from measured throughput and labelled as such.
+the AfriBERTa-scale projection, which is scaled from measured throughput and labeled as such.
 
 ---
 
@@ -65,7 +65,7 @@ pretraining actually bought.
 
 The two tasks differ on purpose. **Topic classification** (SIB-200) sorts sentences into 7
 categories and can often be solved from surface word cues. **Named-entity recognition**
-(MasakhaNER) finds people, places and organisations — much harder to fake.
+(MasakhaNER) finds people, places and organizations — much harder to fake.
 
 | model | topic classification | entity recognition |
 |---|---|---|
@@ -221,7 +221,7 @@ for more text would — fortunate, because there is no more text to scrape.
 > section assumed.
 
 > ### ⚠ Honest caveat
-> The seed spread above was measured on one cell (three seeds) and assumed to characterise the
+> The seed spread above was measured on one cell (three seeds) and assumed to characterize the
 > others. The pretraining differences clear it comfortably. The **downstream** differences do
 > not: the four fine-tuned models score 0.448–0.527 on topic classification with overlapping
 > confidence intervals, so which grid cell fine-tunes best is still unresolved.

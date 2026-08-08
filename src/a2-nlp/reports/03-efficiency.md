@@ -186,7 +186,7 @@ retrained.
 ## 6. Where the remaining wall-clock goes
 
 The fine-tuning gates (SIB-200, MasakhaNER) are where GPU utilization looks worst: batch 16 over
-701 labelled examples, every sequence padded to 128. They are also only about two minutes of the
+701 labeled examples, every sequence padded to 128. They are also only about two minutes of the
 run, so optimizing them would buy time nobody notices. Deliberately left alone — the factory
 does not take over fine-tuning, and this is why.
 
@@ -274,7 +274,7 @@ compute to use it.** That is a stronger statement than "data matters less", and 
 put in the report.
 
 Two caveats worth keeping honest. The spread was measured on one cell and is assumed to
-characterise the others; that is reasonable but not verified. And a re-run of seed 0 landed at
+characterize the others; that is reasonable but not verified. And a re-run of seed 0 landed at
 2.8793 against the 2.886 recorded earlier — a difference of 0.007 at *identical* seed, from
 cuDNN autotune choosing different kernels. Single-seed figures quoted elsewhere in these reports
 are seed 0 and carry that much wobble on their own.
@@ -413,7 +413,7 @@ Our batch is 128 sequences × 128 tokens = **16,384 tokens per step**. RoBERTa-b
 afriberta preset closely resembles — was trained at 8,000 sequences, on the order of two million
 tokens per step. We are running a model of that size at roughly a hundredth of the batch it was
 designed for, and large models trained with small batches are known to struggle to escape
-exactly this kind of plateau: the gradient is too noisy for the model to organise.
+exactly this kind of plateau: the gradient is too noisy for the model to organize.
 
 ### Run: batch shape helps, and does not explain it
 

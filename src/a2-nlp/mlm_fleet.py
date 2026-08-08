@@ -94,11 +94,11 @@ QUEUES = {
     # (0.025 apart, "half the spread"). Both are unfalsifiable until the spread is measured here.
     #
     # The 86M rungs are the other half: seeding two of its cells gave sd 1.327, so the 256M and
-    # 1024M cells are single draws from a distribution nobody has characterised.
+    # 1024M cells are single draws from a distribution nobody has characterized.
     # Split into two queues, cheapest and most valuable first, because the scheduler orders by
     # cost and would otherwise run four 1.6-hour 86M cells before the four 40-minute 33.8M ones.
     # The 33.8M spread is what reports 04 and 05 actually lean on; the 86M column is already
-    # labelled anecdotal, so it is the part worth having late rather than early.
+    # labeled anecdotal, so it is the part worth having late rather than early.
     'seedcheck': [(d, 1_024_000_000, s, 'poc')
                   for d in (256_000_000, 64_000_000) for s in (1, 2)],
 

@@ -7,7 +7,7 @@ Every earlier report measures that the tokenizer penalty **exists**. Report 04 f
 languages XLM-R covers from languages it does not. None of them measures what the penalty
 **costs**.
 
-This one does, twice — once in modelling quality and once downstream — and the first attempt got
+This one does, twice — once in modeling quality and once downstream — and the first attempt got
 the answer backwards for a reason worth more than the answer.
 
 ---
@@ -118,7 +118,7 @@ learning rate takes it to **0.014 against XLM-R** — overlapping intervals, tho
 are still ahead.
 
 So most of what looked like a deficit for from-scratch pretraining on entity recognition was
-measurement: the wrong Unicode normalisation, then an unswept learning rate. What remains is
+measurement: the wrong Unicode normalization, then an unswept learning rate. What remains is
 0.014.
 
 ### 2b. Three passes to a fair comparison
@@ -135,7 +135,7 @@ different direction:
 The middle row is the trap. Our downstream numbers were at a default while both baselines had
 been swept on SIB-200 — an asymmetry against us — so sweeping ours looked like simple fairness.
 It was, on SIB-200. On NER *nobody* had swept anything, so the same action created an asymmetry
-in our favour, and for a few hours the project believed it had drawn level with XLM-R.
+in our favor, and for a few hours the project believed it had drawn level with XLM-R.
 
 Two further edge cases fell out of checking. Our NER peak sat at 5e-5, the top of the range, so
 the range was extended and the true peak is 1e-4. mmBERT's SIB-200 peak sat at 5e-5, the top of
@@ -169,7 +169,7 @@ not an anomaly and it was not a bug. It is what the tasks measure.
 | The tokenizer penalty is 1.65× for Yoruba | **Hold.** Reproduced three independent ways: fertility on the pretraining corpus, on two evaluation sets, and as a 1.75× token-count ratio in the swap corpus. |
 | From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification** (0.666 vs 0.595 best-against-best, overlapping CIs). **Does not hold on entity recognition** (0.837 vs 0.863), though the gap is 0.026 rather than the 0.145 first recorded. The task decides. |
 | XLM-R is a usable Yoruba baseline | **Withdrawn** in report 06, and now explained: its pretraining is worth +0.039 over the same architecture untrained. |
-| The from-scratch model loses NER by 0.145 | **Withdrawn.** 0.014 against XLM-R once the Unicode normalisation is right and every model gets its own best learning rate. |
+| The from-scratch model loses NER by 0.145 | **Withdrawn.** 0.014 against XLM-R once the Unicode normalization is right and every model gets its own best learning rate. |
 | MLM loss does not predict downstream quality | **Weakened further.** Our model has the best SIB-200 score and the third-best NER score; loss ordering predicts one and not the other. |
 
 ---
@@ -186,6 +186,6 @@ something on Yoruba at 33.8M parameters and forty minutes. It does not say the c
 that it holds where the vocabulary fits better.
 
 Nothing here is a downstream *tokenizer* comparison. Both downstream tables compare pretrained
-models; neither isolates the vocabulary the way §1 does for language modelling. That experiment —
+models; neither isolates the vocabulary the way §1 does for language modeling. That experiment —
 the same architecture and budget fine-tuned under two vocabularies — is still unrun, and it is the
 one that would connect the two halves of this report.
