@@ -1,6 +1,6 @@
 {
-  "tag": "ft_sib200_yor_Latn_mmBERT-base_nfull_lr2e-05_st352_L128_nfc",
-  "label": "mmBERT base",
+  "tag": "ft_sib200_yor_Latn_mmBERT-base_nfull_lr5e-06_st1056_L128_nfc",
+  "label": "mmBERT lr5e-06 st1056",
   "task": "sib200",
   "lang": "yor_Latn",
   "metric": "macro_f1",
@@ -9,9 +9,9 @@
   "n_train": 701,
   "n_train_requested": null,
   "n_test": 204,
-  "steps": 352,
+  "steps": 1056,
   "batch": 16,
-  "lr": 2e-05,
+  "lr": 5e-06,
   "max_length": 128,
   "normalize": "NFC",
   "seeds": [
@@ -22,26 +22,26 @@
     4
   ],
   "scores": [
-    0.5226812876768998,
-    0.5074889729006979,
-    0.5575011892743851,
-    0.502180540370381,
-    0.5139077911155288
+    0.4705942958397376,
+    0.49981141158445336,
+    0.5407296043030173,
+    0.4533674164516121,
+    0.4505896368242377
   ],
-  "mean": 0.5207519562675785,
-  "sd": 0.01960548524837332,
+  "mean": 0.4830184730006117,
+  "sd": 0.03375722799885986,
   "ci": [
-    0.45536329335027004,
-    0.5728828669408565
+    0.4216621839926033,
+    0.5294760196966536
   ],
   "chance": 0.14285714285714285,
   "degenerate": false,
-  "seconds_per_seed": 41.05443472862244,
+  "seconds_per_seed": 122.48933172225952,
   "n_boot": 500,
   "gpu": "NVIDIA A100-SXM4-80GB",
   "ft_api_version": [
     1,
     3
   ],
-  "created": "2026-08-08T00:13:48"
+  "created": "2026-08-07T23:27:04"
 }
