@@ -60,6 +60,47 @@ sample_docs = _data.sample_docs
 MlmTokens = _data.MlmTokens
 
 
+def bits_per_char(tag: str = None, *, val_loss: float = None, corpus: str = None) -> float:
+    """Validation loss in bits per CHARACTER -- the only unit that compares two vocabularies.
+
+    Loss in nats per token is meaningless across tokenizers, and this project has already been
+    caught by that twice. Report 04 says so and then has to caveat every cross-language table;
+    report 05 had to invent "context gained" to work around it. Neither is a substitute for the
+    standard unit.
+
+    A token is worth `chars_per_token` characters, so:
+
+        bits/char = (nats/token) / ln 2 / (chars/token)
+
+    Both factors matter and they pull in opposite directions. A vocabulary that fits a language
+    badly produces MORE tokens per character, which lowers chars_per_token and therefore RAISES
+    bits per character even if the per-token loss looks better. That is exactly the trap in
+    comparing a 16k language-specific BPE against XLM-R's 250k: the second has an easier per-token
+    job and does more of them.
+
+        bits_per_char('multi_yor')                     -> from the run's own record
+        bits_per_char(val_loss=2.92, corpus='yor')     -> for a loss you have in hand
+
+    Returns None when the corpus was prepared before chars_per_token was recorded, rather than
+    guessing at it.
+    """
+    import math
+
+    if tag is not None:
+        rows = results(tag)
+        if not rows:
+            raise ValueError(f'no completed run named {tag!r}')
+        val_loss = rows[0]['val_loss']
+        corpus = corpus or rows[0].get('corpus')
+    if val_loss is None or not corpus:
+        raise ValueError('need either a tag, or both val_loss and corpus')
+
+    cpt = _text.load_stats(corpus).get('chars_per_token')
+    if not cpt:
+        return None
+    return val_loss / math.log(2) / cpt
+
+
 def corpus_info(name: str) -> dict:
     """What is in a prepared corpus: vocabulary, token counts, chars/token, and both widths.
 
@@ -176,6 +217,39 @@ def random_init(name: str, preset: str = 'poc', seq_len: int = 128) -> str:
         return out
     return _train.save_random_init(_text.load_stats(name)['vocab_size'], load_tokenizer(name),
                                    preset, seq_len, out)
+
+
+def random_init_like(model_id: str, tag: str | None = None) -> str:
+    """An untrained model with SOMEONE ELSE'S architecture and vocabulary. No pretrained weights.
+
+    `random_init` above builds our architecture from a corpus we prepared, which cannot express
+    "XLM-R, minus the pretraining". That distinction decides an argument. The existing control
+    differs from XLM-R in three ways at once -- size, tokenizer and pretraining -- so a gap
+    between them cannot separate "XLM-R's Yoruba is weak" from "XLM-R's vocabulary caps what it
+    can do", and the second is the study's thesis.
+
+    This loads the published CONFIG and instantiates from it, which is the one line that matters:
+    `from_config` initialises fresh weights where `from_pretrained` would download trained ones.
+    Same layer count, same hidden size, same 250k vocabulary, same tokenizer -- and no knowledge
+    of any language.
+
+        random_init_like('FacebookAI/xlm-roberta-base')   -> runs/xlm-roberta-base_random_init
+
+    Returns the checkpoint directory, ready for ft_api.evaluate() like any other model path.
+    """
+    from transformers import AutoConfig, AutoModelForMaskedLM, AutoTokenizer
+
+    out = os.path.join(RUNS, f'{tag or model_id.split("/")[-1]}_random_init')
+    if os.path.exists(os.path.join(out, 'config.json')):
+        return out
+
+    cfg = AutoConfig.from_pretrained(model_id)
+    model = AutoModelForMaskedLM.from_config(cfg)
+    tok = AutoTokenizer.from_pretrained(model_id)
+    os.makedirs(out, exist_ok=True)
+    model.save_pretrained(out)
+    tok.save_pretrained(out)
+    return out
 
 
 def results(pattern: str = '*', include_smoke: bool = False) -> list[dict]:

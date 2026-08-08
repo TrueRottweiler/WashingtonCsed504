@@ -416,7 +416,16 @@ def _load_model(cls, path: str, n_labels: int):
         return cls.from_pretrained(path, num_labels=n_labels, attn_implementation='sdpa')
 
 
-def _train_steps(model, loader, opt, sch, steps: int, forward) -> None:
+# Gradient-norm clip for fine-tuning. Named and reachable rather than buried in the loop,
+# because the same constant at the same value is what made 86M PRETRAINING runs bimodal --
+# report 07 1 -- and a fine-tuning sweep that wants to ask the question should not have to edit
+# this file to do it. 1.0 remains the default: the generous-case analysis in report 06 shows
+# clipping cannot rescue XLM-R's SIB-200 result, so nothing here changes on its account.
+FT_CLIP = 1.0
+
+
+def _train_steps(model, loader, opt, sch, steps: int, forward,
+                 clip: float = FT_CLIP) -> None:
     """Train for exactly `steps` updates, cycling the loader as many times as that takes.
 
     The fixed budget is the point: it is what lets a 701-example condition and a 6,876-example
@@ -434,7 +443,7 @@ def _train_steps(model, loader, opt, sch, steps: int, forward) -> None:
             loss = forward(model, batch)
             opt.zero_grad(set_to_none=True)
             loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            nn.utils.clip_grad_norm_(model.parameters(), clip)
             opt.step()
             sch.step()
             done += 1
@@ -443,7 +452,8 @@ def _train_steps(model, loader, opt, sch, steps: int, forward) -> None:
 
 
 def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
-                  n_train: int | None, batch: int, max_length: int):
+                  n_train: int | None, batch: int, max_length: int,
+                  clip: float = FT_CLIP):
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     set_seed(seed)
@@ -471,7 +481,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
         return out.loss
 
     t0 = time.time()
-    _train_steps(model, tr, opt, sch, steps, forward)
+    _train_steps(model, tr, opt, sch, steps, forward, clip)
 
     model.eval()
     pred, gold = [], []
@@ -486,7 +496,8 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
 
 def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
-                  n_train: int | None, batch: int, max_length: int):
+                  n_train: int | None, batch: int, max_length: int,
+                  clip: float = FT_CLIP):
     from transformers import AutoModelForTokenClassification, AutoTokenizer
 
     set_seed(seed)
@@ -522,7 +533,7 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
         return m(input_ids=ids.to(DEVICE), attention_mask=am.to(DEVICE), labels=y.to(DEVICE)).loss
 
     t0 = time.time()
-    _train_steps(model, tr, opt, sch, steps, forward)
+    _train_steps(model, tr, opt, sch, steps, forward, clip)
 
     model.eval()
     pred, gold = [], []
@@ -538,10 +549,12 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
     return pred, gold, time.time() - t0, len(train['tokens'])
 
 
+
 def finetune_once(model_path: str, task: str = 'sib200', lang: str | None = None,
                   lr: float | None = None, seed: int = 0, steps: int | None = None,
                   n_train: int | None = None, batch: int = FT_BATCH,
-                  max_length: int = MAX_LEN, data: dict | None = None):
+                  max_length: int = MAX_LEN, data: dict | None = None,
+                  clip: float = FT_CLIP):
     """One fine-tuning run. Returns (predictions, gold, seconds, n_train_used).
 
     Mostly you want evaluate(), which does this over seeds and writes the record. This is here
@@ -551,12 +564,13 @@ def finetune_once(model_path: str, task: str = 'sib200', lang: str | None = None
     if task == 'sib200':
         data = data or load_sib200(lang or 'yor_Latn')
         return _finetune_clf(model_path, data, lr if lr is not None else FT_LR, seed,
-                             steps if steps is not None else FT_STEPS, n_train, batch, max_length)
+                             steps if steps is not None else FT_STEPS, n_train, batch,
+                             max_length, clip)
     if task == 'masakhaner':
         data = data or load_masakhaner(lang or 'yor')
         return _finetune_ner(model_path, data, lr if lr is not None else NER_LR, seed,
                              steps if steps is not None else NER_STEPS, n_train, batch,
-                             max_length)
+                             max_length, clip)
     raise ValueError(f'unknown task {task!r}; known: sib200, masakhaner')
 
 
@@ -572,7 +586,7 @@ def _slug(model_path: str) -> str:
 
 def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: float,
                steps: int, normalize: str | None = NORMALIZE,
-               max_length: int = MAX_LEN) -> str:
+               max_length: int = MAX_LEN, clip: float = FT_CLIP) -> str:
     """The record's name. EVERY setting that moves the number is in it, so two conditions cannot
     overwrite each other and a sweep does not silently keep only its last cell.
 
@@ -582,15 +596,20 @@ def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: f
     for the 256 one, which is worse than a collision because it looks like a result.
     """
     n = 'full' if n_train is None else str(n_train)
+    # Clip appears only when it is not the default. Adding it unconditionally would rename every
+    # record already on disk, and with reuse=True a renamed record is not a collision -- it is a
+    # silent re-run of work that was already done.
+    c = '' if clip == FT_CLIP else f'_clip{clip:g}'
     return (f'ft_{task}_{lang}_{_slug(model_path)}_n{n}_lr{lr:g}_st{steps}'
-            f'_L{max_length}_{(normalize or "raw").lower()}')
+            f'_L{max_length}_{(normalize or "raw").lower()}{c}')
 
 
 def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
              lr: float | None = None, seeds=SEEDS, steps: int | None = None,
              n_train: int | None = None, batch: int = FT_BATCH, max_length: int = MAX_LEN,
              label: str = '', n_boot: int = N_BOOT, reuse: bool = True,
-             data: dict | None = None, normalize: str | None = NORMALIZE) -> dict:
+             data: dict | None = None, normalize: str | None = NORMALIZE,
+             clip: float = FT_CLIP) -> dict:
     """Fine-tune over seeds, score, bootstrap, write runs/<tag>_ft.json, return the record.
 
     This is the call every notebook makes. reuse=True returns the existing record rather than
@@ -610,7 +629,8 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     if data is not None:
         normalize = data.get('normalize', normalize)
 
-    tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize, max_length)
+    tag = record_tag(model_path, task, lang, n_train, lr, steps, normalize,
+                     max_length, clip)
     path = os.path.join(RUNS, f'{tag}_ft.json')
     if reuse and os.path.exists(path):
         with open(path, encoding='utf-8') as f:
@@ -633,6 +653,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     preds, gold, secs, used = [], None, [], None
     for s in seeds:
         p, g, t, used = finetune_once(model_path, task=task, lang=lang, lr=lr, seed=s,
+                                      clip=clip,
                                       steps=steps, n_train=n_train, batch=batch,
                                       max_length=max_length, data=data)
         preds.append(p)
@@ -656,7 +677,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         'task': task, 'lang': lang, 'metric': metric,
         'model': model_path, 'model_slug': _slug(model_path),
         'n_train': used, 'n_train_requested': n_train, 'n_test': len(gold),
-        'steps': steps, 'batch': batch, 'lr': lr, 'max_length': max_length,
+        'steps': steps, 'batch': batch, 'lr': lr, 'max_length': max_length, 'clip': clip,
         'normalize': normalize,
         'seeds': seeds, 'scores': scores,
         'mean': mean, 'sd': sd, 'ci': [lo, hi],

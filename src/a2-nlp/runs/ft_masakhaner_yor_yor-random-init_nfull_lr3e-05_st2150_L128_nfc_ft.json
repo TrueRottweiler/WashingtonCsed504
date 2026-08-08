@@ -1,0 +1,44 @@
+{
+  "tag": "ft_masakhaner_yor_yor-random-init_nfull_lr3e-05_st2150_L128_nfc",
+  "label": "NER floor",
+  "task": "masakhaner",
+  "lang": "yor",
+  "metric": "entity_f1",
+  "model": "runs/yor_random_init",
+  "model_slug": "yor-random-init",
+  "n_train": 6876,
+  "n_train_requested": null,
+  "n_test": 1964,
+  "steps": 2150,
+  "batch": 16,
+  "lr": 3e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.4112314835286315,
+    0.4098469727212243,
+    0.4208664898320071
+  ],
+  "mean": 0.41398164869395426,
+  "sd": 0.004901020007177078,
+  "ci": [
+    0.3896674437260122,
+    0.4352193783391519
+  ],
+  "chance": null,
+  "degenerate": false,
+  "seconds_per_seed": 45.90414182345072,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    3
+  ],
+  "created": "2026-08-07T19:36:23"
+}
