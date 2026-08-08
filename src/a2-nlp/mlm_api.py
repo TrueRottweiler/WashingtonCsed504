@@ -60,6 +60,47 @@ sample_docs = _data.sample_docs
 MlmTokens = _data.MlmTokens
 
 
+def bits_per_char(tag: str = None, *, val_loss: float = None, corpus: str = None) -> float:
+    """Validation loss in bits per CHARACTER -- the only unit that compares two vocabularies.
+
+    Loss in nats per token is meaningless across tokenizers, and this project has already been
+    caught by that twice. Report 04 says so and then has to caveat every cross-language table;
+    report 05 had to invent "context gained" to work around it. Neither is a substitute for the
+    standard unit.
+
+    A token is worth `chars_per_token` characters, so:
+
+        bits/char = (nats/token) / ln 2 / (chars/token)
+
+    Both factors matter and they pull in opposite directions. A vocabulary that fits a language
+    badly produces MORE tokens per character, which lowers chars_per_token and therefore RAISES
+    bits per character even if the per-token loss looks better. That is exactly the trap in
+    comparing a 16k language-specific BPE against XLM-R's 250k: the second has an easier per-token
+    job and does more of them.
+
+        bits_per_char('multi_yor')                     -> from the run's own record
+        bits_per_char(val_loss=2.92, corpus='yor')     -> for a loss you have in hand
+
+    Returns None when the corpus was prepared before chars_per_token was recorded, rather than
+    guessing at it.
+    """
+    import math
+
+    if tag is not None:
+        rows = results(tag)
+        if not rows:
+            raise ValueError(f'no completed run named {tag!r}')
+        val_loss = rows[0]['val_loss']
+        corpus = corpus or rows[0].get('corpus')
+    if val_loss is None or not corpus:
+        raise ValueError('need either a tag, or both val_loss and corpus')
+
+    cpt = _text.load_stats(corpus).get('chars_per_token')
+    if not cpt:
+        return None
+    return val_loss / math.log(2) / cpt
+
+
 def corpus_info(name: str) -> dict:
     """What is in a prepared corpus: vocabulary, token counts, chars/token, and both widths.
 
