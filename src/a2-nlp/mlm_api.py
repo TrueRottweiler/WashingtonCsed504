@@ -178,6 +178,39 @@ def random_init(name: str, preset: str = 'poc', seq_len: int = 128) -> str:
                                    preset, seq_len, out)
 
 
+def random_init_like(model_id: str, tag: str | None = None) -> str:
+    """An untrained model with SOMEONE ELSE'S architecture and vocabulary. No pretrained weights.
+
+    `random_init` above builds our architecture from a corpus we prepared, which cannot express
+    "XLM-R, minus the pretraining". That distinction decides an argument. The existing control
+    differs from XLM-R in three ways at once -- size, tokenizer and pretraining -- so a gap
+    between them cannot separate "XLM-R's Yoruba is weak" from "XLM-R's vocabulary caps what it
+    can do", and the second is the study's thesis.
+
+    This loads the published CONFIG and instantiates from it, which is the one line that matters:
+    `from_config` initialises fresh weights where `from_pretrained` would download trained ones.
+    Same layer count, same hidden size, same 250k vocabulary, same tokenizer -- and no knowledge
+    of any language.
+
+        random_init_like('FacebookAI/xlm-roberta-base')   -> runs/xlm-roberta-base_random_init
+
+    Returns the checkpoint directory, ready for ft_api.evaluate() like any other model path.
+    """
+    from transformers import AutoConfig, AutoModelForMaskedLM, AutoTokenizer
+
+    out = os.path.join(RUNS, f'{tag or model_id.split("/")[-1]}_random_init')
+    if os.path.exists(os.path.join(out, 'config.json')):
+        return out
+
+    cfg = AutoConfig.from_pretrained(model_id)
+    model = AutoModelForMaskedLM.from_config(cfg)
+    tok = AutoTokenizer.from_pretrained(model_id)
+    os.makedirs(out, exist_ok=True)
+    model.save_pretrained(out)
+    tok.save_pretrained(out)
+    return out
+
+
 def results(pattern: str = '*', include_smoke: bool = False) -> list[dict]:
     """Every completed pretraining record, newest last, with the history dropped.
 
