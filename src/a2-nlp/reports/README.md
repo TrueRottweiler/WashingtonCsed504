@@ -113,12 +113,23 @@ since [report 06](06-when-a-number-is-not-a-result.md) withdrew those.
 
 One exception, not smoothed: Wolof at 1.31 sits inside the covered range.
 
-## The 86M model is badly clipped, not badly sized
+## The 86M model was unpredictable, not incapable
 
-At the same cell, one changed hyperparameter each: clipping at **0.5** takes the mean from 3.824
-to **2.829** and the seed spread from 1.363 to 0.520. A *lower* learning rate does the opposite —
-every seed lands at 5.6 with a spread of 0.049, perfectly reproducible and completely useless,
-because at half the rate the model never leaves the plateau. See
+Clipping gradients at **0.5** instead of 1.0, across the whole ladder at three seeds a rung:
+
+| data | clip 1.0 | clip 0.5 | 33.8M |
+|---|---|---|---|
+| 64M | 3.824 ±1.363 | **2.829 ±0.520** | 2.282 ±0.115 |
+| 256M | 2.755 ±0.123 | **2.481 ±0.026** | 2.387 ±0.154 |
+| 1024M | 4.365 ±2.699 | **2.544 ±0.071** | 2.193 |
+
+The reproducibility change is the bigger one: at the top rung the seed spread falls from 2.699 to
+**0.071**, a factor of thirty-eight. At 256M the two model sizes become indistinguishable — 2.481
+±0.026 against 2.387 ±0.154. There is still no crossover, and clipping changes nothing at 4M and
+16M, where the model has too little data to break through whatever the gradient norm.
+
+A *lower* learning rate does the opposite of helping: every seed lands at 5.6 with a spread of
+0.049 — perfectly reproducible and completely useless. See
 [report 07](07-the-night-of-diagnostics.md) §1.
 
 ## Things not to quote yet

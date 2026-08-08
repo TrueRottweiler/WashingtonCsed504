@@ -37,6 +37,47 @@ Together with the warmup result from the same sweep — 0 of 3 diverged at warmu
 badly clipped.** That is a materially different message for anyone about to run an AfriBERTa-scale
 study, and it is a one-line change.
 
+### The whole ladder, re-run at clip 0.5
+
+One cell is not a recommendation, so the 86M ladder was re-run: four data rungs, three seeds
+each, everything else identical. All at 1.024B tokens of updates.
+
+| data | 86M, clip 1.0 | 86M, clip 0.5 | 33.8M | 86M − 33.8M |
+|---|---|---|---|---|
+| 4M | 6.720 *(n=1)* | 6.738 ±0.018 | 3.284 *(n=1)* | +3.455 |
+| 16M | 4.207 ±1.290 | 4.347 ±1.620 | 2.544 ±0.179 | +1.803 |
+| 64M | 3.824 ±1.363 | **2.829 ±0.520** | 2.282 ±0.115 | +0.547 |
+| 256M | 2.755 ±0.123 | **2.481 ±0.026** | 2.387 ±0.154 | **+0.094** |
+| 1024M | 4.365 ±2.699 | **2.544 ±0.071** | 2.193 *(n=1)* | +0.351 |
+
+**Clipping helps only where there is enough data.** At 4M and 16M it changes nothing — the two
+columns are within each other's spread, and both are terrible. From 64M upward it is decisive.
+
+**The reproducibility change is larger than the loss change.** At the top rung the seed spread
+falls from **2.699 to 0.071** — a factor of thirty-eight. At 256M it falls to 0.026, which is
+*smaller than the 33.8M model's own spread of 0.154*. The 86M model was never unusable; it was
+unpredictable, and clipping is what makes it a measurement rather than a coin flip.
+
+**At 256M the two models are indistinguishable.** 2.481 ±0.026 against 2.387 ±0.154 — a gap of
+0.094 against a spread that covers it. This is the closest the bigger model has come, and it is
+the first time the comparison has been made with both sides properly seeded.
+
+**There is still no crossover.** The 86M model does not beat the 33.8M model at any rung. The gap
+narrows monotonically to 256M and then widens slightly at 1024M, which is within the spread and
+should not be read as a trend.
+
+Where the failures live has also moved. Runs ending on the plateau, by rung:
+
+```
+clip 1.0    4M 1/1   16M 0/3   64M 0/3   256M 0/3   1024M 1/3
+clip 0.5    4M 3/3   16M 1/3   64M 0/3   256M 0/3   1024M 0/3
+```
+
+Under clip 1.0 the failures were scattered, including one at the largest rung. Under clip 0.5
+they are confined to the two smallest rungs, where the model has too little data to break through
+within the budget whatever the gradient norm. That is a different and more tractable failure than
+the one this report opened with.
+
 ### What this does to earlier claims
 
 [Report 05](05-when-data-stops-mattering.md) §4 says the 86M column should be read as anecdote
