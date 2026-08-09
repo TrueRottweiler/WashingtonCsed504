@@ -115,7 +115,15 @@ def bench(preset, device, dev_name, steps, warmup):
 
     tok_s = steps * BATCH * SEQ / dt_s
     peak = (torch.cuda.max_memory_allocated() / 1024 ** 3) if device.type == 'cuda' else None
-    return {'preset': preset, 'device': dev_name, 'dtype': str(dt or torch.float32),
+    # Compute capability and SM count identify the GENERATION, which is what actually predicts
+    # whether bf16 exists and how the card will behave. A student reading "T4" has no way to know
+    # it is a 2018 part; reading "7.5" against our "12.0" makes the gap obvious.
+    cc = sms = None
+    if device.type == 'cuda':
+        props = torch.cuda.get_device_properties(0)
+        cc, sms = f'{props.major}.{props.minor}', props.multi_processor_count
+    return {'preset': preset, 'device': dev_name, 'compute_capability': cc, 'sms': sms,
+            'dtype': str(dt or torch.float32),
             'params_m': round(n_params / 1e6, 1), 'backbone_m': round(n_backbone / 1e6, 1),
             'tokens_per_s': round(tok_s), 'peak_gb': round(peak, 2) if peak else None,
             'full_run_hours': round(FULL_RUN_STEPS * BATCH * SEQ / tok_s / 3600, 2)}

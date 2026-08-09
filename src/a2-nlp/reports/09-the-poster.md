@@ -483,6 +483,55 @@ rates after the card is hot, which is the only kind worth quoting. A twenty-step
 cold card reads about 10% high, and a benchmark run while another job holds the same card reads
 about **half**, which is a mistake we made and the script now warns about.
 
+### How to tell these cards apart
+
+Colab offers you a menu — T4, L4, A100, two kinds of TPU — with no explanation, and most students
+have no reason to know that "T4" is a 2018 part or that a TPU is not a fast GPU. Three properties
+decide everything, and none of them is the headline number on a spec sheet.
+
+| | generation | memory | bf16? | what that means here |
+|---|---|---|---|---|
+| **T4** | Turing, 2018 | 16 GB GDDR6 | **no** | Colab's free card. Predates bf16, so our stack silently falls back to fp16 — which works, but is the precision we chose *not* to use |
+| **L4** | Ada, 2023 | 24 GB GDDR6 | yes | the value option: modern instruction set, modest bandwidth |
+| **A100** | Ampere, 2020 | 40 or 80 GB **HBM2e** | yes | older architecture than the L4 and far faster anyway, because HBM has roughly 5× the memory bandwidth |
+| **RTX 2000 Ada Mobile** | Ada, 2023 | 8 GB GDDR6 | yes | a laptop card. Modern, but 8 GB is the binding constraint |
+| **RTX PRO 6000 Max-Q** | Blackwell, 2025 | 96 GB GDDR7 | yes | ours. Compute capability 12.0, 188 SMs, both measured rather than quoted |
+| **Apple M-series** | — | *unified* | not in PyTorch | a different world; see below |
+| **TPU v5e / v6e** | Google | — | — | **not a GPU.** Different programming model entirely — `torch_xla`, a different training loop. Our code exits rather than pretend |
+
+*Vendor figures except where noted as measured. Treat them as ordering, not arithmetic.*
+
+**The three things that actually decide it**
+
+1. **Does the model fit?** This is binary and it beats everything else. The 98M model at our batch
+   needs about 10 GB; on an 8 GB laptop card the answer is simply no, and no amount of patience
+   changes it.
+2. **Memory bandwidth, not FLOPS.** Our models are small and our batches are small, so the card
+   spends its time moving parameters, not multiplying them. That is why an A100 — a *older*
+   architecture than an L4 — beats it comfortably: HBM2e against GDDR6.
+3. **Generation, because of bf16.** Anything before Ampere lacks bfloat16. On a T4 our stack falls
+   back to fp16, which needs loss scaling and is the failure mode we deliberately avoided.
+   Compute capability is the honest way to read this: our card reports 12.0, a T4 reports 7.5.
+
+**Apple Silicon, which is the comparison people get most wrong**
+
+A MacBook Pro with 48 GB of unified memory can *hold* a model that will not fit on an A100-40GB.
+It will still train it many times slower, and the reason is worth understanding because it
+generalizes: **holding and computing are different constraints.**
+
+- **Unified memory is not VRAM.** It is shared with the operating system and everything else
+  running, and its bandwidth is on the order of a few hundred GB/s against an A100's ~1,500–2,000.
+  For a workload that is bandwidth-bound, that ratio *is* the performance ratio.
+- **The Neural Engine does not participate.** It accelerates inference through CoreML; PyTorch
+  training runs on the GPU cores through MPS and never touches it.
+- **The software stack is thinner.** Many fused kernels simply do not exist on MPS, and our
+  benchmark runs fp32 there deliberately rather than pretend autocast is equivalent.
+
+So the MacBook row in the table above is **not comparable to the CUDA rows**, and we label it
+rather than quietly listing them side by side. It is there to answer "can I try this on my
+laptop?" — for which the answer is yes for the small model, and the honest cost is a number, not
+a shrug.
+
 ### You do not need the workstation
 
 This is the part we would put in the largest type on the board, because the $24,000 of graphics
