@@ -483,6 +483,40 @@ rates after the card is hot, which is the only kind worth quoting. A twenty-step
 cold card reads about 10% high, and a benchmark run while another job holds the same card reads
 about **half**, which is a mistake we made and the script now warns about.
 
+### You do not need the workstation
+
+This is the part we would put in the largest type on the board, because the $24,000 of graphics
+cards is the number that makes a reader decide this work is not available to them.
+
+**It is available to them.** The entire project — 105 pretrained models, 172 fine-tuning runs,
+83.3 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
+Colab's published compute-unit rates:
+
+| where | the whole project | inside a $500 budget? |
+|---|---|---|
+| Colab A100 | ~100 GPU-hours, ~$120 | **yes, at a quarter of it** |
+| Colab L4 | ~185 GPU-hours, ~$220 | **yes** |
+| Colab T4 (free tier's card) | ~460 GPU-hours, ~$550 | marginally not — but every experiment that matters fits |
+
+Those rows are estimates until `colab_reproduce.ipynb` returns real numbers; that notebook
+retrains the exact headline model on Colab and computes the table from what it measures rather
+than from a guess.
+
+**Against $24,000 of cards, $120 is two hundred times cheaper.** The workstation bought us
+*latency* — an answer in ninety minutes rather than tomorrow — and panel 4 argues that latency is
+what let the project find its own mistakes. It did not buy access to the science. A student with a
+subscription and patience can run every experiment on this board.
+
+Three caveats, because this is the number people will quote:
+
+- A subscription buys a **queue, not a machine.** Sessions end. The 34-hour studies here would
+  have to be cut into resumable pieces — which our `reuse=True` convention already supports, and
+  which is a good argument for having built it.
+- You get **whichever GPU is free**, so a study split across an A100 and an L4 has hardware as an
+  uncontrolled variable. Week 3's fingerprint discipline is exactly the tool for noticing that.
+- **Owning wins eventually.** The crossover against rental is ~9,300 GPU-hours. This project used
+  83 — 0.9% of the way there.
+
 Two things this table is really for. The first is that "it does not fit" is a legitimate entry: a
 mobile card with 8 GB cannot hold the 98M model at this batch, and knowing that before you plan a
 term is worth more than any throughput number. The second is the ratio — if the same study is four
