@@ -161,7 +161,7 @@ def pretrain(name: str, tokens: int, steps: int, seed: int = 0, preset: str = 'p
              batch: int = 128, seq_len: int = 128, lr: float | None = None,
              mlm_prob: float = 0.15,
              gpu: int = 0, tag: str | None = None, store_dtype: str = 'auto',
-             reuse: bool = True) -> dict:
+             reuse: bool = True, clip: float = 1.0, warmup: float | None = None) -> dict:
     """Pretrain one grid cell and return its record.
 
     The two axes are `tokens` (how much unique text) and `steps` (how much compute). Note that
@@ -174,6 +174,11 @@ def pretrain(name: str, tokens: int, steps: int, seed: int = 0, preset: str = 'p
     the grid are the ones being iterated on, and re-executing the notebook should not spend
     twenty minutes reproducing checkpoints that are already on disk. Pass reuse=False to force
     a retrain.
+
+    `clip` and `warmup` reach mlm_train unchanged. They were exposed on the fleet before they
+    were exposed here, which meant the one setting known to change the 98M model's behaviour
+    could not be varied from a script -- and so the question of whether it PREVENTS failures,
+    as opposed to tightening the spread of the runs that succeed, went unasked for a term.
 
     Writes a save_pretrained checkpoint under runs/<tag>/, a JSONL curve the dashboard reads
     live, and runs/<tag>_result.json for the results notebook. Returns the same record.
@@ -201,7 +206,7 @@ def pretrain(name: str, tokens: int, steps: int, seed: int = 0, preset: str = 'p
     val = stream(name, split='val', seq_len=seq_len, gpu=gpu, store_dtype=store_dtype)
     tok = load_tokenizer(name)
     return _train.pretrain(ds, tok, tag, steps, preset=preset, batch=batch, lr=lr,
-                           mlm_prob=mlm_prob, seed=seed,
+                           mlm_prob=mlm_prob, seed=seed, clip=clip, warmup=warmup,
                            val_batches=val.fixed_val_batches(mlm_prob=mlm_prob))
 
 
