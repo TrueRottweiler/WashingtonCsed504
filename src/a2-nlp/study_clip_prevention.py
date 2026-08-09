@@ -11,12 +11,10 @@ Panel 13 pulled apart a claim this project had been making as one sentence and f
 Panel 13's recommendation was to stop trying to detect failures -- the arithmetic there cannot
 close -- and go and find out whether they can be prevented instead. This is that experiment.
 
-Be clear about which question five seeds can settle. A FAILURE RATE is a proportion, and telling
-20% from 5% at n=5 per cell is hopeless: 0/5 against 2/5 is p~0.44, which is nothing. A SPREAD is
-a continuous quantity and five samples estimate it perfectly usefully. So the primary outcome here
-is the spread at the two rungs where the model is worst, and the failure count is reported as a
-secondary observation with its power stated rather than dressed up. Designing for the outcome the
-sample size can actually resolve is the whole lesson of section 9.
+Two outcomes come out of the same runs and they need very different sample sizes. A FAILURE RATE
+is a proportion and proportions are expensive; a SPREAD is a continuous quantity and cheap. The
+design below is sized for the first and reports the second as a bonus, because sizing an
+experiment for the outcome it can actually resolve is the whole lesson of section 9.
 
 The design is shaped by what it is allowed to cost, and at a 48-hour budget it can be honest.
 An earlier version truncated every run to 35,000 steps to fit a night, which measured only
@@ -24,10 +22,29 @@ whether a run leaves its plateau and could say nothing about final quality. That
 these are full 62,500-step runs, so the same experiment answers all three questions -- does
 clipping prevent failures, does it tighten the spread, and does it cost anything at the end.
 
-Twelve seeds per cell rather than five. Even that will not settle a rare-event RATE: 0/12 against
-3/12 is p~0.22, which is suggestive and not a result. It is stated that way in the output rather
-than dressed up. What twelve seeds does settle decisively is the spread, and the spread is what
-report 07 actually rests on.
+How many seeds, and the honest answer about what they buy. Computed rather than guessed:
+
+    if the true failure rate is 20%, P(seeing zero failures)
+        n=3    51.2%      n=8    16.8%      n=16    2.8%
+        n=5    32.8%      n=12    6.9%      n=20    1.2%
+
+    comparing the two arms, Fisher exact
+        n=5:  1/5 vs 0/5   p=1.000        n=12: 2/12 vs 0/12  p=0.478
+        n=8:  2/8 vs 0/8   p=0.467        n=20: 4/20 vs 0/20  p=0.106
+
+    detecting the spread difference already observed (SD ratio 4.3x), F-test
+        n=3  needs 6.24x -- missed        n=8  needs 2.23x -- detected
+        n=5  needs 3.10x -- detected      n=12 needs 1.86x -- detected
+
+Read those three blocks together and the design writes itself, but not in the direction you would
+guess. The SPREAD question is settled at five seeds; twelve buys almost nothing there. The RATE
+question is not settled at twelve, or at twenty, or at any n this hardware can afford -- 85
+minutes a run means a usable rate bound would cost something like 113 GPU-hours for one cell.
+
+So twelve is not chosen to make the rate significant. It cannot be. It is chosen because at n=12
+a clean sweep means something on its own terms: seeing 0/12 when the rate was 20% happens 6.9% of
+the time, which is a bound worth having even though the two-arm comparison stays p=0.478. The
+write-up has to say that, and the report() function below prints it so it cannot be forgotten.
 
 Split across the two cards BY SEED, never by clip value. Splitting by treatment would confound
 the thing being tested with whichever card ran it -- different thermals, different neighbours on
@@ -53,9 +70,11 @@ OUT = os.path.join(HERE, 'runs', 'clip_prevention.json')
 
 CORPUS = 'eng_1b'
 PRESET = 'afriberta'          # the 98M model -- the only one that fails
-# The two rungs where failures actually happened. 1024M had a spread of 5.003 across five seeds
-# and 64M had 3.186 across nine; 4M and 256M were stable and would waste the budget.
-TOKENS = [64_000_000, 1_024_000_000]
+# One rung, not two, and the arithmetic below is why. The scarce thing here is SEEDS, not data
+# sizes: a rare-event rate needs replication, and spending half the budget on a second rung would
+# halve the seeds on both. 1024M is the worst cell we have -- spread 5.003 across five seeds --
+# so it is where failures are most likely to be observable at all.
+TOKENS = [1_024_000_000]
 CLIPS = [1.0, 0.5]
 SEEDS = list(range(12))
 STEPS = 62_500                # full length: no truncation, so final quality is measurable too
