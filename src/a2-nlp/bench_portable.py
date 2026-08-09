@@ -43,6 +43,15 @@ REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # our sustained medians, 96
 
 
 def pick_device():
+    # A TPU runtime has torch but no CUDA, so without this check it would silently fall through
+    # to CPU and report a number that describes neither the TPU nor a sensible CPU baseline.
+    try:
+        import torch_xla                                        # noqa: F401
+        raise SystemExit('This is a TPU runtime. The benchmark needs CUDA, MPS or CPU -- '
+                         'torch_xla would need a different training loop, and a TPU row is not '
+                         'comparable to the others anyway. Pick a GPU or CPU runtime.')
+    except ImportError:
+        pass
     if torch.cuda.is_available():
         return torch.device('cuda'), torch.cuda.get_device_name(0)
     if getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
@@ -125,6 +134,13 @@ def main():
     a = ap.parse_args()
 
     device, dev_name = pick_device()
+    # On CPU the defaults would run for tens of minutes and nobody would wait. Scale down and say
+    # so, rather than appearing to hang -- a benchmark people abandon produces no data at all.
+    if device.type == 'cpu':
+        if a.steps > 6:
+            a.steps, a.warmup = 4, 1
+            print('CPU detected: dropping to 4 timed steps. Even so, expect minutes, and expect '
+                  'the 98M model to be very slow.')
     print(f'device: {dev_name}   torch {torch.__version__}   dtype {amp_dtype(device) or "fp32"}')
     if device.type == 'cuda':
         # mem_get_info is the DEVICE's free/total, across every process. memory_reserved() only

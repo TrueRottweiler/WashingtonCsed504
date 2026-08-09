@@ -408,10 +408,15 @@ def fig_scaling():
 
     The distinction matters because "buy more GPUs" is the reflex answer to "training is slow",
     and at this model size it is only half true. The curve is the wall-clock to clear one real
-    night's queue against the number of cards; the flat rule is the longest single job in it,
+    twenty-job queue against the number of cards; the flat rule is the longest single job in it,
     which no amount of hardware moves.
     """
-    # A real overnight queue: the twenty-job night, taken from the run records.
+    # The twenty longest completed runs at the standard budget -- a realistic distribution of
+    # job lengths rather than one particular evening. Worth being precise about, because the
+    # first version of this called itself "a real twenty-job night" and then quietly started
+    # including runs from a study that was still landing while the figure was being drawn. A
+    # generated figure SHOULD move when the data moves; a caption that names a specific night
+    # must not.
     jobs = sorted((r['seconds'] / 60 for r in f.results('*') if r['steps'] == 62_500),
                   reverse=True)[:20]
     longest = jobs[0]
@@ -442,7 +447,7 @@ def fig_scaling():
                     color=INK, fontsize=12, fontweight='bold')
 
     ax.set_xlabel('graphics cards working the queue')
-    ax.set_ylabel('hours to finish the night')
+    ax.set_ylabel('hours to clear the queue')
     ax.set_xticks([1, 5, 10, 15, 20, 24])
     ax.set_ylim(0, max(span) * 1.12)
     ax.set_title('Ten cards would not have made this ten times faster', pad=14)
