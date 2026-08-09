@@ -731,9 +731,125 @@ def fig_how_many_seeds():
     save(fig, '13-how-many-seeds')
 
 
+
+
+# --------------------------------------------------------------------------------------------
+def fig_speedup():
+    """Where the 2.07x came from, and why the two halves are different kinds of win.
+
+    Panel 1. A waterfall rather than a before/after pair, because the point is that the speedup
+    decomposes into two independent changes with different characters: a batch size that was
+    simply too small, and a second card the notebook had never used. The first is efficiency --
+    less GPU-time for the same work. The second is only wall-clock: the same GPU-minutes, spent
+    in parallel. Conflating them is how a project claims 2x efficiency when it bought 1.3x.
+
+    Numbers from report 03's A/B, four matched cells, same recipe both sides.
+    """
+    stages = [('the notebook\nbatch 64, one card', 25.2, MUTED),
+              ('batch 128\n1.32× less GPU-time', 19.1, C1),
+              ('both cards\nsame GPU-time', 12.2, C3)]
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.0))
+    xs = range(len(stages))
+    ax.bar(xs, [s[1] for s in stages], color=[s[2] for s in stages], width=0.55)
+    for i, (label, v, _) in enumerate(stages):
+        ax.text(i, v + 0.5, f'{v:.1f} min', ha='center', color=INK, fontsize=15,
+                fontweight='bold')
+
+    # The two arrows are the story: one shrinks the work, the other splits it.
+    ax.annotate('', xy=(0.72, 19.1), xytext=(0.28, 25.2),
+                arrowprops=dict(arrowstyle='->', color=INK2, lw=2.2))
+    ax.text(0.5, 23.4, '−1.32×\nefficiency', ha='center', color=INK2, fontsize=12,
+            fontweight='bold')
+    ax.annotate('', xy=(1.72, 12.2), xytext=(1.28, 19.1),
+                arrowprops=dict(arrowstyle='->', color=INK2, lw=2.2))
+    ax.text(1.5, 17.0, '−1.57×\nparallelism', ha='center', color=INK2, fontsize=12,
+            fontweight='bold')
+
+    ax.set_xticks(list(xs))
+    ax.set_xticklabels([s[0] for s in stages], fontsize=12, color=INK, linespacing=1.4)
+    ax.set_ylabel('wall-clock for the same four cells (minutes)')
+    ax.set_ylim(0, 29)
+    ax.grid(axis='x', visible=False)
+    ax.set_title('2.07× — and only 1.32× of it is efficiency', pad=14)
+    fig.text(0.5, -0.06,
+             'Both changes were available on day one and neither is clever. The batch was simply '
+             'too small, and the\nsecond card had never been used. Utilization went from one card '
+             'busy and one idle to 91% and 93%.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '14-where-the-speedup-came-from')
+
+
+# --------------------------------------------------------------------------------------------
+def fig_pipeline():
+    """What a language-model run is actually made of, in wall-clock.
+
+    Panel 2. Students picture "training a model" as one activity. It is a pipeline, and the
+    proportions are so lopsided that they decide the shape of the whole factory: preparation is
+    well under a minute and training is an hour and a half, which is exactly why everything cheap
+    belongs in a notebook and everything expensive belongs in a queue.
+
+    Dots on a log axis, not bars -- the same correction figure 06 needed. The stages differ by
+    more than two orders of magnitude so the axis has to be logarithmic, and a bar encodes its
+    value as a length from a baseline, which on a log axis is meaningless. The first version drew
+    bars and clipped the two shortest stages out of the plot entirely.
+
+    Measured on the real Yoruba corpus by pipeline_bench.py: 80,000 documents, 260M characters.
+    The two CPU stages are reported for the FULL corpus rather than the timed sample, which is
+    what "a run" actually costs.
+    """
+    b = json.load(open(os.path.join(HERE, 'runs', 'pipeline_bench.json'), encoding='utf-8'))
+    by = {s['name']: s for s in b['stages']}
+
+    def find(prefix):
+        return next(s for k, s in by.items() if k.startswith(prefix))
+
+    tok = find('2.')['seconds']
+    enc = find('3.').get('extrapolated_full_s') or find('3.')['seconds']
+    load = find('5.')['seconds']
+    small = find('6. train step, 33.8M')['hours_for_62500_steps'] * 3600
+    big = find('6. train step, 98M')['hours_for_62500_steps'] * 3600
+
+    stages = [('train the tokenizer', tok, C4, 'CPU'),
+              ('encode the whole corpus', enc, C4, 'CPU'),
+              ('load it onto the card', load, C4, 'once'),
+              ('PRETRAIN, 33.8M model', small, C1, '62,500 steps'),
+              ('PRETRAIN, 98M model', big, C2, '62,500 steps')]
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.6))
+    for i, (label, s, color, note) in enumerate(stages):
+        y = len(stages) - 1 - i
+        ax.plot([0.5, s], [y, y], color=color, lw=2.4, alpha=0.4, zorder=1)
+        ax.plot(s, y, 'o', color=color, markersize=15, markeredgecolor=SURFACE,
+                markeredgewidth=2, zorder=2)
+        txt = f'{s:.0f} s' if s < 90 else f'{s/60:.0f} min'
+        ax.text(s * 1.35, y, txt, va='center', color=INK, fontsize=14, fontweight='bold')
+        ax.text(s * 1.35, y - 0.30, note, va='center', color=MUTED, fontsize=10.5)
+
+    ax.set_xscale('log')
+    ax.set_xlim(0.5, big * 12)
+    ax.set_xticks([1, 10, 60, 600, 3600])
+    ax.set_xticklabels(['1 s', '10 s', '1 min', '10 min', '1 hour'], fontsize=12)
+    ax.minorticks_off()
+    ax.set_yticks(range(len(stages)))
+    ax.set_yticklabels([s[0] for s in reversed(stages)], fontsize=12.5, color=INK)
+    ax.set_ylim(-0.7, len(stages) - 0.3)
+    ax.grid(axis='y', visible=False)
+    ax.set_title('Preparation is under a minute. Training is an hour and a half.',
+                 pad=34, loc='left')
+    ax.text(0, 1.04, 'every stage of one run, measured end to end on the real corpus',
+            transform=ax.transAxes, color=INK2, fontsize=12.5, va='bottom')
+    fig.text(0.5, -0.05,
+             'Which is the whole reason the factory is shaped the way it is: everything cheap '
+             'happens interactively in a\nnotebook, and everything expensive goes into a queue '
+             'that runs while nobody is watching.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '15-what-a-run-is-made-of')
+
+
 if __name__ == '__main__':
     for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors, fig_how_many_seeds):
+               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors, fig_how_many_seeds, fig_speedup, fig_pipeline):
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
