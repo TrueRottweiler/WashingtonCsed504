@@ -35,6 +35,11 @@ PRESETS = {
 }
 VOCAB, SEQ, BATCH = 16_000, 128, 128
 FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapolation
+# What the whole A2 project consumed on the workstation, so any machine can be told what the
+# same term of work would have cost it. This is the number that decides whether a student can
+# attempt a study like this at all, and it is more useful than tokens per second.
+PROJECT_GPU_HOURS = 83.3
+REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # our sustained medians, 96 and 55 runs
 
 
 def pick_device():
@@ -143,11 +148,19 @@ def main():
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             continue
+        # How this machine compares to the box the project ran on, and what the whole term of
+        # work would have cost here. A ratio is easier to reason about than a raw rate.
+        ratio = REF_TOK_S[preset] / r['tokens_per_s']
+        r['vs_workstation'] = round(ratio, 2)
+        r['project_hours_here'] = round(PROJECT_GPU_HOURS * ratio, 1)
         rows.append(r)
         print(f"{preset:>10}: {r['params_m']:>5}M params ({r['backbone_m']}M backbone)  "
               f"{r['tokens_per_s']:>8,} tok/s  "
-              f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB  "
-              f"=> one 62,500-step run takes {r['full_run_hours']:.2f} h")
+              f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB")
+        print(f"{'':>10}  one 62,500-step run: {r['full_run_hours']:.2f} h"
+              f"   |  {ratio:.1f}x the workstation"
+              f"   |  the whole 83-GPU-hour project: "
+              f"{r['project_hours_here']:.0f} h ({r['project_hours_here']/24:.1f} days)")
 
     if a.out:
         try:
