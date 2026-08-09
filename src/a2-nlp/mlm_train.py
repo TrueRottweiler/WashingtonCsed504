@@ -132,7 +132,7 @@ def save_random_init(vocab_size, tokenizer, preset, max_len, out_dir) -> str:
 
     Whatever the pretrained checkpoints score ABOVE this one is what pretraining actually
     bought. Without it, a from-scratch model beating a multilingual baseline could just as
-    easily be the language-specific tokenizer plus a few hundred labelled examples.
+    easily be the language-specific tokenizer plus a few hundred labeled examples.
     """
     model = build_model(vocab_size, tokenizer, preset, max_len)
     os.makedirs(out_dir, exist_ok=True)

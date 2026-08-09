@@ -212,6 +212,6 @@ replaced left commented underneath); `results_factory_mlm.ipynb` reads `runs/*_r
 plots the data axis against the compute axis. `POC_v3_...ipynb` is theirs and is left untouched.
 
 Two things the factory deliberately does **not** take over: the fine-tuning harness (SIB-200,
-MasakhaNER, the seeded bootstrap CIs) runs on a few hundred labelled examples in seconds and has
+MasakhaNER, the seeded bootstrap CIs) runs on a few hundred labeled examples in seconds and has
 nothing to gain from a GPU-resident stream, and checkpoints are ordinary `save_pretrained`
 directories so `AutoModelFor*.from_pretrained` keeps working.

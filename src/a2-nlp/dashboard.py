@@ -208,7 +208,7 @@ def _n_train_tokens(dataset):
     """Train-split token count from the dataset's own stats.json, cached; None if not prepared.
 
     Returns None for an unknown dataset rather than raising. _run_meta yields None whenever a
-    log has no recognisable dataset header, and the whole dashboard is a read-only view of other
+    log has no recognizable dataset header, and the whole dashboard is a read-only view of other
     processes' output -- it should degrade to "no prediction" for a run it cannot parse, never
     take the display down. It previously died with a TypeError from os.path.join(None).
     """

@@ -1,7 +1,7 @@
 """
 mlm_data.py -- corpora and masked batches for the from-scratch-vs-transfer study.
 
-This is the masked-language-modelling counterpart of text_prepare.py + text_data.py, and it
+This is the masked-language-modeling counterpart of text_prepare.py + text_data.py, and it
 exists because the group's POC needs three things the causal side already had, in a shape their
 notebook can call:
 

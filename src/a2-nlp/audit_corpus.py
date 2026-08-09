@@ -42,7 +42,7 @@ def strip_marks(word: str) -> str:
     """The word with every combining mark removed -- its bare spelling.
 
     Decomposing and dropping the combining characters turns `àwọn` into `awon` and `ti`/`tí`
-    into the same key, which is what lets two spellings of one word be recognised as such
+    into the same key, which is what lets two spellings of one word be recognized as such
     without hard-coding any language's diacritics.
     """
     return ''.join(c for c in unicodedata.normalize('NFD', word.lower())

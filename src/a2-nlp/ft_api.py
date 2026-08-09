@@ -50,7 +50,7 @@ script, and that path is no longer executed after the July 2026 incident. The fi
 masakhane-ner GitHub repo instead, and the loader records and prints the split sizes -- comparing
 against the published Table 4 baseline is only valid if they match.
 
-TEXT IS NFC-NORMALISED ON THE WAY IN, and that is not cosmetic. MasakhaNER ships in DECOMPOSED
+TEXT IS NFC-NORMALIZED ON THE WAY IN, and that is not cosmetic. MasakhaNER ships in DECOMPOSED
 form: 17.1% of its characters vanish under NFC, because Yoruba tone marks are stored as separate
 combining codepoints. The committed 16k BPEs have no normalizer (they are byte-level, trained on
 FineWeb-2, which is precomposed), so on the raw files they see `náà` as five codepoints and cut
@@ -84,9 +84,9 @@ import torch.nn as nn
 import mlm_api as factory
 
 # Bumped when a call here changes shape or a default moves. Pin against it if a script must not
-# silently change behaviour: assert ft_api.API_VERSION == (1, 3)
+# silently change behavior: assert ft_api.API_VERSION == (1, 3)
 #   (1, 0)  extraction from POC_v4_factory.ipynb
-#   (1, 1)  NFC normalisation on by default; `normalize` added to the record and the tag
+#   (1, 1)  NFC normalization on by default; `normalize` added to the record and the tag
 #   (1, 2)  max_length added to the tag -- 128 and 256 runs were colliding
 #   (1, 3)  chance / degenerate recorded for classification cells
 #   (1, 4)  eval_split -- score a cell on the dev split so a sweep can SELECT without
@@ -108,7 +108,7 @@ NER_LR = 3e-5
 
 # Step budgets, chosen to equal what the notebook's epoch loop spent on the FULL split at batch
 # 16 -- SIB-200 701/16 = 44 batches x 8 epochs, MasakhaNER 6,876/16 = 430 batches x 5 epochs.
-# That makes the extraction behaviour-preserving where the notebook was already right, and fixed
+# That makes the extraction behavior-preserving where the notebook was already right, and fixed
 # where it was not: a 701-sentence NER subsample now gets 2,150 updates like the full split does,
 # instead of 215.
 FT_STEPS = 352
@@ -137,7 +137,7 @@ EVAL_SPLIT = 'test'
 # than it needs to be.
 SUBSAMPLE_SEED = 12345
 
-# Unicode normalisation applied to every item before it reaches a tokenizer. See the module
+# Unicode normalization applied to every item before it reaches a tokenizer. See the module
 # docstring: on MasakhaNER this is the difference between the study's central claim holding and
 # reversing. None disables it and reproduces the pre-fix numbers.
 NORMALIZE = 'NFC'
@@ -170,9 +170,9 @@ def gpu_name() -> str:
 # ----------------------------------------------------------------------------------------------
 
 def _norm(s: str, form: str | None) -> str:
-    """Unicode-normalise one string. Word counts are unaffected -- normalisation composes
+    """Unicode-normalize one string. Word counts are unaffected -- normalization composes
     combining marks into precomposed characters, it never splits or joins words -- so a
-    normalised NER sentence still lines up with its tag sequence."""
+    normalized NER sentence still lines up with its tag sequence."""
     return unicodedata.normalize(form, s) if form else s
 
 
@@ -283,7 +283,7 @@ def load_masakhaner(lang: str = 'yor', normalize: str | None = NORMALIZE) -> dic
     sizes = ' '.join(f'{s} {len(out[s]["tokens"])}' for s in ('train', 'validation', 'test'))
     dec = decomposition_report(' '.join(s) for s in raw['train'][0])
     print(f'masakhaner2/{lang}: {sizes} | {len(names)} tags {names}')
-    action = f'normalising to {normalize}' if normalize else 'LEFT AS-IS (normalize=None)'
+    action = f'normalizing to {normalize}' if normalize else 'LEFT AS-IS (normalize=None)'
     print(f'  {dec["shrink"]:.1%} of characters are decomposed -> {action}'
           + ('  (see the module docstring -- this one matters)' if dec['shrink'] > 0.02 else ''))
     _NER_CACHE[key] = out
@@ -621,7 +621,7 @@ def record_tag(model_path: str, task: str, lang: str, n_train: int | None, lr: f
     """The record's name. EVERY setting that moves the number is in it, so two conditions cannot
     overwrite each other and a sweep does not silently keep only its last cell.
 
-    Two of these are easy to leave out and both bite. Normalisation moves MasakhaNER fertility by
+    Two of these are easy to leave out and both bite. Normalization moves MasakhaNER fertility by
     47%. And max_length decides whether 13.3% of MasakhaNER is truncated under XLM-R (at 128) or
     0.0% (at 256) -- with reuse=True, a tag missing it would hand back the 128 record when asked
     for the 256 one, which is worse than a collision because it looks like a result.
@@ -663,7 +663,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     if steps is None:
         steps = FT_STEPS if task == 'sib200' else NER_STEPS
     seeds = list(seeds)
-    # If a caller passed pre-loaded data, ITS normalisation is the one that applies -- otherwise
+    # If a caller passed pre-loaded data, ITS normalization is the one that applies -- otherwise
     # the record would claim NFC while the tensors came from raw text.
     if data is not None:
         normalize = data.get('normalize', normalize)
@@ -704,7 +704,7 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
     mean, sd = float(np.mean(scores)), float(np.std(scores))
 
     # Chance for balanced macro-F1 is 1/k. A cell at or below it has not learned the task, and
-    # its score is a fact about the optimiser rather than about the model's Yoruba -- the seed
+    # its score is a fact about the optimizer rather than about the model's Yoruba -- the seed
     # spread on such a cell is usually larger than any difference anyone wants to report from
     # it. Worth saying out loud, because 0.073 and 0.127 look like small numbers rather than
     # like the same non-result twice.

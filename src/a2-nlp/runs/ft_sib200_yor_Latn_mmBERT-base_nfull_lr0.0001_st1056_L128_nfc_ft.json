@@ -1,0 +1,44 @@
+{
+  "tag": "ft_sib200_yor_Latn_mmBERT-base_nfull_lr0.0001_st1056_L128_nfc",
+  "label": "mmBERT SIB lr0.0001",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "jhu-clsp/mmBERT-base",
+  "model_slug": "mmBERT-base",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 204,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 0.0001,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.5365662830963559,
+    0.53794156125697,
+    0.6160670516646664
+  ],
+  "mean": 0.5635249653393308,
+  "sd": 0.037157107656266154,
+  "ci": [
+    0.4975194874585395,
+    0.6233178717736073
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 78.62963016827901,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    3
+  ],
+  "created": "2026-08-08T11:32:51"
+}

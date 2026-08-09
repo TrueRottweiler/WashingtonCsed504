@@ -920,7 +920,7 @@ function runCard(r){
 // ---- the unified view --------------------------------------------------------------------
 // Structured after the Part 1 chart, which was legible for reasons worth copying: the x axis is
 // an ORDERED variable (there, images per class; here, unique tokens), bars are GROUPED so the
-// two model sizes read as a pair rather than as neighbours, and every line on the right is named
+// two model sizes read as a pair rather than as neighbors, and every line on the right is named
 // in a legend. Ad-hoc runs are excluded -- a probe sitting between two grid cells is what made
 // the first attempt unreadable.
 const HUES = ["#3987e5","#199e70","#9085e9","#d9a441","#d95926","#e66767"];
@@ -1028,7 +1028,7 @@ function barsChart(cs, col, rungs, axis, usingGain){
     <text class="tk" x="4" y="${T+4}">${usingGain?'context gained':'val loss'}</text></svg>`;
 }
 
-// RIGHT: how each one gets there. Same colours, dash = larger model, dot = stopped improving.
+// RIGHT: how each one gets there. Same colors, dash = larger model, dot = stopped improving.
 function curvesChart(cs, col, usingGain){
   const W=560,H=280,L=46,R=12,T=18,B=40;
   const all = cs.filter(c=>c.curve && c.curve.length>1);
@@ -1083,7 +1083,7 @@ function flatIdx(c){
 }
 
 // How many distinct values each dimension takes in this experiment. An axis with one value
-// groups every run together: identical colours, identical legend entries, and a takeaway that
+// groups every run together: identical colors, identical legend entries, and a takeaway that
 // reads "50M tokens ahead of 50M tokens". The dropdown should not offer it in the first place.
 function axisSpread(runs){
   const st = runs.filter(r=>r.study && r.val_loss!=null);
@@ -1240,7 +1240,7 @@ function takeaway(cs, spread, usingGain){
        + `${gap.toFixed(2)} ${unit} ahead of <em>${cellLabel(bot, spread)}</em>.`;
 }
 
-// A cell's name is the set of dimensions the experiment varies. Labelling by the comparison
+// A cell's name is the set of dimensions the experiment varies. Labeling by the comparison
 // axis alone produced five legend entries all reading "50M tokens" on an experiment where the
 // data size is the one thing every run shares -- the label has to say what is DIFFERENT, which
 // is not necessarily what is being grouped by.
@@ -1252,7 +1252,7 @@ function cellLabel(c, spread){
   if(spread.steps > 1)  bits.push(fmtN(c.steps) + ' steps');
   // Nothing we track varies -- which is normal for the causal baselines, where the difference
   // is the architecture and lives only in the name. Use the name, minus the corpus prefix it
-  // shares with its neighbours, rather than printing the same label for every bar.
+  // shares with its neighbors, rather than printing the same label for every bar.
   if(!bits.length){
     const rest = c.base.startsWith(c.corpus + '_') ? c.base.slice(c.corpus.length + 1) : c.base;
     return rest.replace(/_/g, ' ') || (LANG_NAMES[c.corpus] || c.corpus);
