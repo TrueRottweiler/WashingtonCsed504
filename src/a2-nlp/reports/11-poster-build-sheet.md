@@ -34,7 +34,7 @@ about 90–120 words. Anything longer will not be read standing up.
 | **1** | What does a run cost, and in what unit? | **62,500 steps = 1.024B tokens** | *needs one — see gaps* | §5 |
 | **2** | Why optimize before anything needs it? | **2.07×** | `09-scaling-with-cards.svg` | §4 |
 | **3** | What makes a record survive you? | **fingerprint `15abd33de5af`** | `07-dashboard.png` | §6–8 |
-| **4** | Is this difference real? | **0.003 → 2.156** | `04-two-outcomes.svg` | §10 |
+| **4** | Is this difference real? | **2.27×, not 1.0×** | `13-how-many-seeds.svg` (+ `04-two-outcomes.svg` if room) | §10 |
 | **5** | Why can one task be predicted and not the other? | **0.044 wide vs 0.143** | `12-floors.svg` | §14 |
 | **6** | Which of your units are not units? | **0.144 bits/char** | `03-matched-steps-vs-compute.svg` | §10 |
 | **7** | Is your metric the right metric? | **−0.888 vs +0.303** | `11-metric-validity.svg` | §14 |
@@ -49,8 +49,8 @@ about 90–120 words. Anything longer will not be read standing up.
    came from a cheap re-run somebody did on a hunch.
 3. Two runs silently overwrote each other and two people built "the same" corpus differently; a
    filename is an identity and a vocabulary needs a hash.
-4. Run-to-run spread is a property of the cell, not a constant of the project, and we used one
-   number for a term.
+4. Spread is a property of the cell, not a constant — and "bigger than the spread" is half a
+   rule: at three seeds a difference needs to be 2.27x it, which our own headline number was not.
 5. A benefit every model receives equally cannot be predicted by anything — which is why loss
    tracks topic classification and not entity recognition, and it is not about where the floor is.
 6. Two vocabularies give two losses that are not on one scale, and matched *steps* handed one arm

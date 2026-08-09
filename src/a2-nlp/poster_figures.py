@@ -668,9 +668,72 @@ def fig_floors():
     save(fig, '12-floors')
 
 
+
+
+# --------------------------------------------------------------------------------------------
+def fig_how_many_seeds():
+    """The bar our own rule was set below, and by how much.
+
+    Week 4 of the board. The project's working rule was "treat a difference smaller than the
+    cell's own seed spread as no difference" -- a threshold of 1.0x the spread. That rule is
+    sound in one direction and silent in the other, and we had been reading it as symmetric.
+
+    The curve is what a two-sample t-test actually demands at alpha = 0.05: at three seeds per
+    arm a difference has to be 2.27x the spread before it is distinguishable from nothing. Our
+    rule sat at 1.0, which is the shaded band -- every difference that lands there is one we
+    would have called real and could not have.
+
+    The points are our own claims. The tokenizer penalty sits squarely in the band, which is how
+    claims_audit.py found it, and is why six more runs are queued rather than a hedge written.
+    """
+    from scipy.stats import t as tdist
+
+    ns = list(range(2, 21))
+    need = [tdist.ppf(0.975, 2 * n - 2) * math.sqrt(2 / n) for n in ns]
+
+    fig, ax = plt.subplots(figsize=(10, 6.2))
+    ax.fill_between(ns, 1.0, need, color=C2, alpha=0.16, lw=0)
+    ax.plot(ns, need, 'o-', color=C2, markersize=7,
+            label='what a t-test actually needs (α = 0.05)')
+    ax.axhline(1.0, color=C1, lw=2.6, ls=(0, (5, 4)),
+               label='our rule: "bigger than the seed spread"')
+
+    # Upper middle: the only region neither the curve, the rule line, nor a claim label crosses.
+    ax.annotate('everything in this band we would\nhave called real, and could not have',
+                xy=(12.5, 2.9), ha='center', color=C2, fontsize=12.5, fontweight='bold')
+
+    # Our own claims, placed where they actually sit.
+    # Both labels sit to the RIGHT of their point and never below it: the lower one ran off the
+    # axis and collided with the tick labels.
+    pts = [(3, 0.144 / 0.105,
+            'tokenizer penalty, 0.144 bits/char —\ninside the band, which is how\nthe audit caught it', 0.60),
+           (3, 0.080 / 0.185,
+            '16× more text: an ABSENCE claim,\nso below the bar is the point', 0.28)]
+    for n, ratio, label, dy in pts:
+        ax.plot(n, ratio, 'o', color=INK, markersize=13, zorder=5,
+                markeredgecolor=SURFACE, markeredgewidth=2)
+        ax.annotate(label, xy=(n, ratio), xytext=(n + 2.2, ratio + dy),
+                    color=INK, fontsize=11.5, fontweight='bold', va='center',
+                    arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.6))
+
+    ax.set_xlabel('seeds per arm')
+    ax.set_ylabel('difference, as a multiple of the seed spread')
+    ax.set_xticks([2, 3, 4, 5, 6, 8, 10, 12, 16, 20])
+    ax.set_ylim(0, 4.6)
+    ax.legend(loc='upper right', fontsize=12)
+    ax.set_title('Three seeds tells you what is definitely noise, not what is definitely real',
+                 pad=14)
+    fig.text(0.5, -0.03,
+             'The rule is sound in one direction and silent in the other. Below the spread is '
+             'reliably nothing;\nslightly above it is not reliably something — and that is where '
+             'our own headline number sat.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '13-how-many-seeds')
+
+
 if __name__ == '__main__':
     for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors):
+               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors, fig_how_many_seeds):
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
