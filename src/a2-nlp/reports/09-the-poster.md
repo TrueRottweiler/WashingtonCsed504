@@ -1303,10 +1303,15 @@ shaded](figures/11-metric-validity.png)
 | | all 19 models | the 16 that actually trained |
 |---|---|---|
 | Topic classification | r = −0.616 | **r = −0.888** |
-| Entity recognition | r = −0.935 | **r = +0.303** |
+| Entity recognition | r = −0.935 | **r = +0.303 — i.e. none** (t = 1.19, p ≈ 0.25) |
 
 Read the second row twice. Across all nineteen the correlation looks like the tightest number in
-the study. Restrict it to models that trained, and **the sign flips**.
+the study. Restrict it to models that trained, and **it disappears**.
+
+Not *inverts* — disappears. The +0.303 is tempting to read as a reversal and it is not one: at
+n = 16 that is t = 1.19, p ≈ 0.25, indistinguishable from zero. Asserting an inversion would claim
+something the data cannot carry, which is exactly the failure the panel beside this one is about.
+The supportable statement is that the relationship is **absent**, and that is enough.
 
 That −0.935 is manufactured entirely by three under-trained models sitting far to the right.
 Among the sixteen working ones, 0.79 nats of pretraining loss buys a score range of 0.044 with a

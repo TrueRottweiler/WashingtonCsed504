@@ -71,6 +71,19 @@ def fig_headline():
     Grouped bars because the job is comparing magnitudes within two separate tasks, and the
     untrained floor is drawn as a rule rather than a bar -- it is a reference level, not a
     competitor, and drawing it as a bar invites reading it as one.
+
+    HANDED TO PATRICK, and this selection rule is why. `max(mean)` over every matching record is
+    best-on-TEST per arm, which is the procedure his dev-split sweep exists to replace. Folding
+    the new rows in would not fix it: the old test-selected grids stay on disk and the max keeps
+    choosing from the union, so the figure would look updated while remaining immune to the
+    correction. Worse, the arms are no longer one-dimensional -- study 1 added fixed-rate runs on
+    seeds 1 and 2, so `max` now ranges over learning rate AND choice of checkpoint, and a higher
+    draw from a different seed would silently relabel which model "from-scratch" means. It did
+    not happen (0.6558 against 0.6659) but only by luck.
+
+    Whoever changes the selection rule has to own the numbers, which is the person running the
+    sweep. Left here unchanged rather than half-fixed, so the broken version is not mistaken for
+    a corrected one.
     """
     rows = ft_api.results('*')
 
@@ -569,13 +582,16 @@ def fig_metric_validity():
         ax.legend(loc='lower left', fontsize=11)
         ax.set_ylim(0.42, 0.86)
 
+    # "Flat", not "inverted". r = +0.303 at n = 16 is t = 1.19, p ~ 0.25 -- indistinguishable from
+    # zero. Calling it a sign flip would assert an inversion the data cannot carry, which is
+    # exactly the failure the panel beside this one is about. Patrick's catch.
     axes[1].annotate('these three carry the whole correlation.\nTake them out and it is flat.',
                      xy=(4.6, 0.55), xytext=(3.15, 0.70), color=INK, fontsize=12,
                      fontweight='bold',
                      arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.8))
 
-    fig.suptitle('Validation loss tells you a model is broken. It does not tell you which '
-                 'working model is better.',
+    fig.suptitle('Validation loss tells you a model is broken. On entity recognition it does '
+                 'not tell you which working model is better.',
                  fontsize=16, fontweight='bold', color=INK, y=1.02)
     fig.tight_layout()
     save(fig, '11-metric-validity')
