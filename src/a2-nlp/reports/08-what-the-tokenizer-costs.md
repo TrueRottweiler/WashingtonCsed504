@@ -90,12 +90,18 @@ All at 1,056 steps, the budget at which models actually train — see
 | our architecture, untrained | 0.4034 | [0.351, 0.446] | — |
 | XLM-R's architecture, untrained | 0.3692 | [0.318, 0.417] | — |
 
-**A 33.8M model pretrained on 64M tokens of Yoruba beats mmBERT by 0.071**, which was pretrained
-on 3 trillion tokens across 1,800 languages. The intervals overlap, so this is not a decisive win
-— but it is ahead, and it is the result the study set out to look for.
+**A 33.8M model pretrained on 64M tokens of Yoruba is ahead of mmBERT by 0.071**, which was
+pretrained on 3 trillion tokens across 1,800 languages. The intervals overlap, so this is not a
+decisive win — but it is ahead, and it is the result the study set out to look for. Write it as
+*ahead*, not *beats*, wherever it is quoted.
 
 Every model here is its own best of a learning-rate sweep. That symmetry took three passes to
 reach and is the subject of §2b.
+
+One caveat §2b does not close: every arm chose its rate on the same 204 test items it is then
+reported on, which inflates all of them. Patrick is re-selecting on SIB-200's 99-item validation
+split — shipped with the dataset and never used by this project until now — and scoring only the
+winner on test. Those are the numbers to quote once they land.
 
 The bottom three rows are the more interesting part. **XLM-R's pretraining is worth +0.039 over
 the same architecture with random weights**, with intervals that overlap almost completely. For
