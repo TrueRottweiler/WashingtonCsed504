@@ -11,9 +11,11 @@ The design holds everything fixed except the two things in question:
 
   * five languages at a fixed 16M-token budget, so no language is advantaged by having more text
     (Wolof is excluded -- 4.8M tokens total, it cannot reach the budget);
-  * four learning rates bracketing the useful range. 1e-3 is deliberately left out: the single
-    run we have at that rate never learned anything, and spending 10 runs to confirm it would buy
-    nothing;
+  * six learning rates. The first pass ran four, and three of the five languages peaked at the
+    top of that range, which makes their best-of-sweep numbers meaningless -- the sweep did not
+    contain the best. The extension adds 8.5e-4 and 1e-3 for ALL FIVE, not only the three that
+    ran out of room, because extending just the arms that hit the edge is the asymmetry report 08
+    section 2b had to unwind three times;
   * two seeds per cell, because a single run is a coin flip and this project has paid for that
     lesson more than once. Two is not three; it is what fits the night, and the write-up should
     say so rather than pretend otherwise.
@@ -42,7 +44,12 @@ OUT = os.path.join(HERE, 'runs', 'lr_transfer.json')
 # swh is covered by XLM-R; the rest are not. That is not what this study measures, but keeping
 # one covered language in means the result can be checked against the coverage gradient later.
 LANGS = ['swh', 'hau', 'yor', 'ibo', 'nya']
-LRS = [1.5e-4, 3e-4, 5e-4, 7e-4]
+# Extended after the first pass: swh, hau and nya all peaked at 7e-4, the top of the original
+# range, so their optima were outside it and their "best" numbers meant nothing. The extension
+# covers ALL FIVE languages, not just the three that hit the edge -- extending only the arms that
+# ran out of room is exactly the asymmetry report 08 section 2b had to unwind three times.
+# reuse=True means the forty runs already done are not repeated.
+LRS = [1.5e-4, 3e-4, 5e-4, 7e-4, 8.5e-4, 1e-3]
 SEEDS = [0, 1]
 TOKENS = 16_000_000
 STEPS = 12_000
