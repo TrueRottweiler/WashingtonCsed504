@@ -43,12 +43,22 @@ plt.rcParams.update({
     'font.size': 13, 'axes.titlesize': 16, 'axes.labelsize': 13, 'legend.fontsize': 12,
     'axes.titleweight': 'bold', 'legend.frameon': False,
     'lines.linewidth': 2.4, 'lines.markersize': 9,
+    # Deterministic element ids -- see save().
+    'svg.hashsalt': 'csed504-a2-nlp-poster',
 })
 
 
 def save(fig, name):
+    """Write both formats, byte-identical across runs when nothing has changed.
+
+    Matplotlib stamps an SVG with the current time and with element ids derived from object
+    addresses, so re-rendering an unchanged figure produces a different file and eight of these
+    turn up in `git status` every time the notebook runs. Noise like that is how people stop
+    reading `git status` at all. Fixing the hashsalt and dropping the date makes a real change
+    the only thing that shows up in a diff.
+    """
     os.makedirs(OUT, exist_ok=True)
-    for ext, kw in (('svg', {}), ('png', {'dpi': 300})):
+    for ext, kw in (('svg', {'metadata': {'Date': None}}), ('png', {'dpi': 300})):
         fig.savefig(os.path.join(OUT, f'{name}.{ext}'), bbox_inches='tight', **kw)
     plt.close(fig)
     print(f'  wrote figures/{name}.svg and .png')

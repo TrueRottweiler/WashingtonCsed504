@@ -455,20 +455,33 @@ lengths:
 | Is this difference real, or is it seed noise? (repeats of cells already run) | 20 cells run more than once |
 | Baselines, controls, and the untrained floor | the rest |
 
-**And the hyperparameters we did search, with the values.** This is a genuine grid search, and it
-is a *small* part of the total:
+**And the hyperparameters we did search — and what each one actually did.** This is a genuine
+grid search, and it is a *small* part of the total. Every "what happens" column below is measured
+on our own runs, not quoted from a textbook.
 
-| knob | values tried | what it is |
-|---|---|---|
-| learning rate (pretraining) | 1e-4, 1.5e-4, 3e-4, 5e-4, 1e-3 | how big a correction the model makes each step |
-| learning rate (fine-tuning) | 5e-6, 1e-5, 2e-5, 3e-5, 5e-5, 7e-5, 1e-4, 2e-4 | the same knob, on the downstream task |
-| batch size | 64, 128, 256, 512 | how many sequences per step |
-| gradient clipping | 1.0, 0.5 | a ceiling on how large one correction may be |
-| warmup fraction | none, 0.06 | how long the learning rate ramps before annealing |
-| sequence length | 128 | fixed — every run, so nothing depends on it |
-| model size | 33.8M, 98M, 154M total parameters | we called the middle one "the 86M model" all term — that is its count *excluding* the embedding table |
-| training data | 2M → 1,024M tokens | |
-| random seed | 0, 1, 2 | |
+| knob | what it is | values tried | turn it **down** | turn it **up** |
+|---|---|---|---|---|
+| **learning rate**, pretraining | how large a correction the model makes at each step | 1e-4 … 1e-3 | slower to converge, but safe — 0 failures below 3e-4 | it stops converging and starts thrashing. 19% of runs at 3e-4 never learned anything; the one run at 1e-3 failed outright |
+| **learning rate**, fine-tuning | the same knob, on the downstream task | 5e-6 … 2e-4 | badly under-fits — our model scores **0.275** at 5e-6 | improves, peaks, then turns over. SIB-200 peaks at 3e-5 (**0.666**); NER climbs all the way to 1e-4 (**0.837**) and turns over at 2e-4 |
+| **gradient clipping** | a hard ceiling on any single correction | 1.0, 0.5 | *tighter is better here.* At 256M tokens, clip 0.5 gives spread **0.052** and best 2.454 | the default 1.0 gives spread **0.224** and best 2.672 at the same cell — worse *and* four times less reproducible |
+| **training steps** | how many corrections the model makes | 2,930 … 62,500 | the run stops before the cliff — see the curve above; the first 11,500 steps look like failure | past the point where the schedule has annealed, nothing more happens; the last third of our run is worth 0.10 |
+| **training data** | how much text the model sees | 2M … 1,024M tokens | below ~16M the model is data-starved (6.74 at 4M, 4.35 at 16M) | above ~64M it stops mattering: 16× more text moves the loss **−0.080**, against a spread of 0.185 |
+| **model size** | parameters | 33.8M, 98M, 154M | the small model is faster *and* not worse — 419k vs 201k tokens/s | bigger did **not** win. At 256M tokens the two sizes are indistinguishable, and at clipping 1.0 the larger one failed 31% of the time |
+| **batch size** | sequences per step | 64, 128, 256, 512 | more, smaller steps; noisier gradients | fewer, larger steps. Fixed at **128** for 99 of 105 runs so nothing in the study depends on it — the other four were throughput probes, not a controlled sweep |
+| **warmup fraction** | how long the rate ramps before annealing | none, 0.06 | — | — *we cannot say.* No two runs differ in warmup alone, so we have no controlled comparison. Listing it as "searched" would be overclaiming |
+| **sequence length** | tokens per example | 128 | — | — fixed for every single run, deliberately, so no result can depend on it |
+
+Two of those rows are worth a student's attention beyond the numbers:
+
+**The fine-tuning learning rate moves the score more than the model does.** Our model scores 0.275
+at one rate and 0.666 at another — a range of 0.391 — while the entire gap to mmBERT is 0.071. A
+comparison where one side was tuned and the other was not is not measuring the models at all. That
+is exactly the mistake report 08 §2b had to unwind three times.
+
+**"Turn it up" is not the same lever as "make it better."** Clipping is the clean example: the
+tighter setting was *better on the metric and more reproducible*, which is the opposite of the
+usual speed/quality tradeoff. We only found it because a run's spread looked wrong, not because we
+were searching for it.
 
 **Why multiple seeds, when the settings are identical?** Because a neural network starts from
 random numbers and shuffles its data randomly, so the same recipe run twice gives two different
@@ -518,8 +531,9 @@ the poster:
 sensible somewhere else, and nothing announced the change. That last one is the sharpest: giving
 two models the same number of training steps sounds like the definition of a fair comparison. But
 one of them was five times more expensive per step, so "the same number of steps" quietly handed
-it five times the resources. Read one way the tokenizer made no difference; read correctly it made
-a large one. **Same three experiments, opposite conclusions.**
+it five times the resources. Read one way the tokenizer made no difference; read correctly it
+costs **0.144 bits per character** — 1.6 times the run-to-run spread. **Same three experiments,
+opposite conclusions.**
 
 ![The same three experiments with two brackets over them, one comparing at matched steps and one
 at matched GPU time](figures/03-matched-steps-vs-compute.png)
