@@ -22,7 +22,7 @@ artifact.
 
 They are meant to be read in that order, and the join between them is the point: the top poster
 asks a question, the bottom poster is why it was answerable a hundred and five times instead of
-twice. **The thirteen sections below are the thirteen panels of the bottom poster.** Where a
+twice. **The fourteen sections below are the fourteen panels of the bottom poster.** Where a
 finding belongs upstairs it is stated here only as far as needed to explain what the factory was
 for; the top poster carries it properly.
 
@@ -853,7 +853,70 @@ about three.
 
 ---
 
-## 13. Conclusions and recommendations
+## 13. What the factory could answer about itself
+
+Everything above is the factory answering questions about *language*. This panel is the factory
+answering a question about **training**, using nothing but its own history — 105 stored loss
+curves, no new compute, no GPU touched.
+
+**The question.** Thirteen of our 105 runs never learned anything. They did not crash: they
+trained for up to ninety minutes, saved a checkpoint, and produced a number that was worthless.
+Between them they consumed **13.1 GPU-hours, 16% of everything we ever spent**. The obvious fix is
+to notice early and kill them. Should we build that?
+
+![Two panels: the early signal fails to separate the two outcomes, and every abandonment rule
+costs more than it saves](figures/10-early-signal.png)
+
+**The obvious detector does not work, and not by a little.** Every model drops about three nats
+almost immediately — that is the unigram distribution, which anything learns in a few hundred
+steps — and then the doomed ones simply stop. At step 8,000 a run that never learned has gained
+**more** (3.31 nats) than the weakest run that went on to succeed (3.22). The populations overlap
+at every checkpoint we tested, in both directions. No threshold on "how far has the loss fallen"
+can work at any step.
+
+**The rule that does discriminate still loses money.** What actually separates the two groups is
+whether the run has *left its plateau* — the cliff from panel 10a. A rule that waits and then
+abandons anything still flat catches **all thirteen** doomed runs. It also kills between 35 and 92
+good ones, because the cliff arrives anywhere from 15% to 90% of the way through a run. The best
+operating point available nets **−24.2 GPU-hours**.
+
+**Why it is structural rather than a tuning failure.** Only 12% of runs are doomed. A doomed run
+wastes at most its *remaining* time; a false kill wastes a *whole* run and you have to do it
+again. With that base rate and that asymmetry, the arithmetic cannot close no matter how good the
+classifier is. That is worth knowing before building the feature, and it took no compute to find
+out.
+
+**And the deadline cannot be a constant, because the cliff moves.** Median 16,000 steps, range
+2,200 to 48,500 — a 22× spread. By configuration: 7,200 steps for the 33.8M model against 30,000
+for the 98M. (Learning rate and model size are perfectly confounded in our runs, so we cannot say
+which causes it. That is a real gap, and a cheap experiment would close it.)
+
+**So the honest recommendation is: do not build the detector, and go and test prevention
+instead.** We had been saying that tighter gradient clipping "fixes" the large model. Pulled
+apart, that turns out to be two claims we had merged: clipping is *established* to tighten the
+spread of runs that succeed (0.052 against 0.224 at the matched cell), and it is **entirely
+untested** as to whether it prevents failures. On our data the failure rate is 20% against 17% at
+n=10 versus n=36, which is no difference at all. Naming that as unmeasured is worth more than
+asserting it either way.
+
+### The mistake inside this panel
+
+The first version of this analysis called a run dead if it finished within four nats of an
+untrained model. That labels every *data-starved* run a failure — at 4M tokens the best anyone
+achieved is 6.72, so the threshold condemned the whole rung — and it produced a conclusion that
+was **backwards**: it made tighter clipping look like the *cause* of failures, when clipping had
+simply been run on the small corpora on purpose.
+
+The fix was to stop asking "did it end high" and start asking "did it end much worse than this
+configuration is capable of", using the best result any run achieved at the same corpus and model
+size as the reference.
+
+That is the sixth entry for the table in section 9, and it is the first one we caught in the same
+afternoon we made it — which is the only reason it is a footnote here rather than a result.
+
+---
+
+## 14. Conclusions and recommendations
 
 **About the science.** A small model trained on one under-served language can beat a large
 multilingual one at tasks needing meaning, and comes close at tasks needing surface patterns. The

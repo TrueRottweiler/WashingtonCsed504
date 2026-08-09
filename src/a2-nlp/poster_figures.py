@@ -449,9 +449,75 @@ def fig_scaling():
     save(fig, '09-scaling-with-cards')
 
 
+# --------------------------------------------------------------------------------------------
+def fig_early_signal():
+    """Why you cannot safely abandon a training run early, priced in GPU-hours.
+
+    Two panels. Left: the feature everyone reaches for -- how far the loss has fallen -- with
+    both outcomes overlaid. They overlap at every checkpoint, and the doomed runs are not even
+    on the low side. Right: the cost of acting anyway. Every operating point is net negative,
+    and the reason is structural rather than a tuning failure: only 12% of runs are doomed, a
+    doomed run wastes at most its remaining time, and a false kill wastes a whole run.
+
+    Drawn as a cost curve rather than an ROC because hours can be traded against a decision and
+    an AUC cannot.
+    """
+    d = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'), encoding='utf-8'))
+
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13.5, 5.6))
+
+    # --- left: the two populations, checkpoint by checkpoint --------------------------------
+    sep = d['separation']
+    steps = [s['step'] for s in sep]
+    a1.fill_between(steps, [s['ok_min'] for s in sep], [s['ok_mean'] for s in sep],
+                    color=C1, alpha=0.18, lw=0)
+    a1.plot(steps, [s['ok_mean'] for s in sep], 'o-', color=C1, label='went on to learn')
+    a1.plot(steps, [s['ok_min'] for s in sep], '--', color=C1, lw=1.6, alpha=0.8)
+    a1.fill_between(steps, [s['bad_mean'] for s in sep], [s['bad_max'] for s in sep],
+                    color=C2, alpha=0.18, lw=0)
+    a1.plot(steps, [s['bad_mean'] for s in sep], 'o-', color=C2, label='never learned')
+    a1.plot(steps, [s['bad_max'] for s in sep], '--', color=C2, lw=1.6, alpha=0.8)
+
+    a1.set_xlabel('checkpoint (optimizer steps)')
+    a1.set_ylabel('nats gained against an untrained model')
+    a1.set_title('The obvious signal does not separate them', fontsize=14, pad=10)
+    a1.legend(loc='upper left')
+    # Low and centre-right: the only quarter of this panel no line passes through.
+    a1.annotate('dashed = the worst survivor and the best failure.\nThey cross, at every '
+                'checkpoint.',
+                xy=(0.34, 0.06), xycoords='axes fraction', va='bottom',
+                color=INK2, fontsize=11.5)
+
+    # --- right: what acting on it would have cost -------------------------------------------
+    pats = d['patience']
+    x = [p['deadline'] * 100 for p in pats]
+    a2.axhline(0, color=MUTED, lw=1.6)
+    a2.plot(x, [p['saved_h'] for p in pats], 'o-', color=C3, label='saved (doomed runs cut short)')
+    a2.plot(x, [-p['lost_h'] for p in pats], 'o-', color=C2, label='lost (good runs killed)')
+    a2.plot(x, [p['net_h'] for p in pats], 'o-', color=C1, lw=3.2, label='net')
+    best = max(pats, key=lambda p: p['net_h'])
+    a2.annotate(f'best case is still\n{best["net_h"]:+.0f} GPU-hours',
+                xy=(best['deadline'] * 100, best['net_h']),
+                xytext=(best['deadline'] * 100 - 14, best['net_h'] - 24),
+                ha='center', color=INK, fontsize=12, fontweight='bold',
+                arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.6))
+
+    a2.set_xlabel('wait this % of the budget, then abandon if still flat')
+    a2.set_ylabel('GPU-hours across our 105 runs')
+    a2.set_title('Every operating point loses money', fontsize=14, pad=10)
+    # Headroom above the zero line so the legend has somewhere to sit that no line reaches.
+    a2.set_ylim(-78, 58)
+    a2.legend(loc='upper left', fontsize=11)
+
+    fig.suptitle('Early stopping does not pay at this scale — and here is the price',
+                 fontsize=17, fontweight='bold', color=INK, y=1.01)
+    fig.tight_layout()
+    save(fig, '10-early-signal')
+
+
 if __name__ == '__main__':
     for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling):
+               fig_why_long, fig_scaling, fig_early_signal):
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
