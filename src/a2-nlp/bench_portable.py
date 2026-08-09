@@ -118,6 +118,10 @@ def main():
     ap.add_argument('--warmup', type=int, default=8)
     ap.add_argument('--preset', default=None, help='poc or afriberta; both if omitted')
     ap.add_argument('--out', default=None, help='append the rows to this JSON file')
+    ap.add_argument('--note', default='',
+                    help='free text recorded with the result, e.g. "plugged in". On a laptop '
+                         'this matters: our own a1-cv notes measured a 17%% swing from boost '
+                         'behaviour, so a battery reading is not comparable to a mains one.')
     a = ap.parse_args()
 
     device, dev_name = pick_device()
@@ -136,6 +140,11 @@ def main():
     print(f'batch {BATCH} x seq {SEQ} = {BATCH*SEQ:,} tokens per step, '
           f'{a.steps} timed steps after {a.warmup} warmup\n')
 
+    if a.note:
+        print(f'note: {a.note}')
+    elif device.type != 'cuda' or 'Laptop' in dev_name or 'Mobile' in dev_name:
+        print('NOTE: no --note given. If this is a laptop, say whether it was on mains -- a '
+              'battery reading is not comparable.')
     rows = []
     for preset in ([a.preset] if a.preset else ['poc', 'afriberta']):
         try:
@@ -144,7 +153,8 @@ def main():
             # Not a failure of the benchmark. "It does not fit" is one of the answers a student
             # needs, so it is recorded as a result rather than raised.
             print(f'{preset:>10}: DOES NOT FIT -- {type(e).__name__}')
-            rows.append({'preset': preset, 'device': dev_name, 'error': 'out of memory'})
+            rows.append({'preset': preset, 'device': dev_name, 'error': 'out of memory',
+                         'note': a.note})
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             continue
@@ -153,6 +163,7 @@ def main():
         ratio = REF_TOK_S[preset] / r['tokens_per_s']
         r['vs_workstation'] = round(ratio, 2)
         r['project_hours_here'] = round(PROJECT_GPU_HOURS * ratio, 1)
+        r['note'] = a.note
         rows.append(r)
         print(f"{preset:>10}: {r['params_m']:>5}M params ({r['backbone_m']}M backbone)  "
               f"{r['tokens_per_s']:>8,} tok/s  "

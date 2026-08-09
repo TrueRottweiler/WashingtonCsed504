@@ -49,24 +49,40 @@ would be if they were a ten-week course.
 
 ### CSED 505: Building a Model Factory
 
-| week | the question | where it is on this board |
+Nine weeks as a three-by-three grid, and the tenth as the strip along the bottom, because week 10
+*is* the conclusion.
+
+Every week is a **question we could not look up**. Not one of these was answered by reproducing
+somebody's result — each needed a measurement that did not exist, and three of them were run on
+the two cards over the weekend this poster was written.
+
+| | | |
 |---|---|---|
-| 1 | What does one run cost, and in what unit? Epochs stop working the moment the dataset is a variable. | panel 5 |
-| 2 | Why optimize before you need to? Because speed decides which experiments you are willing to *attempt*. | panel 4 |
-| 3 | Records that outlive you: tags, vocabulary fingerprints, and the collisions that quietly merge two runs. | panel 6 |
-| 4 | Notebooks for thinking, queues for working — and why a three-hour job must not live in a kernel. | panels 7–8 |
-| 5 | Seeing what is happening at 3 a.m., and why a dashboard that lies by omission is worse than none. | panel 8 |
-| 6 | Is this difference real? Seed spread is a property of the cell, not a constant of the project. | panel 10 |
-| 7 | Controls and floors: what does a model that learned *nothing* score, and why you cannot read a result without it. | panels 9–10 |
-| 8 | Comparability: bits per character, matched compute, and every unit that silently is not one. | panel 10 |
-| 9 | Detect or prevent? Pricing an intervention in GPU-hours before you build it. | panel 14 |
-| 10 | Writing it down so it stays true: generated numbers, staleness checks, and when a number is not a result. | panels 13, 15 |
+| **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is 1.024B tokens ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>*panel 5* | **2 · Why optimize before anything needs it?**<br>2.07×, measured before it was necessary. Had to learn: the hours saved are not the point. Speed changes which experiments you are willing to **start**, and four of our five corrections came from a cheap re-run somebody did on a hunch.<br>*panel 4* | **3 · Infrastructure that survives you**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint, and a dashboard that shows an empty page while both cards sit at 85% is worse than none.<br>*panels 6–8 · figure 07* |
+| **4 · Is this difference real?**<br>Had to learn — expensively — that run-to-run spread is a property of the **cell**, not a constant of the project. It ranges 0.003 to 2.156. We used one number, 0.049, everywhere, and judged a term of claims too generously.<br>*panel 10 · figure 04* | **5 · What does a model that learned nothing score?**<br>0.403 and 0.414. Had to learn that you cannot read any result before that number exists: one of our "findings" was a baseline that had never trained, and the floor is what exposed it.<br>*panels 9–10 · figure 01* | **6 · Units that silently are not units**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to bits per character — and that matched *steps* handed one arm 5.1× the compute and reversed the conclusion.<br>*panel 10 · figure 03* |
+| **7 · Is your metric the right metric?**<br>**Run this weekend.** We minimized validation loss for a term and never checked it. 19 checkpoints, both tasks: it predicts topic classification (r = −0.888) and entity recognition **not at all** (r = +0.303). The aggregate −0.935 is three broken models holding up a line.<br>*panel 14 · figure 11* | **8 · Does a tuned setting transfer?**<br>**Run this weekend.** The board claims adding a language is one function call — true only if the settings come too. Five languages, four rates: the best rate is **not** the same, and one language diverges exactly where three others improve. The sweep then caught itself hitting its own boundary.<br>*panel 14* | **9 · Detect the failure, or prevent it?**<br>13 runs never learned — 16% of all compute. Had to learn that every abandonment rule **loses money**: best case −24 GPU-hours, because a 12% base rate against an asymmetric penalty cannot close. **Running now:** whether clipping prevents them instead.<br>*panel 14 · figure 10* |
+
+**10 · Writing it down so it stays true** — *the strip along the bottom.* What it cost, what we
+got wrong, and the machinery that keeps a report honest after the run that produced it is
+forgotten: numbers generated from records rather than typed, a staleness check that names any
+sentence the data no longer supports, and the five-constants table.
+*panels 11, 13, 15 · figure 06*
 
 **Prerequisite: 504. Assessment: build the factory, then find the five places it lied to you.**
 
-The joke in that last line is that it is the actual assessment. Every panel here that reports a
-finding also reports the mistake that nearly buried it, and the mistakes are the transferable
-part — the models are not.
+The joke in that last line is that it is the actual assessment. Every panel that reports a finding
+also reports the mistake that nearly buried it, and the mistakes are the transferable part — the
+models are not.
+
+### Why this framing, and not "here is our experiment"
+
+Two reasons, and the second is the honest one.
+
+A poster that says *we got five things wrong* reads as a confession. A poster that says *here are
+the ten weeks it would take not to get them wrong* reads as expertise. The content is identical.
+
+And it is what you would actually tell the next student. Nobody needs our Yoruba checkpoints. What
+transfers is the order in which the traps arrive, which is what a syllabus is.
 
 ---
 
@@ -1144,6 +1160,70 @@ spread of runs that succeed (0.052 against 0.224 at the matched cell), and it is
 untested** as to whether it prevents failures. On our data the failure rate is 20% against 17% at
 n=10 versus n=36, which is no difference at all. Naming that as unmeasured is worth more than
 asserting it either way.
+
+---
+
+### Week 7 — is your metric the right metric?
+
+Every pretraining decision this term was made on **validation loss**. Not one was ever checked
+against whether the model is any *good* at anything, because of an accident of history: 107
+checkpoints on disk and exactly one had ever been fine-tuned.
+
+Checking it cost 2.3 GPU-hours — the pretraining was already paid for, and a fine-tuning seed is
+1.2 minutes. Nineteen checkpoints spanning validation loss 2.25 to 5.67, both downstream tasks,
+three seeds each.
+
+![Pretraining loss against downstream score on both tasks, with the three under-trained models
+shaded](figures/11-metric-validity.png)
+
+| | all 19 models | the 16 that actually trained |
+|---|---|---|
+| Topic classification | r = −0.616 | **r = −0.888** |
+| Entity recognition | r = −0.935 | **r = +0.303** |
+
+Read the second row twice. Across all nineteen the correlation looks like the tightest number in
+the study. Restrict it to models that trained, and **the sign flips**.
+
+That −0.935 is manufactured entirely by three under-trained models sitting far to the right.
+Among the sixteen working ones, 0.79 nats of pretraining loss buys a score range of 0.044 with a
+standard deviation of 0.013 — against a seed noise of 0.004. There is real variation between those
+models; it simply is not tracking the thing we spent a term minimizing.
+
+**So validation loss tells you a model is broken. On entity recognition it does not tell you which
+working model is better.** On topic classification it does, strongly. Two tasks, opposite answers,
+the same checkpoints — and it lines up exactly with the floor result from report 06: entity
+recognition sits at 49% of achievable before any pretraining at all, so most of what that task
+needs is surface form that even a mediocre model has.
+
+The uncomfortable implication is for the data ladder, the step budgets and the seed replication —
+all chosen to move a number that, on one of our two tasks, moves nothing downstream.
+
+### Week 8 — does a tuned setting transfer to a new language?
+
+This board claims adding a language is one function call. That is only true if the *settings* come
+with it, and we had never checked: Yoruba and English were tuned separately and the two best rates
+were never compared.
+
+Five languages at a fixed 16M-token budget, four learning rates, two seeds — 4.6 GPU-hours.
+
+| | 1.5e-4 | 3e-4 | 5e-4 | 7e-4 | best |
+|---|---|---|---|---|---|
+| Swahili | 6.297 | 3.400 | 2.943 | **2.853** | 7e-4 |
+| Hausa | 6.204 | 3.518 | 3.207 | **3.139** | 7e-4 |
+| Yoruba | 5.346 | 3.226 | **3.006** | 3.026 | 5e-4 |
+| Igbo | 4.472 | 2.956 | **2.889** | 5.638 | 5e-4 |
+| Chichewa | 6.316 | 3.433 | 2.856 | **2.734** | 7e-4 |
+
+**The best rate is not the same.** And look at Igbo: it *diverges* at 7e-4 — 5.638 — exactly where
+three other languages are still improving. Different languages have different ceilings, so "the
+rate that worked last time" is not a safe default for a new one.
+
+Then the sweep caught itself. Swahili, Hausa and Chichewa all peaked at **7e-4, the top of the
+range**, which means their true optima are outside it and those three "best" numbers are not
+quotable. Three of the five sweeps in this project have now done that. The script prints the
+warning itself rather than leaving it to be noticed, and the range has been extended to 1e-3 —
+for all five languages, not only the three that ran out of room, because extending just the arms
+that hit the edge is the asymmetry report 08 spent three passes removing.
 
 ### The mistake inside this panel
 
