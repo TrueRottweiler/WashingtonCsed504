@@ -556,6 +556,47 @@ than from a guess.
 what let the project find its own mistakes. It did not buy access to the science. A student with a
 subscription and patience can run every experiment on this board.
 
+### And the third route, which costs nothing at all
+
+There is an option between "buy a workstation" and "pay for cloud" that almost nobody proposes to
+students: **plug your laptop in and let it train while you sleep.**
+
+Eight hours a night, five nights a week, is **40 GPU-hours a month for free** — on hardware you
+already own and are not using between midnight and eight. Our entire project was 83.3 GPU-hours.
+Even at four or five times a laptop's disadvantage, the small-model half of this study is a
+month of nights. Drop the 98M model, which will not fit in 8 GB anyway, and it is comfortably
+less.
+
+| route | money | elapsed | what you need |
+|---|---|---|---|
+| buy the workstation | ~$24,000 | ~5 nights | the money |
+| rent Colab | ~$120–220 | a few weeks of sessions | a subscription and patience with queues |
+| **your own laptop, overnight** | **$0** | **~a month of nights** | a power cable and a queue that survives being left alone |
+
+That last column is the point, and it is where this whole board turns out to be about something
+other than two expensive cards.
+
+**The factory is worth more the less hardware you have, not less.** Everything on this poster that
+looks like infrastructure for a big machine is exactly what makes the laptop route possible:
+
+- a **queue** you describe once and walk away from — because you are asleep, not supervising;
+- **`reuse=True` on everything**, so a night that ends early costs nothing and the next one
+  resumes rather than restarting;
+- **records that survive the run**, because on a thirty-night study you will not remember what
+  night eleven was for;
+- **a dashboard**, because the failure you cannot see at midnight is the one that wastes the
+  whole month.
+
+Someone with two Blackwell cards can get away without any of that. They will notice a wasted night
+the next morning. On a laptop over a month, a silent failure on night three is discovered on night
+thirty — which is the difference between a study and nothing.
+
+**Three practical notes for the overnight route.** Keep it plugged in: our own a1-cv measurements
+found a 17% swing from thermal boost behavior, and a battery-throttled night is not comparable to
+a mains one. Disable sleep, not just the screen. And expect sustained throughput to sit below any
+short benchmark, because a laptop chassis cannot hold peak clocks for eight hours — which is
+another reason the honest number is the one measured over a real run rather than over forty steps.
+
 Three caveats, because this is the number people will quote:
 
 - A subscription buys a **queue, not a machine.** Sessions end. The 34-hour studies here would
