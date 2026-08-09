@@ -1,0 +1,22 @@
+{
+  "tag": "clipprev_1024M_c1_s9",
+  "corpus": "eng_1b",
+  "preset": "afriberta",
+  "steps": 62500,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 1024000000,
+  "n_tokens": 1024000000,
+  "lr": 0.0003,
+  "warmup": 0.06,
+  "clip": 1.0,
+  "seed": 9,
+  "vocab_size": 16000,
+  "random_loss": 9.680344001221918,
+  "log_every": 500,
+  "started": 1786288182.2984176,
+  "params": 98052736,
+  "nonemb_params": 85764736
+}

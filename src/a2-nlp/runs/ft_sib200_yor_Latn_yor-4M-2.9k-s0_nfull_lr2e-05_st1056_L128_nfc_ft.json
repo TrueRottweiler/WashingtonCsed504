@@ -1,0 +1,44 @@
+{
+  "tag": "ft_sib200_yor_Latn_yor-4M-2.9k-s0_nfull_lr2e-05_st1056_L128_nfc",
+  "label": "corr_yor_4M_2.9k_s0",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "runs/yor_4M_2.9k_s0",
+  "model_slug": "yor-4M-2.9k-s0",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 204,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 2e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.5021451533172632,
+    0.4788476776709166,
+    0.4834409905058255
+  ],
+  "mean": 0.48814460716466845,
+  "sd": 0.010075915181859367,
+  "ci": [
+    0.42239484866975124,
+    0.5415440972560421
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 19.387828667958576,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    3
+  ],
+  "created": "2026-08-08T22:36:51"
+}

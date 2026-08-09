@@ -1,0 +1,22 @@
+{
+  "tag": "lrx_hau_0.0007_s1",
+  "corpus": "hau",
+  "preset": "poc",
+  "steps": 12000,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 196608000,
+  "n_tokens": 16000000,
+  "lr": 0.0007,
+  "warmup": 0.06,
+  "clip": 1.0,
+  "seed": 1,
+  "vocab_size": 16000,
+  "random_loss": 9.680344001221918,
+  "log_every": 200,
+  "started": 1786257367.1614668,
+  "params": 33758848,
+  "nonemb_params": 25566848
+}

@@ -22,9 +22,51 @@ artifact.
 
 They are meant to be read in that order, and the join between them is the point: the top poster
 asks a question, the bottom poster is why it was answerable a hundred and five times instead of
-twice. **The fourteen sections below are the fourteen panels of the bottom poster.** Where a
+twice. **The fifteen sections below are the fifteen panels of the bottom poster.** Where a
 finding belongs upstairs it is stated here only as far as needed to explain what the factory was
 for; the top poster carries it properly.
+
+---
+
+## The course this would be
+
+The clearest way to say what the bottom poster is about: **it is the syllabus for a class that
+does not exist yet.**
+
+The sequence already teaches you to build a model, one layer of abstraction at a time.
+
+| | what it gave you |
+|---|---|
+| **501** | the statistics: what an estimate is, what a difference is, when you are allowed to believe one |
+| **502** | the mechanics: you wrote `lstm_step_forward` and its backward pass by hand |
+| **503** | the language stack: n-gram models and perplexity, GloVe, attention from scratch into minGPT, decoding |
+| **504** | scale: the same thing on real hardware, twice — images, then text |
+
+Every one of those ends when a model finishes training. **None of them covers what happens when
+you need a hundred models and have to believe the differences between them.** That is a different
+skill, it is most of what this term actually consisted of, and it is what the fifteen panels below
+would be if they were a ten-week course.
+
+### CSED 505: Building a Model Factory
+
+| week | the question | where it is on this board |
+|---|---|---|
+| 1 | What does one run cost, and in what unit? Epochs stop working the moment the dataset is a variable. | panel 5 |
+| 2 | Why optimize before you need to? Because speed decides which experiments you are willing to *attempt*. | panel 4 |
+| 3 | Records that outlive you: tags, vocabulary fingerprints, and the collisions that quietly merge two runs. | panel 6 |
+| 4 | Notebooks for thinking, queues for working — and why a three-hour job must not live in a kernel. | panels 7–8 |
+| 5 | Seeing what is happening at 3 a.m., and why a dashboard that lies by omission is worse than none. | panel 8 |
+| 6 | Is this difference real? Seed spread is a property of the cell, not a constant of the project. | panel 10 |
+| 7 | Controls and floors: what does a model that learned *nothing* score, and why you cannot read a result without it. | panels 9–10 |
+| 8 | Comparability: bits per character, matched compute, and every unit that silently is not one. | panel 10 |
+| 9 | Detect or prevent? Pricing an intervention in GPU-hours before you build it. | panel 14 |
+| 10 | Writing it down so it stays true: generated numbers, staleness checks, and when a number is not a result. | panels 13, 15 |
+
+**Prerequisite: 504. Assessment: build the factory, then find the five places it lied to you.**
+
+The joke in that last line is that it is the actual assessment. Every panel here that reports a
+finding also reports the mistake that nearly buried it, and the mistakes are the transferable
+part — the models are not.
 
 ---
 
@@ -213,6 +255,47 @@ experiment, we measure how fast it actually runs and predict how long it will ta
 times that prediction changed the plan — once it showed a comparison we were about to run would
 have taken ten hours to answer a question we had already answered by accident.
 
+### Why do this first, when nothing needs it yet?
+
+This is the panel we would argue hardest for, because the instinct is exactly backwards. Making
+things fast feels like the thing you do at the end, once the science is settled and you want to
+scale it up. On this project it was the thing that **made the science possible at all**, and the
+argument is not sentimental — it is arithmetic.
+
+**What the optimization was.** Two changes, neither of them clever: raise the batch from 64 to 128,
+and actually use the second card. Measured on the same work: **25.2 minutes → 12.2 minutes, a
+2.07× speedup**, with utilization going to 91% and 93%. The batch change alone was 1.31× measured
+against 1.33× predicted.
+
+**What that bought in hours.** The project spent **83.3 GPU-hours**. Without the 2.07× it would
+have been about 172, which on two cards and realistic evenings is ten or eleven nights instead of
+five. Real, but not the interesting part.
+
+**What it bought in experiments.** This is the part worth putting on a wall. Speed does not just
+finish the same work sooner — it changes *which work you are willing to start*:
+
+- **We ran 20 cells at more than one seed.** Nobody replicates a cell three times when a cell costs
+  an evening. Replication is what turned "run-to-run spread is 0.049" into "it ranges from 0.003 to
+  2.156", and that correction invalidated every earlier claim we had judged against the constant.
+- **Most of the corrections came from impulsive re-checks.** A nine-minute run gets re-run on a
+  hunch. A forty-minute run does not. Four of the five entries in the constants table were found
+  by somebody going "hang on" and re-running something cheap.
+- **A live example from this weekend.** The study asking whether validation loss predicts
+  downstream score fine-tunes at 1.2 minutes a seed, so 19 checkpoints × 2 tasks × 3 seeds is 114
+  runs in 2.3 hours. At ten times that cost it would have been a 23-hour job, and we would have
+  picked five checkpoints instead of nineteen — which is not enough points to see that the
+  correlation holds on one task and vanishes on the other. **The finding needs the speed to exist.**
+
+**The general form**, which is the transferable bit: the value of making a run faster is not the
+time saved on the runs you were already going to do. It is the runs you would otherwise have
+talked yourself out of. Below some cost per experiment, checking a suspicion becomes cheaper than
+arguing about it — and that is the threshold where a project starts finding its own mistakes
+instead of shipping them.
+
+There is a documented instance of this in [report 03](03-efficiency.md) §6b: the faster
+configuration did not merely finish sooner, it produced a cleaner scientific reading, because the
+budget that had been spent on one slow run could be spent on several fast ones.
+
 ### What changed going from images to text
 
 The same factory had already trained image classifiers for the previous assignment. Roughly two
@@ -244,7 +327,170 @@ masked-language study was built on top of them without changing a line.
 
 ---
 
-## 5. Setting up a factory: workloads, interfaces, and adjustments
+## 5. Budgeting a training run: the unit you were taught, and where it stops working
+
+Every visitor will eventually ask why one run takes ninety minutes. The honest answer is a short
+lesson in why the unit you learned first quietly stops being a unit — and you have already written
+every piece of it by hand in an earlier course.
+
+### The habit, and why it was correct
+
+By the end of 503 you had built a language model from the bottom: n-gram counts with add-k
+smoothing in A2, attention from scratch in A4, plugged into minGPT on Shakespeare. In 502 you
+wrote `lstm_step_forward` and its backward pass by hand. And in every one of those, and in the
+image half of 504, work was measured in **epochs**.
+
+That was correct, because of a property so dependable nobody names it: **the dataset was a fixed
+object.** In 503 A4, a batch was a batch of *lines* — every Shakespeare line truncated or padded
+to `MAX_LEN = 100`. A fixed set of lines has a well-defined "once through":
+
+```
+N lines  ÷  batch size  =  steps per epoch          <- a real, countable thing
+```
+
+Same for CIFAR-100's 50,000 images. Because the denominator never moves, "40 epochs" and "15,600
+steps" and "2 million examples seen" are three names for one quantity. Pick whichever reads best.
+
+### The exact moment it breaks
+
+The factory replaced A4's padded lines with **windows over a continuous stream** — `text_data.py`
+holds the whole corpus as one flat array and each batch is a gather of random `seq_len`-token
+windows. No padding, no `<PAD>`, no wasted positions.
+
+That change is worth about a third more useful compute per batch, and it costs you the epoch.
+Once you are sampling windows from a stream, **"one pass over the data" is a choice of stride, not
+an object you can count.** There is no natural moment at which the corpus has been consumed.
+
+And then the second break, which is the one that actually matters here. Our English study trains
+on 4M, 16M, 64M, 256M and 1024M tokens — **the dataset size is the experiment.** Suppose we had
+asked for forty epochs at every rung:
+
+| corpus | 40 epochs means | compute used |
+|---|---|---|
+| 4M tokens | 160M tokens processed | 1× |
+| 1024M tokens | 40,960M tokens processed | **256×** |
+
+The big-data arm gets 256 times the compute. When it wins, we have learned nothing — "more data
+helped" and "more compute helped" are indistinguishable. **The experiment would be confounded by
+its own unit.**
+
+### Where 62,500 steps actually comes from
+
+It was never chosen. It is derived, and the direction is the whole point:
+
+```
+1. choose the COMPUTE BUDGET     1,024,000,000 tokens of training
+2. choose the batch shape        128 sequences × 128 tokens = 16,384 tokens per step
+3. divide                        1,024,000,000 ÷ 16,384    = 62,500 steps
+```
+
+Nobody picked 62,500. Somebody picked **1.024 billion tokens**, and 62,500 is what that becomes
+once the batch is fixed. Run the same study at batch 256 tomorrow and it is 31,250 steps — same
+experiment, different number, which is the tell that steps were never the real unit.
+
+And 1.024 billion is the **top rung of the data ladder**, chosen so the largest corpus gets
+exactly one pass: every token seen once, no repetition. That is the clean reference point, and
+every smaller rung becomes a measured amount of repetition against it:
+
+| corpus | passes, at a fixed 1.024B-token budget |
+|---|---|
+| 4M | 256 |
+| 16M | 64 |
+| 64M | **16** |
+| 256M | 4 |
+| 1024M | **1** |
+
+Identical compute in every row. Only the data moves. *That* is an experiment about data.
+
+### So why not train for 30,000 steps and save an hour?
+
+Three reasons, worst last.
+
+**It asks a different question.** 30,000 steps is 491M tokens — a different budget, so the answer
+cannot be set beside the 105 runs already recorded.
+
+**It breaks the design.** At the 1024M rung, 30,000 steps is 0.48 passes: the model never sees
+half its corpus, and the "largest corpus gets exactly one clean pass" property that makes the
+ladder readable is gone.
+
+**The run is genuinely unfinished.** The learning-rate schedule anneals to zero at the *planned*
+end. Stopping at 30,000 of 62,500 does not give a slightly worse model — it gives a model caught
+mid-schedule with a large learning rate still applied, which is the top half of the figure in
+panel 11a.
+
+### Where the epochs went
+
+They stopped being what we set and became what we measure, recorded in every run as `passes`:
+
+| | 503 A4 / CIFAR-100 | this study |
+|---|---|---|
+| one example | a padded 100-token line / a 32×32 image | a 128-token window of a stream |
+| the dataset | fixed | **the independent variable** |
+| one epoch | N ÷ batch, countable | undefined — depends on stride |
+| what we FIX | epochs (40) | tokens (1.024B) |
+| what FALLS OUT | steps (~15,600) | passes (**14.8** on Yoruba) |
+
+### The bug this left in our own records
+
+Open any loss curve in this project. There is a field called `epoch`. At the end of the Yoruba run
+it reads **125**. The true number of passes is **16**.
+
+```
+step 62,500     epoch field = 125     <- step ÷ 500, the logging interval
+                passes      = 16.0    <- the truth
+```
+
+The field came across with the image code, where it genuinely *was* an epoch because the
+denominator never moved. Ported to a token stream it kept the name and lost the meaning: it counts
+log lines now. For weeks the dashboard showed "125 epochs" to people who reasonably read it as 125
+passes — an eightfold error — and nobody caught it, because the number looked plausible.
+
+### Ninety minutes on what?
+
+"A run is ninety minutes" is only useful if you know what it is ninety minutes *on*. Almost nobody
+reading this board owns two Blackwell cards, and the number a student needs is the one for the
+machine in front of them. `bench_portable.py` measures it anywhere — no corpus, no tokenizer, no
+repository data, because a transformer's cost per step does not depend on which token ids arrive,
+so a stream of random integers times identically to real text and the file pastes into a fresh
+Colab cell.
+
+| machine | 33.8M model | 98M model | one 62,500-step run (98M) |
+|---|---|---|---|
+| **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
+| Surface Studio Laptop — RTX 2000 Ada Mobile | *to measure* | *to measure* | |
+| Google Colab — free tier | *to measure* | *to measure* | |
+| Google Colab — paid tier | *to measure* | *to measure* | |
+| MacBook Pro — Apple Silicon, MPS | *to measure* | *to measure* | |
+
+The Toothless figures are medians across 96 and 55 completed runs, not a short probe — sustained
+rates after the card is hot, which is the only kind worth quoting. A twenty-step benchmark on a
+cold card reads about 10% high, and a benchmark run while another job holds the same card reads
+about **half**, which is a mistake we made and the script now warns about.
+
+Two things this table is really for. The first is that "it does not fit" is a legitimate entry: a
+mobile card with 8 GB cannot hold the 98M model at this batch, and knowing that before you plan a
+term is worth more than any throughput number. The second is the ratio — if the same study is four
+days on a laptop and thirty-four hours here, that difference is not convenience, it is the
+difference between a study you run and a study you abandon. Which is the whole argument of panel 4.
+
+### You have met this exact trap before
+
+In 503 A2 you learned that perplexity depends on the `<unk>` threshold: change which rare words
+collapse to a single token and you change the vocabulary, and two n-gram models with different
+thresholds cannot be compared by perplexity at all.
+
+That is *precisely* the problem this project hit again with tokenizers. A 16k vocabulary and a
+250k vocabulary produce losses that are not on the same scale, which is why nothing here is
+comparable until it is converted to **bits per character** — the unit that divides out the
+vocabulary, exactly as A2's fixed-vocabulary rule did by hand.
+
+Same lesson, five years of abstraction apart, and we rediscovered it the expensive way. That is
+the argument for this whole poster: the traps do not get more sophisticated as the models do, they
+just get harder to see.
+
+---
+
+## 6. Setting up a factory: workloads, interfaces, and adjustments
 
 A "model factory" is not a metaphor for anything clever. It is the boring observation that if you
 are going to train a hundred models, you should build a production line rather than assemble each
@@ -327,7 +573,7 @@ None of these is a machine learning problem. All of them cost real time.
 
 ---
 
-## 6. Notebooks, for going fast
+## 7. Notebooks, for going fast
 
 A notebook is an interactive document where you write a bit of code, run it, see the answer, and
 write the next bit. It is the right tool for figuring out what you want to do.
@@ -353,7 +599,7 @@ see exactly what had changed rather than being handed something unfamiliar.
 
 ---
 
-## 7. Offline processing: queues, dashboards, and catching problems early
+## 8. Offline processing: queues, dashboards, and catching problems early
 
 Once experiments take hours, three things become necessary that a notebook never needs.
 
@@ -400,7 +646,7 @@ confused everyone who read it including the people who wrote it.
 
 ---
 
-## 8. How the factory got used, and how it changed
+## 9. How the factory got used, and how it changed
 
 It was not built and then used. It was built *by* being used, and every capability traces to a
 question somebody could not otherwise answer.
@@ -412,7 +658,7 @@ been planning around data scarcity, and the scarcity was more extreme than anyon
 **"Is this result real or luck?"** Train the same thing several times with different random
 starting points. If the difference between two setups is smaller than the difference between two
 runs of the *same* setup, you have not measured anything. This is the single most valuable habit
-the project developed, and section 9 explains what it cost us to learn it.
+the project developed, and section 10 explains what it cost us to learn it.
 
 **"Can we compare languages?"** Not directly — a model's score depends on the vocabulary it uses,
 so scores from different languages are not on the same scale. Subtract a baseline that captures
@@ -429,7 +675,7 @@ be traced to the exact settings that produced it.
 
 ---
 
-## 9. What we computed, and what made it hard
+## 10. What we computed, and what made it hard
 
 **105 models sounds like a lot. Why so many?**
 
@@ -550,7 +796,7 @@ every number in a result, *what did I hold fixed, and did I mean to?*
 
 ---
 
-## 10. What it cost to build and run
+## 11. What it cost to build and run
 
 Cost is usually left out of student projects, which is a shame, because it is the thing that
 decides what you are allowed to attempt. Here are real figures.
@@ -585,7 +831,7 @@ billion-parameter model would multiply everything below by a hundred or more.
 | 33.8M parameters but a 250,000-word vocabulary | 40.9 minutes |
 
 That last row is the one to notice. It is the *same model size* as the first two and takes five
-times as long as it should, because a bigger vocabulary makes the final layer enormous. Section 9
+times as long as it should, because a bigger vocabulary makes the final layer enormous. Section 10
 explains how that nearly produced a wrong scientific conclusion; here it is simply a reminder that
 "model size" and "cost to train" are not the same number.
 
@@ -720,7 +966,7 @@ those hours were overnight batches rather than steady work.
 
 - **Iteration speed.** A three-minute experiment you can run on impulse is a different activity
   from one that needs a cloud instance provisioned, data uploaded, and a card waited for. Most of
-  the corrections in section 9 came from cheap, impulsive re-checks. I do not think I would have
+  the corrections in section 10 came from cheap, impulsive re-checks. I do not think I would have
   run them against a meter.
 - **Data transfer.** 5.5 GB of prepared text and 96 GB of checkpoints. Moving that in and out of a
   cloud provider costs money and time, and the checkpoints are what let us go back and re-measure
@@ -763,7 +1009,7 @@ you scale it up, because at a hundred times the model size that 20% is the whole
 
 ---
 
-## 11. Enabling the upstairs half
+## 12. Enabling the upstairs half
 
 The measure of the factory is not what it computed. It is whether two other people could use it —
 and the honest test of that is the poster hanging above this one. Every trained model, every
@@ -796,7 +1042,7 @@ property of the tooling, and it is the property I would defend hardest.
 
 ---
 
-## 12. How we used AI, honestly
+## 13. How we used AI, honestly
 
 I used an AI coding assistant throughout, and the useful thing to report is not that it helped —
 it is *where* it helped and where it actively made things worse.
@@ -853,7 +1099,7 @@ about three.
 
 ---
 
-## 13. What the factory could answer about itself
+## 14. What the factory could answer about itself
 
 Everything above is the factory answering questions about *language*. This panel is the factory
 answering a question about **training**, using nothing but its own history — 105 stored loss
@@ -875,7 +1121,7 @@ at every checkpoint we tested, in both directions. No threshold on "how far has 
 can work at any step.
 
 **The rule that does discriminate still loses money.** What actually separates the two groups is
-whether the run has *left its plateau* — the cliff from panel 10a. A rule that waits and then
+whether the run has *left its plateau* — the cliff from panel 11a. A rule that waits and then
 abandons anything still flat catches **all thirteen** doomed runs. It also kills between 35 and 92
 good ones, because the cliff arrives anywhere from 15% to 90% of the way through a run. The best
 operating point available nets **−24.2 GPU-hours**.
@@ -911,12 +1157,12 @@ The fix was to stop asking "did it end high" and start asking "did it end much w
 configuration is capable of", using the best result any run achieved at the same corpus and model
 size as the reference.
 
-That is the sixth entry for the table in section 9, and it is the first one we caught in the same
+That is the sixth entry for the table in section 10, and it is the first one we caught in the same
 afternoon we made it — which is the only reason it is a footnote here rather than a result.
 
 ---
 
-## 14. Conclusions and recommendations
+## 15. Conclusions and recommendations
 
 **About the science.** A small model trained on one under-served language can beat a large
 multilingual one at tasks needing meaning, and comes close at tasks needing surface patterns. The
