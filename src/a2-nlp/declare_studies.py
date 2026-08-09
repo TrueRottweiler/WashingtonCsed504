@@ -19,13 +19,17 @@ import os
 import time
 
 import ft_api
+import mlm_api
 import mlm_train
+
+f_compact = mlm_api.compact
+import study_clip_prevention as clipprev
 import study_downstream_correlation as study
 import study_lr_transfer as lrx
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNS = os.path.join(HERE, 'runs')
-QUEUE = 'tonight: downstream correlation (card 0) + learning-rate transfer (card 1)'
+QUEUE = 'two days: correlation + LR transfer, then clipping prevention on both cards'
 
 # Measured from the 46 existing downstream records: 1.2 min per seed, three seeds per cell.
 ETA_PER_CELL_S = int(1.2 * 60 * 3)
@@ -55,6 +59,20 @@ def main():
                               'update_tokens': lrx.STEPS * 128 * 128,
                               'preset': 'poc', 'steps': lrx.STEPS})
 
+    # Study 4 is chained behind the first two by chain_card0.sh / chain_card1.sh, split by SEED
+    # across the cards so a hardware difference cannot masquerade as a clipping effect.
+    for n in clipprev.TOKENS:
+        for c in clipprev.CLIPS:
+            for seed in clipprev.SEEDS:
+                card = 0 if seed < 6 else 1
+                cells.append({'kind': 'pretrain',
+                              'tag': f'clipprev_{f_compact(n)}_c{c:g}_s{seed}',
+                              'label': f'clip {c:g}  {f_compact(n)} tokens  seed {seed} '
+                                       f'(card {card})',
+                              'corpus': clipprev.CORPUS, 'eta_s': 5100,
+                              'update_tokens': clipprev.STEPS * 128 * 128,
+                              'preset': clipprev.PRESET, 'steps': clipprev.STEPS})
+
     prev = {}
     try:
         with open(os.path.join(RUNS, '_fleet_plan.json'), encoding='utf-8') as f:
@@ -72,8 +90,7 @@ def main():
     os.replace(tmp, os.path.join(RUNS, '_fleet_plan.json'))
 
     n_ft = sum(1 for c in cells if c['kind'] == 'finetune')
-    print(f'declared {len(cells)} cells: {n_ft} fine-tuning (study 1, card 0), '
-          f'{len(cells)-n_ft} pretraining (study 2, card 1)')
+    print(f'declared {len(cells)} cells: {n_ft} fine-tuning, {len(cells)-n_ft} pretraining')
     print(f'study 1: {len(models)} checkpoints at fingerprint {fp}, '
           f'{len(ambiguous)} excluded as ambiguous')
     print(f'estimated {sum(c["eta_s"] for c in cells)/3600:.1f} GPU-hours total across 2 cards')
