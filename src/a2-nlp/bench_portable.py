@@ -35,9 +35,23 @@ PRESETS = {
 }
 VOCAB, SEQ, BATCH = 16_000, 128, 128
 FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapolation
+# What the whole A2 project consumed on the workstation, so any machine can be told what the
+# same term of work would have cost it. This is the number that decides whether a student can
+# attempt a study like this at all, and it is more useful than tokens per second.
+PROJECT_GPU_HOURS = 83.3
+REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # our sustained medians, 96 and 55 runs
 
 
 def pick_device():
+    # A TPU runtime has torch but no CUDA, so without this check it would silently fall through
+    # to CPU and report a number that describes neither the TPU nor a sensible CPU baseline.
+    try:
+        import torch_xla                                        # noqa: F401
+        raise SystemExit('This is a TPU runtime. The benchmark needs CUDA, MPS or CPU -- '
+                         'torch_xla would need a different training loop, and a TPU row is not '
+                         'comparable to the others anyway. Pick a GPU or CPU runtime.')
+    except ImportError:
+        pass
     if torch.cuda.is_available():
         return torch.device('cuda'), torch.cuda.get_device_name(0)
     if getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
@@ -101,7 +115,15 @@ def bench(preset, device, dev_name, steps, warmup):
 
     tok_s = steps * BATCH * SEQ / dt_s
     peak = (torch.cuda.max_memory_allocated() / 1024 ** 3) if device.type == 'cuda' else None
-    return {'preset': preset, 'device': dev_name, 'dtype': str(dt or torch.float32),
+    # Compute capability and SM count identify the GENERATION, which is what actually predicts
+    # whether bf16 exists and how the card will behave. A student reading "T4" has no way to know
+    # it is a 2018 part; reading "7.5" against our "12.0" makes the gap obvious.
+    cc = sms = None
+    if device.type == 'cuda':
+        props = torch.cuda.get_device_properties(0)
+        cc, sms = f'{props.major}.{props.minor}', props.multi_processor_count
+    return {'preset': preset, 'device': dev_name, 'compute_capability': cc, 'sms': sms,
+            'dtype': str(dt or torch.float32),
             'params_m': round(n_params / 1e6, 1), 'backbone_m': round(n_backbone / 1e6, 1),
             'tokens_per_s': round(tok_s), 'peak_gb': round(peak, 2) if peak else None,
             'full_run_hours': round(FULL_RUN_STEPS * BATCH * SEQ / tok_s / 3600, 2)}
@@ -113,9 +135,20 @@ def main():
     ap.add_argument('--warmup', type=int, default=8)
     ap.add_argument('--preset', default=None, help='poc or afriberta; both if omitted')
     ap.add_argument('--out', default=None, help='append the rows to this JSON file')
+    ap.add_argument('--note', default='',
+                    help='free text recorded with the result, e.g. "plugged in". On a laptop '
+                         'this matters: our own a1-cv notes measured a 17%% swing from boost '
+                         'behaviour, so a battery reading is not comparable to a mains one.')
     a = ap.parse_args()
 
     device, dev_name = pick_device()
+    # On CPU the defaults would run for tens of minutes and nobody would wait. Scale down and say
+    # so, rather than appearing to hang -- a benchmark people abandon produces no data at all.
+    if device.type == 'cpu':
+        if a.steps > 6:
+            a.steps, a.warmup = 4, 1
+            print('CPU detected: dropping to 4 timed steps. Even so, expect minutes, and expect '
+                  'the 98M model to be very slow.')
     print(f'device: {dev_name}   torch {torch.__version__}   dtype {amp_dtype(device) or "fp32"}')
     if device.type == 'cuda':
         # mem_get_info is the DEVICE's free/total, across every process. memory_reserved() only
@@ -131,6 +164,11 @@ def main():
     print(f'batch {BATCH} x seq {SEQ} = {BATCH*SEQ:,} tokens per step, '
           f'{a.steps} timed steps after {a.warmup} warmup\n')
 
+    if a.note:
+        print(f'note: {a.note}')
+    elif device.type != 'cuda' or 'Laptop' in dev_name or 'Mobile' in dev_name:
+        print('NOTE: no --note given. If this is a laptop, say whether it was on mains -- a '
+              'battery reading is not comparable.')
     rows = []
     for preset in ([a.preset] if a.preset else ['poc', 'afriberta']):
         try:
@@ -139,15 +177,25 @@ def main():
             # Not a failure of the benchmark. "It does not fit" is one of the answers a student
             # needs, so it is recorded as a result rather than raised.
             print(f'{preset:>10}: DOES NOT FIT -- {type(e).__name__}')
-            rows.append({'preset': preset, 'device': dev_name, 'error': 'out of memory'})
+            rows.append({'preset': preset, 'device': dev_name, 'error': 'out of memory',
+                         'note': a.note})
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             continue
+        # How this machine compares to the box the project ran on, and what the whole term of
+        # work would have cost here. A ratio is easier to reason about than a raw rate.
+        ratio = REF_TOK_S[preset] / r['tokens_per_s']
+        r['vs_workstation'] = round(ratio, 2)
+        r['project_hours_here'] = round(PROJECT_GPU_HOURS * ratio, 1)
+        r['note'] = a.note
         rows.append(r)
         print(f"{preset:>10}: {r['params_m']:>5}M params ({r['backbone_m']}M backbone)  "
               f"{r['tokens_per_s']:>8,} tok/s  "
-              f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB  "
-              f"=> one 62,500-step run takes {r['full_run_hours']:.2f} h")
+              f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB")
+        print(f"{'':>10}  one 62,500-step run: {r['full_run_hours']:.2f} h"
+              f"   |  {ratio:.1f}x the workstation"
+              f"   |  the whole 83-GPU-hour project: "
+              f"{r['project_hours_here']:.0f} h ({r['project_hours_here']/24:.1f} days)")
 
     if a.out:
         try:

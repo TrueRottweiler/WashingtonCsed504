@@ -408,10 +408,15 @@ def fig_scaling():
 
     The distinction matters because "buy more GPUs" is the reflex answer to "training is slow",
     and at this model size it is only half true. The curve is the wall-clock to clear one real
-    night's queue against the number of cards; the flat rule is the longest single job in it,
+    twenty-job queue against the number of cards; the flat rule is the longest single job in it,
     which no amount of hardware moves.
     """
-    # A real overnight queue: the twenty-job night, taken from the run records.
+    # The twenty longest completed runs at the standard budget -- a realistic distribution of
+    # job lengths rather than one particular evening. Worth being precise about, because the
+    # first version of this called itself "a real twenty-job night" and then quietly started
+    # including runs from a study that was still landing while the figure was being drawn. A
+    # generated figure SHOULD move when the data moves; a caption that names a specific night
+    # must not.
     jobs = sorted((r['seconds'] / 60 for r in f.results('*') if r['steps'] == 62_500),
                   reverse=True)[:20]
     longest = jobs[0]
@@ -442,7 +447,7 @@ def fig_scaling():
                     color=INK, fontsize=12, fontweight='bold')
 
     ax.set_xlabel('graphics cards working the queue')
-    ax.set_ylabel('hours to finish the night')
+    ax.set_ylabel('hours to clear the queue')
     ax.set_xticks([1, 5, 10, 15, 20, 24])
     ax.set_ylim(0, max(span) * 1.12)
     ax.set_title('Ten cards would not have made this ten times faster', pad=14)
@@ -515,9 +520,70 @@ def fig_early_signal():
     save(fig, '10-early-signal')
 
 
+
+
+# --------------------------------------------------------------------------------------------
+def fig_metric_validity():
+    """Does the number we spent a term minimizing predict the number we care about?
+
+    Two panels, one per task, pretraining loss on x and downstream score on y. The same 19
+    checkpoints in both. The finding is the contrast: on topic classification the relationship is
+    strong and orderly; on entity recognition it is entirely carried by three under-trained models
+    at the right, and among the sixteen that actually worked it is flat.
+
+    The shaded band is the region those three occupy. Drawing it is the whole point -- an
+    aggregate correlation of -0.935 looks like the tightest result in the study until you can see
+    that three points are holding it up.
+    """
+    rows = json.load(open(os.path.join(HERE, 'runs', 'downstream_correlation.json'),
+                          encoding='utf-8'))
+    CUT = 3.1                     # the gap between "trained" and "under-trained" in this sample
+
+    def stats(g):
+        x = [r['val_loss'] for r in g]
+        y = [r['mean'] for r in g]
+        return st.correlation(x, y) if len(g) > 2 else float('nan')
+
+    panels = [('Topic classification', 'sib200', C1),
+              ('Entity recognition', 'masakhaner', C2)]
+    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.8))
+    for ax, (label, task, color) in zip(axes, panels):
+        g = [r for r in rows if r['task'] == task]
+        well = [r for r in g if r['val_loss'] < CUT]
+        poor = [r for r in g if r['val_loss'] >= CUT]
+
+        ax.axvspan(CUT, max(r['val_loss'] for r in g) + 0.3, color=GRID, alpha=0.75, zorder=0)
+        ax.plot([r['val_loss'] for r in well], [r['mean'] for r in well], 'o',
+                color=color, markersize=10, markeredgecolor=SURFACE, markeredgewidth=1.6,
+                label=f'trained ({len(well)})')
+        ax.plot([r['val_loss'] for r in poor], [r['mean'] for r in poor], 'o',
+                color=MUTED, markersize=10, markeredgecolor=SURFACE, markeredgewidth=1.6,
+                label=f'under-trained ({len(poor)})')
+
+        r_all, r_well = stats(g), stats(well)
+        ax.set_title(f'{label}\nall {len(g)}: r = {r_all:+.3f}      '
+                     f'the {len(well)} trained: r = {r_well:+.3f}',
+                     fontsize=14, pad=10)
+        ax.set_xlabel('pretraining loss  (lower is better)')
+        ax.set_ylabel('downstream score  (higher is better)')
+        ax.legend(loc='lower left', fontsize=11)
+        ax.set_ylim(0.42, 0.86)
+
+    axes[1].annotate('these three carry the whole correlation.\nTake them out and it is flat.',
+                     xy=(4.6, 0.55), xytext=(3.15, 0.70), color=INK, fontsize=12,
+                     fontweight='bold',
+                     arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.8))
+
+    fig.suptitle('Validation loss tells you a model is broken. It does not tell you which '
+                 'working model is better.',
+                 fontsize=16, fontweight='bold', color=INK, y=1.02)
+    fig.tight_layout()
+    save(fig, '11-metric-validity')
+
+
 if __name__ == '__main__':
     for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling, fig_early_signal):
+               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity):
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
