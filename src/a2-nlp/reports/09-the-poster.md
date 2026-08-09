@@ -1320,9 +1320,33 @@ models; it simply is not tracking the thing we spent a term minimizing.
 
 **So validation loss tells you a model is broken. On entity recognition it does not tell you which
 working model is better.** On topic classification it does, strongly. Two tasks, opposite answers,
-the same checkpoints — and it lines up exactly with the floor result from report 06: entity
-recognition sits at 49% of achievable before any pretraining at all, so most of what that task
-needs is surface form that even a mediocre model has.
+the same checkpoints.
+
+### Why the two tasks differ — and the explanation we got wrong first
+
+The first version of this panel blamed the floor: entity recognition starts closer to its ceiling,
+so less is left for pretraining to supply. That is wrong, and it survived into a figure and an
+email before anyone checked it. **The floors are near enough identical** — 0.403 of 0.705 on topic
+classification is 57%, 0.414 of 0.798 on entity recognition is 52%. A five-point difference
+explains nothing.
+
+![Floor, the gain every trained model receives, and the band the sixteen actually
+span](figures/12-floors.png)
+
+What separates them is not the *size* of the benefit but its **variability**:
+
+| | the gain every model gets | the band 16 trained models span |
+|---|---|---|
+| Topic classification | +0.159 | **0.143** wide |
+| Entity recognition | +0.340 | **0.044** wide |
+
+Entity recognition hands every working model a large and **nearly constant** benefit — the spread
+between the best and worst of sixteen is 0.044, about 13% of the smallest gain. Topic
+classification spreads them over 0.143, about 90% of the smallest gain.
+
+**A benefit that everyone receives equally cannot be predicted by anything**, because there is
+nothing left to predict. That is the whole reason validation loss tracks one task and not the
+other, and it has nothing to do with where the floor sits.
 
 The uncomfortable implication is for the data ladder, the step budgets and the seed replication —
 all chosen to move a number that, on one of our two tasks, moves nothing downstream.

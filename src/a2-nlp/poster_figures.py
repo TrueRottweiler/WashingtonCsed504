@@ -597,9 +597,80 @@ def fig_metric_validity():
     save(fig, '11-metric-validity')
 
 
+
+
+# --------------------------------------------------------------------------------------------
+def fig_floors():
+    """Why one task can be predicted from pretraining loss and the other cannot.
+
+    Cell 5 of the board. It replaces figure 01 there, which went to Patrick -- that comparison is
+    his and its selection rule is his sweep's to fix. This is the part that is ours.
+
+    An earlier version of this figure drew the floor as a share of the achievable score and
+    claimed the difference between those shares explained the task divergence. It does not: the
+    shares are 57% and 52%, near enough identical, and the claim was wrong in the writeup, in this
+    figure and in an email before anybody checked it.
+
+    What actually separates the tasks is the VARIABILITY of the gain, not its size. Entity
+    recognition hands every working model between 0.340 and 0.384 -- a large benefit that is
+    nearly constant, varying by 13% of the smallest gain. Topic classification hands them 0.159 to
+    0.301, varying by 90%. A near-constant benefit cannot be predicted from anything, which is why
+    validation loss tracks one task and not the other. So the figure draws the BAND the trained
+    models occupy rather than a single best.
+    """
+    corr = json.load(open(os.path.join(HERE, 'runs', 'downstream_correlation.json'),
+                          encoding='utf-8'))
+    rows = ft_api.results('*')
+    out = []
+    for label, task, steps in (('Topic classification\n(needs meaning)', 'sib200', 1056),
+                               ('Entity recognition\n(needs surface form)', 'masakhaner', 2150)):
+        floor = max((r for r in rows if r.get('task') == task and r.get('steps') == steps
+                     and 'yor_random_init' in r['model']), key=lambda r: r['mean'])['mean']
+        # The 16 that actually trained -- same cut as figure 11, for the same reason.
+        y = [r['mean'] for r in corr if r['task'] == task and r['val_loss'] < 3.1]
+        out.append((label, floor, min(y), max(y)))
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    for i, (label, floor, lo, hi) in enumerate(out):
+        ax.bar(i, floor, color=MUTED, width=0.46)
+        ax.bar(i, hi - lo, bottom=lo, color=C1, width=0.46)
+        # The dead space between the floor and the worst trained model: benefit every model gets.
+        ax.bar(i, lo - floor, bottom=floor, color=C1, width=0.46, alpha=0.28)
+
+        ax.text(i, floor / 2, f'floor\n{floor:.3f}', ha='center', va='center',
+                color=SURFACE, fontsize=13, fontweight='bold')
+        ax.text(i, floor + (lo - floor) / 2, f'+{lo-floor:.3f}\nevery model gets this',
+                ha='center', va='center', color=INK2, fontsize=11.5)
+        ax.text(i, lo + (hi - lo) / 2 + 0.005, f'{hi-lo:.3f}', ha='center', va='center',
+                color=SURFACE, fontsize=13, fontweight='bold')
+        ax.annotate(f'{lo:.3f} – {hi:.3f}', xy=(i + 0.26, (lo + hi) / 2),
+                    xytext=(i + 0.34, (lo + hi) / 2), va='center', color=INK, fontsize=12,
+                    fontweight='bold')
+
+    ax.plot([], [], 's', color=MUTED, markersize=11, label='an untrained model already scores')
+    ax.plot([], [], 's', color=C1, alpha=0.28, markersize=11,
+            label='the gain EVERY trained model gets')
+    ax.plot([], [], 's', color=C1, markersize=11,
+            label='the band 16 trained models actually span')
+    ax.set_xticks(range(len(out)))
+    ax.set_xticklabels([o[0] for o in out], fontsize=13, color=INK)
+    ax.set_ylabel('score  (higher is better)')
+    ax.set_ylim(0, 1.02)
+    ax.set_xlim(-0.5, 1.75)
+    ax.legend(loc='upper left', fontsize=11)
+    ax.grid(axis='x', visible=False)
+    ax.set_title('A benefit that every model gets equally cannot be predicted', pad=14)
+    fig.text(0.5, -0.04,
+             'Entity recognition hands every working model roughly the same large gain — the band '
+             'is 0.044 wide.\nTopic classification spreads them over 0.143. That, not the floor, '
+             'is why loss predicts one task and not the other.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '12-floors')
+
+
 if __name__ == '__main__':
     for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity):
+               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors):
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
