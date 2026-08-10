@@ -198,7 +198,11 @@ def main():
             'RETRACTED -- was in an email and a figure before it was checked',
             False,
             f'floor is {shares[0]:.0%} of best on SIB and {shares[1]:.0%} on NER',
-            f'{abs(shares[0]-shares[1]):.0%} apart, and the note here used to say "five points" '
+            # Difference the ROUNDED shares, not the raw ones. Printing 61%, 78% and "18 points
+            # apart" in the same breath is the kind of one-point inconsistency that makes a
+            # reader stop and recheck the whole line, and this file exists to be trusted.
+            f'{abs(round(shares[0]*100)-round(shares[1]*100)):.0f} points apart, and the note '
+            f'here used to say "five" '
             f'from when it was.\n                      The floors moved when the NER control was '
             f'finally swept; the retraction did not, because the\n                      band '
             f'widths are what explain the divergence either way. Kept visible on purpose.')
