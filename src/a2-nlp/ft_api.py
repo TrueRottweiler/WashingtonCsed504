@@ -699,6 +699,36 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
                   f'reuse=False to rerun)')
             return rec
 
+    # Say out loud that this cell is being worked on, for as long as it is being worked on.
+    #
+    # A fine-tuning cell writes nothing until it finishes, so every tool that infers "running"
+    # from files on disk sees it as pending right up to the moment it is done. The queue panel
+    # therefore flipped cells from QUEUED straight to done and never once showed one running,
+    # which reads as a stalled machine while eighteen fine-tunes are actually going through.
+    # Pretraining does not have this problem only because it happens to append to a curve file.
+    #
+    # A marker beside the record fixes it for every caller at once, however the run was launched.
+    # It is removed in a finally block, and readers treat a stale one as gone, so a killed run
+    # cannot leave a cell looking busy forever.
+    os.makedirs(RUNS, exist_ok=True)
+    running_marker = os.path.join(RUNS, f'{tag}_ft.running')
+    with open(running_marker, 'w', encoding='utf-8') as f:
+        json.dump({'started': time.time(), 'label': label or _slug(model_path),
+                   'seeds': seeds, 'pid': os.getpid()}, f)
+    try:
+        return _evaluate_inner(model_path, task, lang, lr, seeds, steps, n_train, batch,
+                               max_length, label, n_boot, data, normalize, clip, eval_split,
+                               tag, path)
+    finally:
+        try:
+            os.remove(running_marker)
+        except OSError:
+            pass
+
+
+def _evaluate_inner(model_path, task, lang, lr, seeds, steps, n_train, batch, max_length,
+                    label, n_boot, data, normalize, clip, eval_split, tag, path):
+    """The body of evaluate(), split out so the in-flight marker has somewhere to wrap."""
     if task == 'sib200':
         data = data or load_sib200(lang, normalize=normalize)
         k = len(data['labels'])
