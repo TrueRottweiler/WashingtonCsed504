@@ -115,7 +115,41 @@ API_VERSION = (1, 4)
 RUNS = factory.RUNS
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+_DEVICE = None
+
+
+def device():
+    """The fine-tuning device, resolved on first USE rather than at import.
+
+    This was `DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')` evaluated at
+    module level, and that one line quietly sent every fine-tuning study to card 0 whatever --gpu
+    said.
+
+    torch.cuda.is_available() reads CUDA_VISIBLE_DEVICES and fixes the device list. Every study
+    here does `import ft_api` at the top of the file and sets CUDA_VISIBLE_DEVICES inside main(),
+    which is hundreds of lines too late: by then the list is fixed and this constant is plain
+    'cuda', meaning device 0.
+
+    It went unnoticed for a reason worth recording. mlm_api.pretrain takes an explicit `gpu`
+    argument and builds `cuda:{gpu}` at call time, so PRETRAINING always honoured --gpu; only
+    fine-tuning ignored it. A study that pretrained and then fine-tuned therefore looked like it
+    respected the flag for the expensive half, while every "run this on card 1" fine-tuning sweep
+    -- the NER floor, the swap downstream sweep, the label-quantity experiment -- ran on card 0
+    with the other card idle beside it.
+
+    A function rather than a lazy proxy object, because the proxy does not work: `tensor.to(x)`
+    requires a real torch.device and rejects anything that merely forwards attributes to one.
+    That version type-errored on the first tensor move, which is the kind of fix that looks
+    elegant in the diff and breaks every run.
+
+    Setting CUDA_VISIBLE_DEVICES in the environment before python starts remains the most
+    reliable option and is what the study launchers do. This makes the in-script version work as
+    well, instead of failing silently.
+    """
+    global _DEVICE
+    if _DEVICE is None:
+        _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return _DEVICE
 
 MAX_LEN = 128
 FT_BATCH = 16
@@ -509,7 +543,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
     set_seed(seed)
     n_labels = len(data['labels'])
     tok = AutoTokenizer.from_pretrained(model_path)
-    model = _load_model(AutoModelForSequenceClassification, model_path, n_labels).to(DEVICE)
+    model = _load_model(AutoModelForSequenceClassification, model_path, n_labels).to(device())
 
     def pack(split):
         enc = tok(split['text'], truncation=True, max_length=max_length,
@@ -527,7 +561,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
     def forward(m, batch):
         ids, am, y = batch
-        out = m(input_ids=ids.to(DEVICE), attention_mask=am.to(DEVICE), labels=y.to(DEVICE))
+        out = m(input_ids=ids.to(device()), attention_mask=am.to(device()), labels=y.to(device()))
         return out.loss
 
     t0 = time.time()
@@ -537,7 +571,7 @@ def _finetune_clf(model_path: str, data: dict, lr: float, seed: int, steps: int,
     pred, gold = [], []
     with torch.no_grad():
         for ids, am, y in te:
-            logits = model(input_ids=ids.to(DEVICE), attention_mask=am.to(DEVICE)).logits
+            logits = model(input_ids=ids.to(device()), attention_mask=am.to(device())).logits
             pred.append(logits.argmax(-1).cpu())
             gold.append(y)
     del model
@@ -553,7 +587,7 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
     set_seed(seed)
     names = data['tags']
     tok = AutoTokenizer.from_pretrained(model_path)
-    model = _load_model(AutoModelForTokenClassification, model_path, len(names)).to(DEVICE)
+    model = _load_model(AutoModelForTokenClassification, model_path, len(names)).to(device())
 
     def pack(split):
         enc = tok(split['tokens'], is_split_into_words=True, truncation=True,
@@ -580,7 +614,7 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
 
     def forward(m, batch):
         ids, am, y = batch
-        return m(input_ids=ids.to(DEVICE), attention_mask=am.to(DEVICE), labels=y.to(DEVICE)).loss
+        return m(input_ids=ids.to(device()), attention_mask=am.to(device()), labels=y.to(device())).loss
 
     t0 = time.time()
     _train_steps(model, tr, opt, sch, steps, forward, clip)
@@ -589,7 +623,7 @@ def _finetune_ner(model_path: str, data: dict, lr: float, seed: int, steps: int,
     pred, gold = [], []
     with torch.no_grad():
         for ids, am, y in te:
-            pr = model(input_ids=ids.to(DEVICE), attention_mask=am.to(DEVICE)).logits.argmax(-1)
+            pr = model(input_ids=ids.to(device()), attention_mask=am.to(device())).logits.argmax(-1)
             for pi, yi in zip(pr.cpu(), y):
                 keep = yi != -100
                 pred.append([names[t] for t in pi[keep].tolist()])
