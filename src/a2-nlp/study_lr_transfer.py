@@ -83,7 +83,7 @@ def main():
                                          corpus=lang, steps=STEPS, eta_s=540,
                                          update_tokens=STEPS * 128 * 128)
                          for lang, lr, seed in cells],
-                        replace_prefix='lrx_')
+                        replace_prefix='lrx_', owner='Jeffrey')
 
     rows, t0 = [], time.time()
     for i, (lang, lr, seed) in enumerate(cells, 1):
