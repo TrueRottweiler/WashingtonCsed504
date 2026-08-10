@@ -4,9 +4,19 @@
 fifteen written panels. This is the board — ten cells. One is not a subset of the other, so this
 sheet is the translation, and it is the thing to print next to you while laying it out.*
 
-**Format.** Nine cells in a three-by-three grid, plus a full-width strip along the bottom.
-Title block above. Assume A0 portrait, so each grid cell is roughly 25 × 22 cm and the strip is
-about 84 × 18 cm.
+**Format.** Nine cells in a three-by-three grid, plus a full-width strip along the bottom, title
+block above. The board is **3 ft × 4 ft — 91.4 × 121.9 cm**, portrait. Not A0, which this sheet
+used to say: A0 is 84.1 × 118.9, so the real board is 7 cm wider and 3 cm taller.
+
+With 6 cm margins, a 14 cm title block, a 20 cm bottom strip and 2.5 cm gutters, each grid cell
+is **24.8 × 22.8 cm** and the strip is **79.4 × 20 cm**. The cell size the earlier version quoted
+— 25 × 22 — survives the change, so nothing already laid out to it has to move; only the sheet
+size and the strip width were wrong.
+
+**What that means for type.** At 24.8 cm wide a cell holds about 90–120 words at 24 pt, which is
+the smallest anyone will read standing at arm's length. The big number wants 90–110 pt. Read the
+word budget as a hard limit rather than a target: the failure mode for a board like this is a
+cell nobody finishes.
 
 ---
 
@@ -84,11 +94,22 @@ rule has to own the numbers.
 
 Building the replacement caught an error in the writeup. The first version showed the floor as a
 share of achievable and claimed the difference between those shares explained why the two tasks
-disagree. It does not — the shares are 57% and 52%, near enough identical. What separates them is
-the *variability* of the gain: entity recognition hands every working model between 0.340 and
-0.384, a band 0.044 wide, while topic classification spreads them over 0.143. A benefit everybody
-receives equally cannot be predicted, which is why loss tracks one task and not the other. The
-figure now draws the band rather than a single best.
+disagree. It does not. What separates them is the *variability* of the gain: entity recognition
+hands every working model between 0.340 and 0.384, a band 0.044 wide, while topic classification
+spreads them over 0.143. A benefit everybody receives equally cannot be predicted, which is why
+loss tracks one task and not the other. The figure now draws the band rather than a single best.
+
+The retraction was originally argued from the shares being near-identical — 57% and 52%. **Do not
+reuse that sentence.** Sweeping the MasakhaNER untrained floor moved it from one cell at 0.4140
+to 0.6261 across twelve rates, and the shares are now 61% and 78%, seventeen points apart. So the
+premise of the original retraction is gone while the retraction itself still stands, for the
+better reason: near or far, a floor is a fact about the *task*, and it cannot explain why one
+task's scores are predictable and the other's are not. The band widths do that, and they are
+unaffected by where the floor sits.
+
+It is worth keeping both versions of this in mind while laying the cell out, because it is the
+same shape as the mistake the cell is about — an explanation that sounded right, was checked, and
+turned out to be resting on a coincidence that has since evaporated.
 
 **Cell 8 needs one.** The five-language learning-rate table wants to be a small-multiples line
 plot — five panels, loss against rate, with the divergence at Igbo visible. Waiting on the

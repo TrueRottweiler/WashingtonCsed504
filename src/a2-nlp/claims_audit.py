@@ -252,22 +252,35 @@ def main():
     a, c = arm('swap_yor_xlmr_*', 'yor_xlmr'), arm('swap62k_*', 'yor')
     t, p = stats.ttest_ind(a, c, equal_var=False)
     pe, floor = exact_p(a, c)
-    ratio = abs(st.mean(a) - st.mean(c)) / math.sqrt(
-        (ft_api.sample_sd(a) ** 2 + ft_api.sample_sd(c) ** 2) / 2)
-    bar = stats.t.ppf(1 - ALPHA / 2, len(a) + len(c) - 2) * math.sqrt(1 / len(a) + 1 / len(c))
+    F = st.stdev(a) ** 2 / st.stdev(c) ** 2
+    pF = 2 * min(stats.f.cdf(F, len(a) - 1, len(c) - 1),
+                 1 - stats.f.cdf(F, len(a) - 1, len(c) - 1))
+    inside = sum(1 for x in a if min(c) <= x <= max(c))
     verdict('the tokenizer penalty is real at matched compute',
             f'{st.mean(a)-st.mean(c):.3f} bits per character',
             p < ALPHA and pe < ALPHA,
             f'Welch t = {t:.2f}, p = {p:.4f}, n = {len(a)} vs {len(c)}\n'
-            f'                      exact permutation p = {pe:.3f}, and at {len(a)}v{len(c)} the '
-            f'smallest p reachable is {floor:.2f}\n'
-            f'                      {ratio:.2f}x the pooled sample sd against a bar of '
-            f'{bar:.2f}x',
-            f'This is the largest live exposure on the board: four places assert it as a result '
-            f'while this line\n                      rejects it. At three a side the test cannot '
-            f'return anything below {floor:.2f}, so the honest\n                      reading is '
-            f'"not established at this seed count", not "shown to be nothing". Six seeds are '
-            f'queued.')
+            f'                      exact permutation p = {pe:.3f} (floor {floor:.4f} at '
+            f'{len(a)}v{len(c)})\n'
+            f'                      the arms INTERLEAVE: {inside} of {len(a)} large-vocabulary '
+            f'runs land inside the small-vocabulary range',
+            f'Six seeds a side, fixed in advance. The penalty did not grow into significance, it '
+            f'SHRANK --\n                      0.144 bits/char at three seeds, '
+            f'{st.mean(a)-st.mean(c):.3f} at six. There is no direction left to report.')
+
+    # The six seeds did not merely fail to establish the penalty; they moved the effect from the
+    # mean to the variance. Testing only location would have recorded a null and thrown away the
+    # finding, which is the mirror image of the mistake this file was built to catch.
+    verdict('the large vocabulary makes the RESULT less predictable',
+            f'seed spread {st.stdev(a):.3f} against {st.stdev(c):.3f}, '
+            f'{st.stdev(a)/st.stdev(c):.1f}x wider',
+            pF < ALPHA,
+            f'F = {F:.1f} on ({len(a)-1}, {len(c)-1}) df, p = {pF:.4f}, '
+            f'Levene p = {stats.levene(a, c)[1]:.4f}',
+            'Same shape downstream, where the arms are 4.0x wider on topic and 7.7x on entities. '
+            'A large\n                      vocabulary is not reliably more expensive per '
+            'character -- it is a lottery, landing both\n                      better and much '
+            'worse than the small one depending on the seed.')
 
     # --- 7. does the best learning rate transfer? -----------------------------------------
     lr_rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'lr_transfer.json'),
@@ -325,9 +338,13 @@ def main():
         for r in results:
             if r['supported'] is not True:
                 print(f"  - {r['claim']}")
-    print('\nTesting eight claims at alpha=0.05 means roughly one false positive is expected by')
-    print('chance alone. These are not independent hypotheses from a pre-registered plan, so')
-    print('read them as a checklist against overstatement, not as a significance ceremony.')
+    # Derived, not typed. This line said "eight" for a while after the ninth claim was added,
+    # which is a small thing to get wrong in the file whose subject is numbers that stopped
+    # matching their sentence.
+    print(f'\nTesting {len(results)} claims at alpha={ALPHA} means roughly '
+          f'{len(results)*ALPHA:.1f} false positives are expected by chance alone. These are not')
+    print('independent hypotheses from a pre-registered plan, so read them as a checklist')
+    print('against overstatement, not as a significance ceremony.')
     json.dump(results, open(os.path.join(HERE, 'runs', 'claims_audit.json'), 'w',
                             encoding='utf-8'), indent=2)
 

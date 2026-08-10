@@ -53,6 +53,7 @@ ARMS = [
      'steps': 62_500, 'prefix': 'swap62k'},
 ]
 NEW_SEEDS = [3, 4, 5]
+ALPHA_LOC = 0.05
 LR, BATCH, PRESET, CLIP = 5e-4, 128, 'poc', 1.0
 
 
@@ -123,16 +124,41 @@ def report():
     b, c = arms['250k vocabulary'], arms['16k vocabulary']
     d = st.mean(b) - st.mean(c)
     t, p = stats.ttest_ind(b, c, equal_var=False)
-    print(f'\n  penalty = {d:.3f} bits per character')
+    print(f'\n  penalty (location) = {d:.3f} bits per character')
     print(f'  Welch t = {t:.2f}, p = {p:.4f}, n = {len(b)} vs {len(c)}')
+
+    # The six seeds did not just fail to establish the penalty, they changed what the question
+    # is. An earlier version of this summary said the effect was "consistent in direction across
+    # every seed". It is not, and the arms say so plainly: they interleave, with three of the six
+    # 250k runs landing below the 16k median. Printing a direction that the numbers on the line
+    # above contradict is exactly the failure this whole study exists to catch, so the test for
+    # it is here rather than in someone's reading of the list.
+    lo, hi = min(c), max(c)
+    inside = sum(1 for x in b if lo <= x <= hi)
+    below = sum(1 for x in b if x < st.median(c))
+    F = st.stdev(b) ** 2 / st.stdev(c) ** 2
+    pF = 2 * min(stats.f.cdf(F, len(b) - 1, len(c) - 1), 1 - stats.f.cdf(F, len(b) - 1, len(c) - 1))
+    pL = stats.levene(b, c)[1]
+    print(f'\n  spread: sd {st.stdev(b):.3f} vs {st.stdev(c):.3f} '
+          f'({st.stdev(b)/st.stdev(c):.1f}x), F = {F:.1f}, p = {pF:.4f}, Levene p = {pL:.4f}')
+    print(f'  overlap: {inside} of {len(b)} 250k runs fall inside the 16k range, '
+          f'{below} below its median')
     print()
-    if p < 0.05:
+    if p < ALPHA_LOC:
         print('  ESTABLISHED. Report 08 can state the penalty without hedging, and should say')
         print('  it took six seeds rather than pretending three were enough.')
     else:
-        print('  STILL NOT ESTABLISHED at the sample size fixed in advance. The honest write-up')
-        print('  is that the penalty is consistent in direction across every seed and does not')
-        print('  clear significance -- not a quiet extension to more seeds until it does.')
+        print('  THE PENALTY IS NOT ESTABLISHED, and it is not a near miss -- it is the wrong')
+        print(f'  claim. At three seeds it read {0.144:.3f} bits/char; at six it is {d:.3f}, and the')
+        print('  two arms interleave rather than separating. There is no direction to report.')
+        if pF < ALPHA_LOC:
+            print()
+            print('  What IS established at six seeds is the SPREAD. The 250k vocabulary does not')
+            print('  reliably cost bits per character; it makes the result unpredictable, landing')
+            print('  both better and much worse than the small vocabulary depending on the seed.')
+            print('  That is the same shape as the clipping cell and as XLM-R on topic -- a')
+            print('  two-piles cell whose mean describes no run that happened -- and it is the')
+            print('  claim report 08 should carry.')
 
 
 if __name__ == '__main__':
