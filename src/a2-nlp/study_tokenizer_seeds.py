@@ -85,7 +85,7 @@ def main():
                             steps=arm['steps'], eta_s=2460,
                             update_tokens=arm['steps'] * 128 * 128)
                          for arm, s in cells],
-                        replace_prefix='swap')
+                        replace_prefix='swap', owner='Patrick')
 
     rows, t0 = [], time.time()
     for i, (arm, seed) in enumerate(cells, 1):

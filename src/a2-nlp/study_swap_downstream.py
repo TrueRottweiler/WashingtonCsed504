@@ -90,7 +90,7 @@ def main():
             ft_api.record_tag(p, SIB, 'yor_Latn', None, lr, SIB_STEPS, eval_split='validation'),
             f'{label} s{s}  dev lr={lr:g}', kind='finetune', steps=SIB_STEPS, eta_s=90)
          for label, s, p in ck for lr in RATES],
-        replace_prefix='ft_sib200_yor_Latn_swap')
+        owner='Patrick', replace_prefix='ft_sib200_yor_Latn_swap')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
     rows, t0 = [], time.time()

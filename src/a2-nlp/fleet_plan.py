@@ -34,12 +34,18 @@ def cell(tag, label, *, kind='pretrain', eta_s=600, corpus=None, steps=0, update
             'steps': steps, 'update_tokens': update_tokens, 'preset': preset}
 
 
-def announce(queue, cells, *, n_gpu=2, replace_prefix=None):
+def announce(queue, cells, *, n_gpu=2, replace_prefix=None, owner=None):
     """Publish `cells` under `queue`, keeping everything another study already declared.
 
     `replace_prefix` drops this study's own previous rows before adding the new ones, which is
     what a re-announce after extending a grid wants -- otherwise the old and new cell lists both
     sit in the panel and the totals double.
+
+    `queue` and `owner` are stamped onto every CELL, not just onto the file. The top-level
+    'queue' key is whoever announced last, so with three studies running the panel used to put
+    two hundred cells under one heading -- and the heading belonged to whichever script started
+    most recently. You could see that the machine was busy and not whose work it was busy with,
+    which is the question anyone actually walks over to the screen to ask.
     """
     try:
         with open(PLAN, encoding='utf-8') as f:
@@ -52,10 +58,13 @@ def announce(queue, cells, *, n_gpu=2, replace_prefix=None):
         keep = {t: c for t, c in keep.items() if not t.startswith(replace_prefix)}
 
     # Anything already recorded for a tag wins over the freshly declared placeholder, so state
-    # that a run has finished survives a re-announce.
+    # that a run has finished survives a re-announce. Attribution is the exception: it comes from
+    # the caller announcing now, so a study that gets renamed or reassigned is not stuck with
+    # whatever the first announce happened to say.
     for c in cells:
         prev = keep.get(c['tag'], {})
-        keep[c['tag']] = {**c, **{k: v for k, v in prev.items() if v is not None}}
+        merged = {**c, **{k: v for k, v in prev.items() if v is not None}}
+        keep[c['tag']] = {**merged, 'study': queue, 'owner': owner}
 
     plan = {**old, 'queue': queue, 'n_gpu': n_gpu, 'started': old.get('started') or time.time(),
             'announced': time.time(), 'batch': 128, 'seq_len': 128,

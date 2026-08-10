@@ -85,6 +85,7 @@ def main():
                             ft_api.record_tag(path, TASK, LANG, None, lr, STEPS),
                             f'{label}  lr={lr:g}', kind='finetune', steps=STEPS, eta_s=135)
                          for label, path, lr in cells],
+                        owner='Patrick',
                         replace_prefix='ft_masakhaner_yor_yor-random-init')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)

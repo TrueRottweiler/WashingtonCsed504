@@ -351,6 +351,37 @@ def _prefix_of(tag: str, corpus: str | None) -> str:
     return f'{head} · ' if head else ''
 
 
+# Cells announced before fleet_plan stamped attribution, and cells announced by a study that is
+# ALREADY RUNNING with the older module loaded, carry no 'study'. Rather than wait for every
+# long-running script to be restarted, work it out from the tag. This is a fallback and it is
+# meant to age out: anything it cannot place says so rather than guessing.
+_STUDY_BY_PREFIX = (
+    ('ft_masakhaner_yor_yor-random-init',       'MasakhaNER: sweeping the untrained floor',    'Patrick'),
+    ('ft_masakhaner_yor_xlm-roberta-base-random-init',
+                                                'MasakhaNER: sweeping the untrained floor',    'Patrick'),
+    ('ft_sib200_yor_Latn_swap',                 'tokenizer swap: both arms, rate on dev',      'Patrick'),
+    ('ft_masakhaner_yor_swap',                  'tokenizer swap: both arms, rate on dev',      'Patrick'),
+    ('swap_yor_xlmr',                           'tokenizer penalty: three more seeds per arm', 'Patrick'),
+    ('swap62k',                                 'tokenizer penalty: three more seeds per arm', 'Patrick'),
+    ('clipprev',                                'clipping: does it prevent failure',           'Jeffrey'),
+    ('lrx',                                     'learning-rate transfer across languages',     'Jeffrey'),
+)
+
+
+def attribute(cell) -> tuple[str, str | None]:
+    """Which study a cell belongs to, and whose it is."""
+    if cell.get('study'):
+        return cell['study'], cell.get('owner')
+    tag = cell.get('tag', '')
+    for prefix, study, owner in _STUDY_BY_PREFIX:
+        if tag.startswith(prefix):
+            return study, owner
+    # Everything else is the downstream-correlation batch and other cells that predate
+    # fleet_plan, declared by hand in declare_studies.py. Say that rather than "unattributed",
+    # which reads like the dashboard is broken when it is just describing older work.
+    return 'earlier work, declared before studies were labelled', None
+
+
 def fleet_plan(runs, hours: float) -> dict | None:
     """The queued study, with each cell's status derived rather than recorded.
 
@@ -403,8 +434,29 @@ def fleet_plan(runs, hours: float) -> dict | None:
 
     n_gpu = plan.get('n_gpu') or 1
     left = schedule_remaining(cells, n_gpu, rates, live)
+
+    # One group per study, so the panel answers "whose work is the machine doing" rather than
+    # only "is the machine busy". Groups with something running sort first, then groups with
+    # work left, then the finished ones -- which is the order you care about when you look up
+    # from something else and want to know whether to keep waiting.
+    groups = {}
+    for c in cells:
+        study, owner = attribute(c)
+        c['study'], c['owner'] = study, owner
+        g = groups.setdefault(study, {'study': study, 'owner': owner, 'cells': [],
+                                      'done': 0, 'running': 0, 'pending': 0})
+        g['cells'].append(c)
+        g[c['state']] += 1
+    for g in groups.values():
+        g['remaining_s'] = schedule_remaining(g['cells'], n_gpu, rates, live)
+        g['finish_at'] = time.time() + g['remaining_s']
+    ordered = sorted(groups.values(),
+                     key=lambda g: (0 if g['running'] else 1 if g['pending'] else 2,
+                                    -g['running'], -g['pending']))
+
     return {'corpus': plan.get('corpus'), 'queue': plan.get('queue'),
             'started': plan.get('started'), 'n_gpu': n_gpu, 'cells': cells,
+            'groups': ordered,
             'done': done, 'running': running, 'pending': pending,
             'remaining_s': left, 'finish_at': time.time() + left,
             'rates': rates, 'measured_from': sum(1 for _ in glob.glob(
@@ -625,6 +677,17 @@ header{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
 h1{font-size:1rem;font-weight:650;margin:0;letter-spacing:.02em}
 .muted{color:var(--dim);font-size:.82rem}
 #queue{margin:0 0 1rem}
+.qgroup{border-top:1px solid var(--line)}
+.qgroup:first-child{border-top:0}
+.qghead{display:grid;grid-template-columns:5.5rem 1fr auto;gap:.7rem;align-items:baseline;
+  padding:.5rem 1.25rem .42rem;font-size:.82rem}
+.qgroup.live .qghead{background:color-mix(in oklab,var(--blue) 9%,transparent)}
+/* Whose work it is, as its own column rather than buried in the study name -- the panel is read
+   from across the room and the owner is the thing being looked for. */
+.qgowner{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim)}
+.qgroup.live .qgowner{color:var(--blue)}
+.qgname{font-weight:600}
+.qgcount{color:var(--dim);font-variant-numeric:tabular-nums;font-size:.76rem}
 .qrow{display:grid;grid-template-columns:1.1rem 1fr auto auto auto;gap:.7rem;align-items:center;
   padding:.32rem 1.25rem;font-size:.82rem;border-top:1px solid var(--line)}
 .qrow:first-child{border-top:0}
@@ -1124,22 +1187,46 @@ function renderQueue(f){
   el.hidden = !f || !f.cells || !f.cells.length;
   if(el.hidden) return;
 
+  const groups = f.groups && f.groups.length ? f.groups
+                 : [{study: f.queue, owner: null, cells: f.cells, done: f.done,
+                     running: f.running, pending: f.pending, remaining_s: f.remaining_s}];
+
   document.getElementById('qtitle').textContent =
-    (EXP_NAMES[f.queue] || f.queue || 'Queued study');
+    groups.length > 1 ? `${groups.length} studies queued`
+                      : (EXP_NAMES[f.queue] || f.queue || 'Queued study');
   document.getElementById('qnote').textContent =
     `${f.done} of ${f.cells.length} done \u00b7 ${f.running} running \u00b7 `
     + `${f.pending} not started`
     + (f.remaining_s > 0 ? ` \u00b7 about ${fmtT(f.remaining_s)} left` : '');
 
-  document.getElementById('qbody').innerHTML = f.cells.map(c => `
-    <div class="qrow ${c.state}">
-      <span class="qdot"></span>
-      <span>${c.description || c.tag}</span>
-      <span class="qnum">${fmtTok(c.update_tokens)} updates</span>
-      <span class="qnum">${c.state === 'done' ? '' :
-        (c.state === 'running' ? fmtT(c.eta_s) + ' left' : fmtT(c.run_s))}</span>
-      <span class="qstate">${c.state === 'pending' ? 'queued' : c.state}</span>
-    </div>`).join('');
+  // A finished group collapses to its header. Two hundred done rows push the running work off
+  // the screen, and the running work is the reason anyone opened this.
+  document.getElementById('qbody').innerHTML = groups.map(g => {
+    const spent = g.running ? 'running now'
+                : g.pending ? `${g.pending} queued`
+                : 'finished';
+    const rows = (g.running || g.pending)
+      ? g.cells.filter(c => c.state !== 'done').map(c => `
+        <div class="qrow ${c.state}">
+          <span class="qdot"></span>
+          <span>${c.description || c.tag}</span>
+          <span class="qnum">${fmtTok(c.update_tokens)} updates</span>
+          <span class="qnum">${c.state === 'running' ? fmtT(c.eta_s) + ' left'
+                                                     : fmtT(c.run_s)}</span>
+          <span class="qstate">${c.state === 'pending' ? 'queued' : c.state}</span>
+        </div>`).join('')
+      : '';
+    return `
+      <div class="qgroup ${g.running ? 'live' : ''}">
+        <div class="qghead">
+          <span class="qgowner">${g.owner ? g.owner : '\u2014'}</span>
+          <span class="qgname">${EXP_NAMES[g.study] || g.study}</span>
+          <span class="qgcount">${g.done}/${g.cells.length} done \u00b7 ${spent}${
+            g.remaining_s > 0 ? ' \u00b7 ~' + fmtT(g.remaining_s) + ' left' : ''}</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
 
   // Say where the numbers come from. An estimate whose basis is invisible gets trusted when it
   // should not be, and ignored when it should not be.
