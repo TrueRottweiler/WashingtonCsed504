@@ -665,8 +665,15 @@ def fig_floors():
     out = []
     for label, task, steps in (('Topic classification\n(needs meaning)', 'sib200', 1056),
                                ('Entity recognition\n(needs surface form)', 'masakhaner', 2150)):
+        # n_train_requested is None means the FULL split, and that filter is load-bearing now.
+        # The label-quantity experiment runs the same untrained control at 701 and 2,000 labels,
+        # and without this the figure picked up the 2,000-label cell -- drawing the NER floor as
+        # 0.465 instead of 0.626 under a caption about the full-split band. A subsampled control
+        # is a different experiment wearing the same model name.
         floor = max((r for r in rows if r.get('task') == task and r.get('steps') == steps
-                     and 'yor_random_init' in r['model']), key=lambda r: r['mean'])['mean']
+                     and 'yor_random_init' in r['model']
+                     and r.get('n_train_requested') is None),
+                    key=lambda r: r['mean'])['mean']
         # The 16 that actually trained -- same cut as figure 11, for the same reason.
         y = [r['mean'] for r in corr if r['task'] == task and r['val_loss'] < 3.1]
         out.append((label, floor, min(y), max(y)))

@@ -1,0 +1,22 @@
+{
+  "tag": "swap62k_yor_69.1M_62.5k_s5",
+  "corpus": "yor",
+  "preset": "poc",
+  "steps": 62500,
+  "batch": 128,
+  "accum": 1,
+  "seq_len": 128,
+  "tokens_per_step": 16384,
+  "total_work": 1024000000,
+  "n_tokens": 69096452,
+  "lr": 0.0005,
+  "warmup": 0.06,
+  "clip": 1.0,
+  "seed": 5,
+  "vocab_size": 16000,
+  "random_loss": 9.680344001221918,
+  "log_every": 500,
+  "started": 1786345003.5766945,
+  "params": 33758848,
+  "nonemb_params": 25566848
+}

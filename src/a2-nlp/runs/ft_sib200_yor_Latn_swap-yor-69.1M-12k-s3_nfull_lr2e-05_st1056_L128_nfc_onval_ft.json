@@ -1,0 +1,45 @@
+{
+  "tag": "ft_sib200_yor_Latn_swap-yor-69.1M-12k-s3_nfull_lr2e-05_st1056_L128_nfc_onval",
+  "label": "swap dev our vocabulary s3 lr2e-05",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "runs/swap_yor_69.1M_12k_s3",
+  "model_slug": "swap-yor-69.1M-12k-s3",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 99,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 2e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "eval_split": "validation",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.5418739155581261,
+    0.46610077372960185,
+    0.48450669013184633
+  ],
+  "mean": 0.49749379313985803,
+  "sd": 0.03226856973430901,
+  "ci": [
+    0.3837668524623262,
+    0.5740903984534722
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 18.56419761975606,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    4
+  ],
+  "created": "2026-08-10T08:04:59"
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "arm": "250k vocabulary",
+    "corpus": "yor_xlmr",
+    "seed": 3,
+    "tag": "swap_yor_xlmr_yor_xlmr_121.3M_12k_s3",
+    "val_loss": 1.26226407289505,
+    "bpc": 0.8538196929653542
+  },
+  {
+    "arm": "250k vocabulary",
+    "corpus": "yor_xlmr",
+    "seed": 4,
+    "tag": "swap_yor_xlmr_yor_xlmr_121.3M_12k_s4",
+    "val_loss": 1.2303720265626907,
+    "bpc": 0.8322472995238782
+  },
+  {
+    "arm": "250k vocabulary",
+    "corpus": "yor_xlmr",
+    "seed": 5,
+    "tag": "swap_yor_xlmr_yor_xlmr_121.3M_12k_s5",
+    "val_loss": 1.595481961965561,
+    "bpc": 1.0792146811029928
+  },
+  {
+    "arm": "16k vocabulary",
+    "corpus": "yor",
+    "seed": 3,
+    "tag": "swap62k_yor_69.1M_62.5k_s3",
+    "val_loss": 2.426104724407196,
+    "bpc": 0.9373996368854577
+  },
+  {
+    "arm": "16k vocabulary",
+    "corpus": "yor",
+    "seed": 4,
+    "tag": "swap62k_yor_69.1M_62.5k_s4",
+    "val_loss": 2.5326396822929382,
+    "bpc": 0.9785626707120804
+  },
+  {
+    "arm": "16k vocabulary",
+    "corpus": "yor",
+    "seed": 5,
+    "tag": "swap62k_yor_69.1M_62.5k_s5",
+    "val_loss": 2.4032207131385803,
+    "bpc": 0.9285577004109616
+  }
+]
