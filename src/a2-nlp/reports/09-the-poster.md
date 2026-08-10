@@ -37,10 +37,15 @@ The sequence already teaches you to build a model, one layer of abstraction at a
 
 | | what it gave you |
 |---|---|
-| **501** | the statistics: what an estimate is, what a difference is, when you are allowed to believe one |
-| **502** | the mechanics: you wrote `lstm_step_forward` and its backward pass by hand |
-| **503** | the language stack: n-gram models and perplexity, GloVe, attention from scratch into minGPT, decoding |
-| **504** | scale: the same thing on real hardware, twice — images, then text |
+| **501** | classical ML with `sklearn` — `model.fit()` **is** the training. No loop, no device, no batch |
+| **502** | everything by hand, in NumPy: kNN and softmax, backprop, ConvNets, BatchNorm and Dropout, the LSTM cell, and attention — first built here, over image captions |
+| **503** | the language stack: n-gram models and perplexity, GloVe, attention again and checked against PyTorch to 1e-7, minGPT on Shakespeare, decoding and distillation |
+| **504** | scale, twice — images then text — on hardware you have to schedule |
+
+One thread runs the whole way through and it is worth naming, because it is the reason this poster
+exists. **In 503 assignment 1 you wrote `hyper_sweep.py`** — a cross-platform hyperparameter sweep
+that uploads its features to the GPU once and reuses them. That file is the direct ancestor of
+`train_fleet.py`. The first version of the factory was a homework submission.
 
 Every one of those ends when a model finishes training. **None of them covers what happens when
 you need a hundred models and have to believe the differences between them.** That is a different

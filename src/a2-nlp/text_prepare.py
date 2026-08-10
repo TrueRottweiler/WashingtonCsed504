@@ -15,8 +15,11 @@ The dataset ladder, smallest to largest:
 
 Tokenizer decisions, because a tokenizer bug silently invalidates every perplexity comparison:
 
-  - shakespeare is CHARACTER-level: sorted unique chars, exactly like CSED 503. No merges, no
-    vocab file to get wrong, and it makes this rung a tokenizer-free sanity anchor.
+  - shakespeare is CHARACTER-level: sorted unique chars. NOT what CSED 503 did, despite what an
+    earlier version of this comment claimed -- 503 A4 was word-level with a count >= 3 cutoff and
+    MAX_LEN 100. This is the minGPT demo idiom, kept because it is a tokenizer that cannot have a
+    bug, which makes this rung a tokenizer-free sanity anchor. What carries over from 503 is the
+    CORPUS and the model lineage, not the tokenizer.
   - Both wikitext rungs share ONE byte-level BPE (16,384 merges) trained on the wikitext103
     train split. Sharing it is deliberate: wikitext2 -> wikitext103 is the scaling axis of the
     study, and a per-rung vocabulary would quietly change the prediction task between rungs.
@@ -136,7 +139,8 @@ def prepare_shakespeare() -> None:
         urllib.request.urlretrieve(SHAKESPEARE_URL, raw_path)
     text = open(raw_path, encoding='utf-8').read()
 
-    # Sorted unique characters, exactly the CSED 503 tokenizer. The vocab is stored in stats.json
+    # Sorted unique characters. Not the CSED 503 tokenizer -- 503 A4 was word-level with a
+    # count>=3 cutoff. This is the minGPT idiom, kept because it cannot have a bug. The vocab is stored in stats.json
     # so anything downstream (generation, the notebooks) can decode without re-reading input.txt.
     vocab = sorted(set(text))
     stoi = {ch: i for i, ch in enumerate(vocab)}
