@@ -205,7 +205,7 @@ Clipping gradients at **0.5** instead of 1.0, on the 86M model, at 62,500 steps.
 | 16M | 4.207 ±1.290 *(3)* | 4.347 ±1.620 *(3)* | no — exact p = 0.90 |
 | 64M | 3.824 ±1.363 *(3)* | 2.829 ±0.520 *(3)* | no — exact p = 0.30, and 0.10 is the floor |
 | 256M | 2.755 ±0.123 *(3)* | 2.481 ±0.026 *(3)* | no — exact p = 0.10, sitting *on* the floor |
-| 1024M | **2.825 ±0.256** *(11 trained of 15)* | **2.537 ±0.112** *(10 of 13)* | **yes** — exact p = 0.0010 |
+| 1024M | **2.825 ±0.256** *(11 trained of 15)* | **2.530 ±0.104** *(12 of 15)* | **yes** — exact p = 0.0010 |
 
 Two things about that table are worth more than the result in it.
 
@@ -231,9 +231,9 @@ Split into the two questions it was hiding:
 
 | question | verdict |
 |---|---|
-| does clipping **prevent** divergence? | **no** — 4 of 15 against 3 of 13, Fisher p = 1.00 |
-| does it improve runs that **do** train? | **yes** — 2.825 → 2.537, exact p = 0.0010 |
-| does it tighten their **spread**? | **yes** — 0.256 → 0.112, F = 5.23, p = 0.020 |
+| does clipping **prevent** divergence? | **no** — 4 of 15 against 3 of 15, Fisher p = 1.00 |
+| does it improve runs that **do** train? | **yes** — 2.825 → 2.530, exact p = 0.0003 |
+| does it tighten their **spread**? | **yes** — 0.256 → 0.104, F = 6.03, p = 0.0065 |
 
 So clipping is worth doing and the reason is not the one we gave. It does not stop the large model
 from falling over — it makes the runs that survive both better and more alike. And the evidence
