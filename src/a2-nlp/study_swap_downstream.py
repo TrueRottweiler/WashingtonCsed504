@@ -50,7 +50,26 @@ NER, NER_STEPS, NER_LR = 'masakhaner', 2150, 3e-5
 
 ARMS = [("XLM-R's vocabulary", 'swap_yor_xlmr_121.3M_12k_s%d'),
         ('our vocabulary', 'swap_yor_69.1M_12k_s%d')]
-SEEDS_OF_PRETRAIN = (0, 1, 2)
+
+# Three pretraining seeds a side was enough to see the effect and not enough to quote a p-value
+# for it. With three against three the smallest p an exact permutation test can return is
+# 2/C(6,3) = 0.10, so a result where all three of one arm beat all three of the other -- which is
+# what happened, on both tasks -- reports p = 0.10 and cannot report anything smaller however
+# large the gap is. A fourth seed takes that floor to 2/C(8,4) = 0.029.
+#
+# That is about 48 minutes of pretraining for the pair. It is the cheapest available change to
+# what this experiment is allowed to claim, which is why it happens before anything else on the
+# board gets more compute.
+SEEDS_OF_PRETRAIN = (0, 1, 2, 3)
+
+# What each arm's checkpoints were trained with, read off the seed-0 records rather than retyped.
+# Present so a missing seed can be built here instead of failing the study: the arms differ only
+# in which corpus -- and therefore which vocabulary -- they were tokenized with.
+PRETRAIN = {
+    "XLM-R's vocabulary": {'name': 'yor_xlmr', 'tokens': 121_339_416},
+    'our vocabulary':     {'name': 'yor',      'tokens': 69_096_452},
+}
+PRETRAIN_COMMON = {'steps': 12_000, 'lr': 5e-4, 'preset': 'poc', 'batch': 128, 'clip': 1.0}
 
 
 def checkpoints():
@@ -65,9 +84,18 @@ def main():
     a = ap.parse_args()
 
     ck = checkpoints()
-    missing = [p for _, _, p in ck if not os.path.exists(os.path.join(HERE, p, 'config.json'))]
+    missing = [(label, s, p) for label, s, p in ck
+               if not os.path.exists(os.path.join(HERE, p, 'config.json'))]
     if missing:
-        raise SystemExit('missing checkpoints, nothing to run:\n  ' + '\n  '.join(missing))
+        print(f'{len(missing)} checkpoint(s) not on disk; building them first')
+        for label, s, p in missing:
+            print(f'  pretraining {label} seed {s} -> {p}')
+        if not a.dry_run:
+            os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
+            import mlm_api as factory
+            for label, s, p in missing:
+                factory.pretrain(seed=s, tag=os.path.basename(p), reuse=True,
+                                 **PRETRAIN[label], **PRETRAIN_COMMON)
 
     n_dev = len(ck) * len(RATES)
     print(f'{len(ck)} checkpoints x {len(RATES)} rates x {len(DEV_SEEDS)} seeds = '

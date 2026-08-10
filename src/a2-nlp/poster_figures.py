@@ -888,12 +888,122 @@ def fig_pipeline():
     save(fig, '15-what-a-run-is-made-of')
 
 
+def fig_lr_transfer():
+    """Does a learning rate tuned on one language transfer to another?
+
+    Cell 8 of the board, and the figure that cell had been waiting on. The obvious way to draw
+    this is five curves on one axis, and it is the wrong way: the reader compares heights, and the
+    heights are not comparable. Each language has its own corpus, its own vocabulary and its own
+    intrinsic difficulty, so Nyanja sitting below Hausa says nothing about learning rates. Small
+    multiples put the comparison where it belongs -- the SHAPE of each curve, and where its
+    minimum falls.
+
+    The finding is stronger than "the best rate differs", which would only mean somebody leaves a
+    little performance on the table. Three languages have their best rate at 7e-4. At that exact
+    rate Igbo does not merely do worse, it collapses: 2.889 at 5e-4 against 5.638 at 7e-4, and it
+    stays collapsed at every higher rate. So the risk of transferring a tuned setting is not a
+    slightly worse model, it is a wasted night that looks like a result.
+
+    Failed cells are drawn as hollow markers, not as tall points on the line. A collapsed run and
+    a merely-poor run are different kinds of thing, and joining them with a single line invites
+    reading the collapse as the top of a smooth curve.
+    """
+    rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'lr_transfer.json'),
+                                      encoding='utf-8')) if 'val_loss' in r]
+    by = {}
+    for r in rows:
+        by.setdefault(r['lang'], {}).setdefault(r['lr'], []).append(r['val_loss'])
+
+    # A cell counts as failed when it lands more than 1.5 nats above what the SAME language
+    # reaches at its own best rate -- a per-language test, for the same reason the seed-spread
+    # rule is a per-cell property rather than a constant. 1.5 nats is not a close call at this
+    # scale: the whole usable range within a language spans about 0.4.
+    #
+    # The first version of this figure used a threshold halfway to random-guessing loss, and it
+    # was too lenient to catch the thing the figure exists to show -- Igbo's collapsed cells came
+    # out as filled markers joined by a line, which is precisely what the docstring above says
+    # not to do. Worth leaving the reason here: the failures are far from THIS language's best
+    # and nowhere near random, so a threshold anchored on random cannot see them.
+    FAIL_MARGIN = 1.5
+    NAMES = {'hau': 'Hausa', 'ibo': 'Igbo', 'nya': 'Nyanja', 'swh': 'Swahili', 'yor': 'Yoruba'}
+    langs = sorted(by, key=lambda l: (l != 'ibo', l))     # Igbo first: it is the point
+    fig, axes = plt.subplots(1, len(langs), figsize=(17.5, 5.0), sharey=True)
+
+    for ax, lang in zip(axes, langs):
+        seeds = {lr: sorted(v) for lr, v in sorted(by[lang].items())}
+        cells = {lr: st.mean(v) for lr, v in seeds.items()}
+        best_lr = min(cells, key=cells.get)
+        best = cells[best_lr]
+        cutoff = best + FAIL_MARGIN
+        color = C2 if lang == 'ibo' else C1
+
+        # Three cells in this grid are SPLIT -- one seed trains and the other collapses, so their
+        # mean describes no run that happened. Yoruba at 1e-3 is 3.326 and 5.540; drawing 4.433
+        # as a point on a curve is the same error this project corrected in the clipping ladder
+        # and in XLM-R's topic cell. So every seed is drawn, the line joins only cells where all
+        # seeds trained, and a split cell gets a vertical tie between its two outcomes and no
+        # mean marker at all.
+        kind = {}
+        for lr, v in seeds.items():
+            n_ok = sum(1 for x in v if x < cutoff)
+            kind[lr] = 'ok' if n_ok == len(v) else ('bad' if n_ok == 0 else 'split')
+
+        line = [(lr, cells[lr]) for lr in seeds if kind[lr] == 'ok']
+        if line:
+            ax.plot([p[0] for p in line], [p[1] for p in line], '-', color=color, zorder=3)
+
+        for lr, v in seeds.items():
+            if kind[lr] == 'split':
+                ax.plot([lr, lr], [min(v), max(v)], '-', color=color, lw=1.4, alpha=0.55,
+                        zorder=2)
+            for x in v:
+                filled = x < cutoff
+                ax.plot([lr], [x], 'o', markersize=7.5, zorder=3,
+                        color=color if filled else SURFACE,
+                        mec=color, mew=0 if filled else 2.0)
+
+        ax.plot([best_lr], [best], 'o', color=color, markersize=14, zorder=4)
+        n_split = sum(1 for k in kind.values() if k == 'split')
+        if n_split:
+            ax.text(0.96, 0.955, f'{n_split} cell{"s" if n_split > 1 else ""} split\nby seed',
+                    transform=ax.transAxes, ha='right', va='top', fontsize=10.5, color=INK2)
+
+        # Fixed corner, so it can never land on a tick label or on the curve.
+        ax.text(0.04, 0.04, f'best {best:.2f}\nat {best_lr:g}', transform=ax.transAxes,
+                ha='left', va='bottom', fontsize=11.5, color=INK)
+
+        ax.set_xscale('log')
+        ax.set_title(NAMES.get(lang, lang), color=C2 if lang == 'ibo' else INK)
+        ax.set_xlabel('learning rate  ($\\times 10^{-4}$)')
+        # Ticks at the rates actually swept. Matplotlib's log minor ticks put five overlapping
+        # labels under each panel here, which is unreadable at any size.
+        rates = sorted(cells)
+        ax.set_xticks(rates, minor=False)
+        ax.set_xticklabels([f'{r*1e4:g}' for r in rates], fontsize=11)
+        ax.set_xticks([], minor=True)
+        # The rate three of the five settle on, so the eye can find it in every panel.
+        ax.axvline(7e-4, color=MUTED, lw=1.1, ls=(0, (3, 3)), zorder=1)
+
+    axes[0].set_ylabel('validation loss')
+    axes[0].set_ylim(2.3, 7.0)
+    fig.suptitle('A rate tuned on one language is not a rate for the next', y=1.04,
+                 fontsize=17, fontweight='bold', color=INK)
+    fig.text(0.5, -0.13,
+             'Every seed is drawn. Dashed line: 7e-4 — the best rate for Hausa, Nyanja and '
+             'Swahili, and the rate at which Igbo collapses,\nas it does at every rate above it. '
+             'Hollow markers are runs that failed rather than runs that merely scored poorly; a '
+             'vertical tie\nmarks a cell whose two seeds did different things, where the mean '
+             'describes neither. 12,000 steps, 16M tokens.',
+             ha='center', fontsize=11.5, color=INK2)
+    save(fig, '16-lr-transfer')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
-           fig_how_many_seeds, fig_speedup, fig_pipeline)
+           fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
