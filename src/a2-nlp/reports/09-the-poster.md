@@ -132,19 +132,42 @@ and then finding out what building it teaches you — and that is this poster, t
 
 Six things we can now say, none of which we believed at the start:
 
-**A tiny model came out ahead of a much larger one at the task that needs meaning.** A
-33.8-million-parameter model trained on 64 million words of Yoruba scored **0.666** at sorting
-Yoruba text into topics. mmBERT — 246 million parameters, and reported by its authors as trained
-on roughly three trillion words across 1,800 languages — scored **0.595**. Ours is about a seventh
-the size and saw something like one part in fifty thousand of the text.
+**A tiny model beat a much larger one at the task that needs meaning.** A 33.8-million-parameter
+model trained on 64 million words of Yoruba scored **0.688** at sorting Yoruba text into topics.
+mmBERT — 246 million parameters, and reported by its authors as trained on roughly three trillion
+words across 1,800 languages — scored **0.582**. Ours is about a seventh the size and saw
+something like one part in fifty thousand of the text.
 
-**Say "ahead", not "beats".** The margin is 0.071 on a 204-item test set, and the confidence
-intervals overlap: [0.603, 0.711] against [0.520, 0.652]. Both numbers are the best of a
-learning-rate sweep, and both sweeps picked their winner on the same 204 items they are then
-reported on — which inflates both. The honest statement is *the small model is at least
-competitive with a model seven times its size*, and that is remarkable enough without
-overclaiming. Patrick is re-running both arms with the winner chosen on a held-out development
-split; that number, not this one, is the one to trust.
+**"Beat" is the right verb now, and it took two corrections to get there.** This paragraph used to
+read 0.666 against 0.595, a margin of 0.071, and it told you to say *ahead* rather than *beats*
+because the confidence intervals overlapped. Both halves were wrong, for unrelated reasons.
+
+The numbers were wrong because both arms picked their learning rate on the same 204 test items
+they were then scored on. Choosing on SIB-200's held-out 99-item dev split instead — Patrick's
+[report 11](11-selecting-on-the-dev-split.md) — moves ours to 0.688 and mmBERT to 0.582, and the
+margin *grows* to **0.106**.
+
+The verb was wrong because "do the intervals overlap" is not a test of whether two models differ.
+Two 95% intervals miss each other only when the margin clears 1.96 × (SE₁ + SE₂), which is
+algebraically the assumption that the two models' per-item errors are perfectly *anti*-correlated
+— and both models are being scored on the same 204 items, so that is the least plausible
+assumption available. Its effective α is 0.0056. The bar it set here was 0.1100 against a margin
+of 0.1059: it missed by 0.004.
+
+Tested rather than eyeballed, on five seeds a side:
+
+| | |
+|---|---|
+| margin | **+0.106** |
+| all five of our seeds beat all five of mmBERT's | exact permutation **p = 0.008** — the floor at 5v5 |
+| against the seed spread | **4.05×**, where 1.46× is the bar at five seeds |
+| adding test-set uncertainty back in | z = 2.46, **p = 0.014** |
+| intervals | still overlap, by 0.004 |
+
+What is *not* established is that this margin would hold on a different Yoruba topic corpus.
+SIB-200's Yoruba split is 204 translated Flores items in one domain, and nothing here speaks to
+another one. That is a real limit and it is separate from whether these two models differ on
+these items, which they do.
 
 ![Topic classification and entity recognition, three models each, with the untrained floor drawn
 as a dashed rule](figures/01-headline.png)
@@ -882,8 +905,8 @@ on our own runs, not quoted from a textbook.
 | knob | what it is | values tried | turn it **down** | turn it **up** |
 |---|---|---|---|---|
 | **learning rate**, pretraining | how large a correction the model makes at each step | 1e-4 … 1e-3 | slower to converge, but safe — 0 failures below 3e-4 | it stops converging and starts thrashing. 19% of runs at 3e-4 never learned anything; the one run at 1e-3 failed outright |
-| **learning rate**, fine-tuning | the same knob, on the downstream task | 5e-6 … 2e-4 | badly under-fits — our model scores **0.275** at 5e-6 | improves, peaks, then turns over. SIB-200 peaks at 3e-5 (**0.666**); NER climbs all the way to 1e-4 (**0.837**) and turns over at 2e-4 |
-| **gradient clipping** | a hard ceiling on any single correction | 1.0, 0.5 | *tighter is better here.* At 256M tokens, clip 0.5 gives spread **0.052** and best 2.454 | the default 1.0 gives spread **0.224** and best 2.672 at the same cell — worse *and* four times less reproducible |
+| **learning rate**, fine-tuning | the same knob, on the downstream task | 5e-6 … 2e-4 | badly under-fits — our model scores **0.275** at 5e-6 | improves, peaks, then turns over. SIB-200 peaks at 3e-5 (**0.688**); NER climbs all the way to 1e-4 (**0.837**) and turns over at 2e-4 |
+| **gradient clipping** | a hard ceiling on any single correction | 1.0, 0.5 | *tighter is better, among runs that survive.* At 1024M, clip 0.5 trains to **2.537** against 1.0's 2.825 (exact p = 0.0010) and is tighter, sd 0.112 against 0.256 | it does **not** change whether a run falls over at all: 3 of 13 against 4 of 15, Fisher p = 1.00. The 256M cell often quoted here is three seeds a side and resolves nothing |
 | **training steps** | how many corrections the model makes | 2,930 … 62,500 | the run stops before the cliff — see the curve above; the first 11,500 steps look like failure | past the point where the schedule has annealed, nothing more happens; the last third of our run is worth 0.10 |
 | **training data** | how much text the model sees | 2M … 1,024M tokens | below ~16M the model is data-starved (6.74 at 4M, 4.35 at 16M) | above ~64M it stops mattering: 16× more text moves the loss **−0.080**, against a spread of 0.185 |
 | **model size** | parameters | 33.8M, 98M, 154M | the small model is faster *and* not worse — 419k vs 201k tokens/s | bigger did **not** win. At 256M tokens the two sizes are indistinguishable, and at clipping 1.0 the larger one failed 31% of the time |
@@ -894,7 +917,7 @@ on our own runs, not quoted from a textbook.
 Two of those rows are worth a student's attention beyond the numbers:
 
 **The fine-tuning learning rate moves the score more than the model does.** Our model scores 0.275
-at one rate and 0.666 at another — a range of 0.391 — while the entire gap to mmBERT is 0.071. A
+at one rate and 0.688 at another — a range of 0.413 — while the entire gap to mmBERT is 0.106. A
 comparison where one side was tuned and the other was not is not measuring the models at all. That
 is exactly the mistake report 08 §2b had to unwind three times.
 
@@ -1355,11 +1378,24 @@ which causes it. That is a real gap, and a cheap experiment would close it.)
 
 **So the honest recommendation is: do not build the detector, and go and test prevention
 instead.** We had been saying that tighter gradient clipping "fixes" the large model. Pulled
-apart, that turns out to be two claims we had merged: clipping is *established* to tighten the
-spread of runs that succeed (0.052 against 0.224 at the matched cell), and it is **entirely
-untested** as to whether it prevents failures. On our data the failure rate is 20% against 17% at
-n=10 versus n=36, which is no difference at all. Naming that as unmeasured is worth more than
-asserting it either way.
+apart, that is two claims we had merged — does it stop runs failing, or does it improve the ones
+that don't? — and the prevention study has since answered both at the 1024M cell.
+
+| | verdict |
+|---|---|
+| clipping **prevents** divergence | **no** — 4 of 15 diverge at clip 1.0, 3 of 13 at clip 0.5, Fisher p = 1.00 |
+| it improves runs that **do** train | **yes** — 2.825 → 2.537, exact p = 0.0010 |
+| it tightens their **spread** | **yes** — sd 0.256 → 0.112, F = 5.23, p = 0.020 |
+
+That inverts what this section used to say, in the more interesting direction. Clipping was sold
+here on reproducibility and called untested on prevention; prevention is now tested and the answer
+is no, while the quality gain — which nobody had claimed — is the largest effect of the three.
+
+The reason it took fifteen seeds is the same reason the detector is a bad idea. Diverged runs sit
+at 7.469 and trained ones near 2.5, so any statistic taken across both is a weighted average of a
+failure rate, and it moves when the coin lands differently rather than when clipping does. The
+three-seed ladder in the reports README could not have resolved this in either direction: at three
+a side a permutation test cannot return a p below 0.10.
 
 ---
 
