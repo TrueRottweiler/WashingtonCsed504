@@ -61,6 +61,45 @@ def bpc(rec, corpus):
     return rec['val_loss'] / math.log(2) / f.corpus_info(corpus)['chars_per_token']
 
 
+def arm_records(arm, seeds=range(6)):
+    """One record per seed, chosen explicitly rather than by whatever a glob happens to catch.
+
+    This was a glob, and the glob broke. Two studies produced the SAME cell under two names:
+    seeds 0-2 predate the `{prefix}_{cell_tag}` convention and are called
+    swap_yor_xlmr_121.3M_12k_s0..2, while this study's new seeds are called
+    swap_yor_xlmr_yor_xlmr_121.3M_12k_s3..5. Both match `swap_yor_xlmr_*`. Then
+    study_swap_downstream needed a fourth pretraining seed for its own comparison, built it under
+    the older shape as swap_yor_xlmr_121.3M_12k_s3, and the glob picked up seven runs for a
+    six-seed arm -- turning a pre-registered n=6 into n=7 and moving the headline from 0.059 to
+    0.037 without anybody asking for a seventh seed.
+
+    A pre-registered sample size is only pre-registered if the analysis cannot quietly grow. So:
+    group by seed, take exactly the seeds this design named, and say so out loud when a seed has
+    more than one record rather than averaging or picking silently.
+
+    Where a seed does have two, the one produced by THIS study wins -- it is the run the design
+    called for; the other is a checkpoint some other experiment needed to exist.
+    """
+    mine = {}
+    for r in f.results(f"{arm['prefix']}_*"):
+        if r.get('corpus') != arm['corpus'] or r.get('seed') not in seeds:
+            continue
+        if r.get('steps') != arm['steps']:
+            continue
+        mine.setdefault(r['seed'], []).append(r)
+
+    out, dupes = {}, []
+    for seed, recs in sorted(mine.items()):
+        if len(recs) > 1:
+            want = f"{arm['prefix']}_{_train.cell_tag(arm['corpus'], arm['tokens'], arm['steps'], seed, PRESET)}"
+            pick = next((r for r in recs if r['tag'] == want), recs[0])
+            dupes.append((seed, [(r['tag'], bpc(r, arm['corpus'])) for r in recs], pick['tag']))
+            out[seed] = pick
+        else:
+            out[seed] = recs[0]
+    return out, dupes
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--gpu', type=int, default=0)
@@ -113,13 +152,25 @@ def report():
     print('\n' + '=' * 74)
     print('IS THE TOKENIZER PENALTY ESTABLISHED AT SIX SEEDS?')
     print('=' * 74)
-    arms = {}
+    arms, all_dupes = {}, []
     for arm in ARMS:
-        v = sorted(bpc(r, arm['corpus']) for r in f.results(f"{arm['prefix']}_*")
-                   if r.get('corpus') == arm['corpus'])
+        recs, dupes = arm_records(arm)
+        all_dupes += [(arm['name'], *d) for d in dupes]
+        v = sorted(bpc(r, arm['corpus']) for r in recs.values())
         arms[arm['name']] = v
         print(f"\n  {arm['name']:<16} n={len(v)}  " + ' '.join(f'{x:.3f}' for x in v))
         print(f"  {'':<16} mean {st.mean(v):.3f}  sd {st.stdev(v):.3f}")
+
+    if all_dupes:
+        print('\n  DUPLICATE CELLS -- one seed, more than one record. Reported rather than'
+              '\n  silently averaged, because a pre-registered n must not be able to grow:')
+        for name, seed, recs, chosen in all_dupes:
+            print(f'    {name} seed {seed}:')
+            for tag, v in recs:
+                print(f'      {v:.4f}  {tag}{"   <- used" if tag == chosen else ""}')
+            spread = max(v for _, v in recs) - min(v for _, v in recs)
+            print(f'      the two differ by {spread:.4f} bits/char at the SAME seed and settings,'
+                  f'\n      which is run-to-run nondeterminism rather than seed variation.')
 
     b, c = arms['250k vocabulary'], arms['16k vocabulary']
     d = st.mean(b) - st.mean(c)

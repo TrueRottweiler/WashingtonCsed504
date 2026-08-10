@@ -181,14 +181,34 @@ Our model wins topic classification by 0.059 and loses entity recognition by 0.0
 say why: **the untrained control scores 0.414 on NER and 0.403 on SIB-200 — but 0.414 out of
 0.851 is 49% of the achievable score, against 0.403 out of 0.632, or 64%.**
 
-> **Retracted 9 August.** Both percentages moved and the gap between them mostly closed: the
-> SIB-200 control is 0.429 once it gets its own swept rate ([report 11](11-selecting-on-the-dev-split.md)),
-> and the denominators depend on which model counts as the ceiling. The better-supported account
-> of the same divergence is that NER scores barely move across from-scratch models — a band of
-> 0.044 — while SIB-200 scores vary three times as much, at 0.143. The paragraphs below are kept
-> because the *direction* survives; the two percentages should not be quoted. Note also that the
-> NER control is a single cell at 3e-5 against baselines that are best-of-a-sweep, so it carries
-> the asymmetry report 11 removed from SIB-200.
+> **Retracted 9 August, and the retraction reinforced on 10 August.** Both percentages moved and
+> the gap between them mostly closed: the SIB-200 control is 0.429 once it gets its own swept
+> rate ([report 11](11-selecting-on-the-dev-split.md)), and the denominators depend on which model
+> counts as the ceiling. The better-supported account of the same divergence is that NER scores
+> barely move across from-scratch models — a band of **0.044** — while SIB-200 scores vary three
+> times as much, at **0.143**. The paragraphs below are kept because the *direction* survives; the
+> two percentages should not be quoted.
+>
+> **Quote the raw bands, not the normalised ones.** The NER control was a single cell at 3e-5.
+> Swept over twelve rates it peaks at **0.6261**, so the 0.414 below is not the floor — it is the
+> floor's value at a rate one-tenth of the best one. That moves any figure with headroom in its
+> denominator: the normalised band on NER goes from 9.8% to **18.6%**, so "a spread of 0.044,
+> under 10% of its headroom" is wrong.
+>
+> And the denominator is unstable in a second way. Patrick puts SIB-200's normalised band at 55.0%
+> and this recomputation puts it at 51.7% — neither is a mistake, we simply took different
+> ceilings, his the dev-selected headline of 0.6881 and mine the best of the sixteen models in the
+> correlation set at 0.7047. A statistic whose value depends on which model you decide is the
+> ceiling, and which also moved by half when the floor was swept, is not one to print at 90 point.
+>
+> The raw ratio has neither problem: **0.044 against 0.143 over the same sixteen models is 3.24×,
+> and no choice of floor or ceiling can move it.** Both bands are over the identical sixteen
+> models at val_loss < 3.1 — NER [0.7537, 0.7977], SIB-200 [0.5621, 0.7047] — which Patrick
+> checked independently and this agrees with to four decimals.
+>
+> Second time the headroom framing has been bitten by the same denominator: once when the
+> floor-share reading was retracted on the 9th, again when the floor was swept on the 10th. That
+> is enough. Patrick's call to drop it, and he is right.
 
 Read the other way round: NER hands 0.414 to a model that knows no Yoruba at all. Capitalisation
 and name shape carry it, and those transfer from any language. What the multilingual models add
