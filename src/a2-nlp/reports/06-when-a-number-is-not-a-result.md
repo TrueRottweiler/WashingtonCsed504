@@ -321,6 +321,12 @@ Uniform-random guessing is ~0.133 and 1/k is 0.143.
 
 *At 1056 steps (24 epochs) — where every model trains:*
 
+> **Superseded 9 August by [report 11](11-selecting-on-the-dev-split.md).** Every cell below was
+> selected on the same 204 test items it is reported on, which this report itself flags two
+> sections down. Report 11 re-selects all five arms on SIB-200's 99-item validation split; the
+> table there is the one to quote. The finding this table was written to support — that XLM-R
+> does not clear the untrained control — survives and gets stronger.
+
 | model | lr | macro-F1 | sd | 95% CI | |
 |---|---|---|---|---|---|
 | mmBERT base | 5e-5 | **0.574** | 0.035 | [0.501, 0.627] | |

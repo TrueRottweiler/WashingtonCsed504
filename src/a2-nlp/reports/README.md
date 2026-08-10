@@ -16,6 +16,7 @@ projection.
 | 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched compute, 0.144 bits/char. At matched *steps*, nothing — and why that reading was wrong. Plus the downstream rows, where a 33.8M from-scratch model comes out ahead of mmBERT on topic classification. |
 | **09** | **[The plain-language version](09-the-poster.md)** | **Start here if you are not on this project.** The whole study explained for someone who has taken one ML course: the problem, what we built, what it cost in hardware and electricity, what we found, and the times a setting nobody questioned decided a result, and what the factory could work out about its own training runs from nothing but their stored curves. Fourteen sections, one per poster panel. |
 | **10** | **[The next night](10-the-next-night.md)** | Three questions about the factory rather than about Yoruba, all answerable with checkpoints we already have: does validation loss predict downstream usefulness (19 models, never checked), does a tuned learning rate transfer to a new language (our "one function call" claim, untested), and how many of ten new languages need manual intervention. ~19 GPU-hours, one night. |
+| **11** | **[Selecting on the dev split](11-selecting-on-the-dev-split.md)** | SIB-200 ships a 99-item validation split and this project had never used it — every learning rate it quoted was picked on the 204 test items it then reported. Nine rates, five arms, selected on dev. The from-scratch margin over mmBERT grows to 0.106 and clears the floor; XLM-R drops *below* an untrained model of its own architecture; and the practice turns out to have inflated exactly one row — the one whose conclusion rested on it. **Supersedes the SIB-200 tables in 06 and 08.** |
 
 ## Where the symmetric learning-rate sweeps live
 
@@ -37,13 +38,15 @@ here because "grep the log for the sweep commit" would otherwise come up empty.
 
 - **Yoruba is scarce.** All of it on FineWeb-2 is 69.1M tokens — less than one English benchmark
   dataset. The group's top rung uses 93% of everything available.
-- **The small from-scratch model works.** 33.8M parameters trained on 64M tokens of Yoruba. Best
-  rate against best rate it is **ahead of** mmBERT on topic classification (0.666 vs 0.595) and
-  loses entity recognition by 0.026 (0.837 vs 0.863). Say *ahead*, not *beats*: the intervals
-  overlap ([0.603, 0.711] against [0.520, 0.652]), and both arms picked their rate on the same 204
-  items they are scored on, which inflates both. A dev-split re-selection is in progress. Earlier versions of this line quoted 0.527/0.537
-  and 0.698/0.848, from before the step budget, the Unicode normalization and the learning rates
-  were fixed.
+- **The small from-scratch model works.** 33.8M parameters trained on 64M tokens of Yoruba. With
+  every arm's rate chosen on the 99-item validation split it is **ahead of** mmBERT on topic
+  classification (0.688 vs 0.582) and loses entity recognition by 0.026 (0.837 vs 0.863). Say
+  *ahead*, not *beats*: the margin of 0.106 does now clear the project's 0.06 floor, but the
+  intervals still overlap by 0.004 ([0.631, 0.734] against [0.518, 0.635]). NER has not had the
+  same treatment — those two rates were picked on the items they are scored on.
+  [Report 11](11-selecting-on-the-dev-split.md). Earlier versions of this line quoted 0.527/0.537,
+  0.698/0.848 and 0.666/0.595, from before the step budget, the Unicode normalization, the
+  learning rates and the selection split were fixed in turn.
 - **The study is compute-bound, not data-bound.** More training moves validation loss by 2.2–2.7
   against a measured seed spread of 0.049 — 45–56× the noise. More *text* does nothing measurable
   until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
@@ -144,24 +147,36 @@ of the two axes is the question anyone has.
 
 At 1,056 steps, the budget where models actually train:
 
-Every model at its own best learning rate, three seeds:
+Every model at its own best learning rate. SIB-200 is selected on the 99-item validation split and
+scored on test at five seeds ([report 11](11-selecting-on-the-dev-split.md)); MasakhaNER is still
+best-on-test at three seeds.
 
 | SIB-200 (topic) | | MasakhaNER (entities) | |
 |---|---|---|---|
-| **from-scratch, ours** | **0.666** | mmBERT | 0.863 |
-| mmBERT | 0.595 | XLM-R | 0.851 |
-| XLM-R | 0.408 | **from-scratch, ours** | **0.837** |
-| our arch, untrained | 0.403 | our arch, untrained | 0.414 |
-| XLM-R arch, untrained | 0.369 | | |
+| **from-scratch, ours** | **0.688** | mmBERT | 0.863 |
+| mmBERT | 0.582 | XLM-R | 0.851 |
+| our arch, untrained | 0.429 | **from-scratch, ours** | **0.837** |
+| XLM-R arch, untrained | 0.382 | our arch, untrained | 0.414 |
+| XLM-R | 0.358 | | |
 
-A 33.8M model pretrained on 64M tokens of Yoruba is **ahead of mmBERT on topic classification by 0.071**
-(CIs overlap) and loses entity recognition by 0.026 — not the 0.145 report 06 recorded, most of
-which was the wrong Unicode normalization and an unswept learning rate.
+A 33.8M model pretrained on 64M tokens of Yoruba is **ahead of mmBERT on topic classification by
+0.106** — clearing the project's 0.06 floor, though the intervals still overlap by 0.004 — and
+loses entity recognition by 0.026, not the 0.145 report 06 recorded, most of which was the wrong
+Unicode normalization and an unswept learning rate.
 
-Two things the controls settle. **XLM-R's pretraining is worth +0.039 over the same architecture
-with random weights** — for Yoruba it contributes nothing measurable. And the NER floor of 0.414
-is 49% of the achievable score against SIB-200's 64%, which is why the two tasks disagree: entity
-recognition hands half its score to a model that knows no Yoruba at all.
+What the controls settle. **XLM-R lands below a randomly initialised model of its own
+architecture**: −0.024 across five seeds, or +0.052 if the one collapsed seed is discarded, inside
+the 0.06 floor either way. For Yoruba its pretraining contributes nothing measurable. (Report 08
+first put this at +0.039 *above* the control; that compared its best of five against a control run
+once. Symmetric selection reverses the sign.)
+
+> **Under revision.** The explanation that used to sit here — that the NER floor is 49% of
+> achievable against SIB-200's 64%, and that this is why the two tasks disagree — was retracted on
+> 9 August. The percentages depend on which denominator is used, and the better-supported account
+> is that scores on NER barely move across from-scratch models (a band of 0.044) while SIB-200
+> scores vary three times as much (0.143). Note also that the NER control is still a single cell
+> at 3e-5 while its baselines are best-of-a-sweep, so any NER floor figure inherits exactly the
+> asymmetry report 11 removed from SIB-200.
 
 ## The strongest form of the thesis
 

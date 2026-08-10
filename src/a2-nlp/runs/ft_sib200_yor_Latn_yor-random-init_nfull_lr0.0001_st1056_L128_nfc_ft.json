@@ -1,0 +1,49 @@
+{
+  "tag": "ft_sib200_yor_Latn_yor-random-init_nfull_lr0.0001_st1056_L128_nfc",
+  "label": "untrained ours",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "/content/WashingtonCsed504/src/a2-nlp/runs/yor_random_init",
+  "model_slug": "yor-random-init",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 204,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 0.0001,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "eval_split": "test",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "scores": [
+    0.4078656680874924,
+    0.371938977796299,
+    0.467984722097101,
+    0.43033560370770757,
+    0.4658642371189231
+  ],
+  "mean": 0.42879784176150465,
+  "sd": 0.03628492875331235,
+  "ci": [
+    0.37932002603647125,
+    0.46832876761621495
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 29.995708847045897,
+  "n_boot": 500,
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "ft_api_version": [
+    1,
+    4
+  ],
+  "created": "2026-08-09T21:10:43"
+}

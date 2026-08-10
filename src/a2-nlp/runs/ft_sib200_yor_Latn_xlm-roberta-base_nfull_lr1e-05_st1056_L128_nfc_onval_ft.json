@@ -1,0 +1,45 @@
+{
+  "tag": "ft_sib200_yor_Latn_xlm-roberta-base_nfull_lr1e-05_st1056_L128_nfc_onval",
+  "label": "XLM-R lr1e-05",
+  "task": "sib200",
+  "lang": "yor_Latn",
+  "metric": "macro_f1",
+  "model": "FacebookAI/xlm-roberta-base",
+  "model_slug": "xlm-roberta-base",
+  "n_train": 701,
+  "n_train_requested": null,
+  "n_test": 99,
+  "steps": 1056,
+  "batch": 16,
+  "lr": 1e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "eval_split": "validation",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.4114590663851748,
+    0.45721830867214497,
+    0.34120970329348416
+  ],
+  "mean": 0.40329569278360133,
+  "sd": 0.047710792852313916,
+  "ci": [
+    0.32947914735809014,
+    0.4611451790351599
+  ],
+  "chance": 0.14285714285714285,
+  "degenerate": false,
+  "seconds_per_seed": 94.62137301762898,
+  "n_boot": 500,
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "ft_api_version": [
+    1,
+    4
+  ],
+  "created": "2026-08-09T19:34:22"
+}
