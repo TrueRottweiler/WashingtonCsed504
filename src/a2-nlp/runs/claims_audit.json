@@ -17,11 +17,15 @@
   },
   {
     "claim": "from-scratch is ahead of mmBERT on topic classification",
-    "supported": null
+    "supported": true
   },
   {
     "claim": "the tokenizer penalty is real at matched compute",
     "supported": false
+  },
+  {
+    "claim": "the large vocabulary makes the RESULT less predictable",
+    "supported": true
   },
   {
     "claim": "the best learning rate is not the same across languages",

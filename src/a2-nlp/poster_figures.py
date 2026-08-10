@@ -665,8 +665,15 @@ def fig_floors():
     out = []
     for label, task, steps in (('Topic classification\n(needs meaning)', 'sib200', 1056),
                                ('Entity recognition\n(needs surface form)', 'masakhaner', 2150)):
+        # n_train_requested is None means the FULL split, and that filter is load-bearing now.
+        # The label-quantity experiment runs the same untrained control at 701 and 2,000 labels,
+        # and without this the figure picked up the 2,000-label cell -- drawing the NER floor as
+        # 0.465 instead of 0.626 under a caption about the full-split band. A subsampled control
+        # is a different experiment wearing the same model name.
         floor = max((r for r in rows if r.get('task') == task and r.get('steps') == steps
-                     and 'yor_random_init' in r['model']), key=lambda r: r['mean'])['mean']
+                     and 'yor_random_init' in r['model']
+                     and r.get('n_train_requested') is None),
+                    key=lambda r: r['mean'])['mean']
         # The 16 that actually trained -- same cut as figure 11, for the same reason.
         y = [r['mean'] for r in corr if r['task'] == task and r['val_loss'] < 3.1]
         out.append((label, floor, min(y), max(y)))
@@ -911,17 +918,31 @@ def fig_tokenizer_lottery():
     The same shape holds downstream, which is noted on the figure rather than drawn: 4.0x wider
     on topic classification, 7.7x on entities.
     """
-    import claims_audit as ca
+    # Selection comes from the study that pre-registered it, not from a glob written here. A glob
+    # over `swap_yor_xlmr_*` picks up seven runs for a six-seed arm, because two studies named the
+    # same cell two ways and a third built a fourth seed it needed for its own comparison. That
+    # turned n=6 into n=7 and moved this figure's headline from 0.059 to 0.037 -- a pre-registered
+    # sample size quietly growing, which is the one thing pre-registration is meant to prevent.
+    import study_tokenizer_seeds as tk
 
-    def arm(pattern, corpus):
-        cpt = f.corpus_info(corpus)['chars_per_token']
-        return sorted(r['val_loss'] / math.log(2) / cpt
-                      for r in f.results(pattern) if r.get('corpus') == corpus)
+    def arm(spec):
+        recs, _ = tk.arm_records(spec)
+        return sorted(tk.bpc(r, spec['corpus']) for r in recs.values())
 
-    big = arm('swap_yor_xlmr_*', 'yor_xlmr')
-    small = arm('swap62k_*', 'yor')
+    big = arm(next(a for a in tk.ARMS if a['corpus'] == 'yor_xlmr'))
+    small = arm(next(a for a in tk.ARMS if a['corpus'] == 'yor'))
     _, p_loc = stats_ttest(big, small)
     F = (st.stdev(big) ** 2) / (st.stdev(small) ** 2)
+    # Every number in the caption is computed, including the seed count and both p-values. An
+    # earlier version hard-coded "Six seeds a side" and "p = 0.0098" while computing the means
+    # from whatever records were on disk, so on a checkout without the six-seed data it drew
+    # three seeds a side under a caption asserting the six-seed conclusion. A figure that
+    # recomputes its data and quotes its caption from memory is worse than one that hard-codes
+    # both, because it looks live.
+    from scipy import stats as _s
+    p_var = 2 * min(_s.f.cdf(F, len(big) - 1, len(small) - 1),
+                    1 - _s.f.cdf(F, len(big) - 1, len(small) - 1))
+    down = _downstream_spread()
 
     fig, ax = plt.subplots(figsize=(10.0, 6.0))
     for i, (label, vals, color) in enumerate((('250k vocabulary\n(XLM-R’s)', big, C2),
@@ -949,13 +970,41 @@ def fig_tokenizer_lottery():
     ax.set_xlim(-0.5, 1.5)
     ax.set_ylabel('bits per character  (lower is better)')
     ax.set_title('Not a penalty — a lottery', pad=14)
+    below = sum(1 for x in big if x < st.median(small))
     fig.text(0.5, -0.10,
-             f'Six seeds a side, the sample size fixed in advance. The MEANS do not separate: '
-             f'{st.mean(big)-st.mean(small):+.3f} bits/char, p = {p_loc:.2f}, and three of the six\n'
-             f'250k runs land below the 16k median. The SPREADS do: F = {F:.1f}, p = 0.0098. The '
-             f'same holds downstream — 4.0× wider on topic, 7.7× on entities.',
+             f'{len(big)} seeds a side, the sample size fixed in advance. The MEANS do not '
+             f'separate: {st.mean(big)-st.mean(small):+.3f} bits/char, p = {p_loc:.2f}, and '
+             f'{below} of the {len(big)}\n250k runs land below the 16k median. The SPREADS do: '
+             f'F = {F:.1f}, p = {p_var:.4f}. {down}',
              ha='center', fontsize=11.5, color=INK2)
     save(fig, '17-tokenizer-lottery')
+
+
+def _downstream_spread():
+    """One sentence on whether the same variance gap appears downstream, computed not recalled.
+
+    It appears on entities and not on topic, and the caption used to assert both. The topic ratio
+    was 4.0x at three pretraining seeds -- never significant, p = 0.115 -- and reversed outright
+    at four when our own arm produced a weak seed. Quoting a ratio without testing it is the
+    mistake this whole board is about, so the figure now runs the test.
+    """
+    from scipy import stats as _s
+    p = os.path.join(HERE, 'runs', 'swap_downstream.json')
+    if not os.path.exists(p):
+        return 'Downstream comparison not on disk.'
+    rows = json.load(open(p, encoding='utf-8'))
+    out = []
+    for task, stage in (('topic', 'test'), ('entities', 'ner')):
+        a = [x['mean'] for x in rows if x.get('stage') == stage
+             and x['arm'] == "XLM-R's vocabulary"]
+        b = [x['mean'] for x in rows if x.get('stage') == stage and x['arm'] == 'our vocabulary']
+        if len(a) < 3 or len(b) < 3:
+            continue
+        F = st.stdev(a) ** 2 / st.stdev(b) ** 2
+        pv = 2 * min(_s.f.cdf(F, len(a) - 1, len(b) - 1), 1 - _s.f.cdf(F, len(a) - 1, len(b) - 1))
+        out.append(f'{task} {st.stdev(a)/st.stdev(b):.1f}× (p = {pv:.3f})')
+    return 'Downstream, over ' + str(len(a)) + ' pretraining seeds: ' + ', '.join(out) + '.' \
+        if out else 'Downstream comparison unavailable.'
 
 
 def stats_ttest(a, b):

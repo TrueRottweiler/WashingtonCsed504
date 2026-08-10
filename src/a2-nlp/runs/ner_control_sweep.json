@@ -20,5 +20,247 @@
       0.2600161333504071,
       0.30151053303527
     ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 2e-05,
+    "mean": 0.349792461029514,
+    "sd": 0.002890623326759936,
+    "ci": [
+      0.3271011705275801,
+      0.37045440831206616
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 3e-05,
+    "mean": 0.41398164869395426,
+    "sd": 0.004901020007177078,
+    "ci": [
+      0.3896674437260122,
+      0.4352193783391519
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 5e-05,
+    "mean": 0.4678374642388022,
+    "sd": 0.003783326498719682,
+    "ci": [
+      0.4448479075662198,
+      0.49019332919310243
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 7e-05,
+    "mean": 0.4938532118988375,
+    "sd": 0.006456782809415045,
+    "ci": [
+      0.4706346774531213,
+      0.5159621284829965
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.0001,
+    "mean": 0.5189308194441931,
+    "sd": 0.007774451840651253,
+    "ci": [
+      0.49591165504507473,
+      0.5411552873794059
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.0002,
+    "mean": 0.5939887382467849,
+    "sd": 0.004098296923442679,
+    "ci": [
+      0.5718851231989004,
+      0.6145544762463394
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.0003,
+    "mean": 0.6261408634141764,
+    "sd": 0.00278343469118811,
+    "ci": [
+      0.6056792599201779,
+      0.6464170908775106
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.0005,
+    "mean": 0.5427108998975941,
+    "sd": 0.010960435873895927,
+    "ci": [
+      0.5217554230860846,
+      0.5641724512028952
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.0007,
+    "mean": 0.0,
+    "sd": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "arm": "our architecture, untrained",
+    "model": "runs/yor_random_init",
+    "lr": 0.001,
+    "mean": 0.0,
+    "sd": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 5e-06,
+    "mean": 0.25809613111811996,
+    "sd": 0.007442491636292168,
+    "ci": [
+      0.2344105528691165,
+      0.28191283486182517
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 1e-05,
+    "mean": 0.293288449377551,
+    "sd": 0.0009629820339253475,
+    "ci": [
+      0.2703798140913997,
+      0.31638945392978934
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 2e-05,
+    "mean": 0.3339650480228012,
+    "sd": 0.0035479574019941793,
+    "ci": [
+      0.31014210508719336,
+      0.3557408087085183
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 3e-05,
+    "mean": 0.35437192854137084,
+    "sd": 0.004950609024777735,
+    "ci": [
+      0.33048519499461754,
+      0.3756259180258295
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 5e-05,
+    "mean": 0.382943630699276,
+    "sd": 0.001602975438105501,
+    "ci": [
+      0.35739916891861745,
+      0.4045290668749535
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 7e-05,
+    "mean": 0.3921371371136413,
+    "sd": 0.004548720228032121,
+    "ci": [
+      0.36755403424794386,
+      0.4142001425996005
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.0001,
+    "mean": 0.39687392976368585,
+    "sd": 0.004220890367054367,
+    "ci": [
+      0.37359412337662345,
+      0.4187719151082665
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.0002,
+    "mean": 0.4157693514847746,
+    "sd": 0.004163857251542795,
+    "ci": [
+      0.39257280743118933,
+      0.43735785435175767
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.0003,
+    "mean": 0.3895144050091243,
+    "sd": 0.004436935759843145,
+    "ci": [
+      0.3660758444539595,
+      0.4113389280063235
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.0005,
+    "mean": 0.0,
+    "sd": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.0007,
+    "mean": 0.0,
+    "sd": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "arm": "XLM-R's architecture, untrained",
+    "model": "runs/xlm-roberta-base_random_init",
+    "lr": 0.001,
+    "mean": 0.0,
+    "sd": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ]
   }
 ]
