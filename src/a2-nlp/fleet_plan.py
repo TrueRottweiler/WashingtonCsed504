@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -61,10 +62,17 @@ def announce(queue, cells, *, n_gpu=2, replace_prefix=None, owner=None):
     # that a run has finished survives a re-announce. Attribution is the exception: it comes from
     # the caller announcing now, so a study that gets renamed or reassigned is not stuck with
     # whatever the first announce happened to say.
+    # Which script published this queue. The dashboard uses it to answer "what is running right
+    # now" from the process list rather than from run files: a study doing fine-tuning writes
+    # nothing until each cell lands, so file-based liveness cannot see it, but the study's own
+    # process is sitting there in plain view the whole time. Without this the panel could only
+    # say it did not know, which is a poor answer when the answer is one process scan away.
+    script = os.path.basename(sys.argv[0]) or None
+
     for c in cells:
         prev = keep.get(c['tag'], {})
         merged = {**c, **{k: v for k, v in prev.items() if v is not None}}
-        keep[c['tag']] = {**merged, 'study': queue, 'owner': owner}
+        keep[c['tag']] = {**merged, 'study': queue, 'owner': owner, 'script': script}
 
     plan = {**old, 'queue': queue, 'n_gpu': n_gpu, 'started': old.get('started') or time.time(),
             'announced': time.time(), 'batch': 128, 'seq_len': 128,
