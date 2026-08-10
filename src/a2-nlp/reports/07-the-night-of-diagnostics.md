@@ -58,6 +58,20 @@ falls from **2.699 to 0.071** — a factor of thirty-eight. At 256M it falls to 
 *smaller than the 33.8M model's own spread of 0.154*. The 86M model was never unusable; it was
 unpredictable, and clipping is what makes it a measurement rather than a coin flip.
 
+> **Superseded, 2026-08-09.** Every row above is three seeds a side, and three a side cannot
+> resolve anything: the smallest p a permutation test can return at 3v3 is 0.10. So none of the
+> bolding here was earned, in either direction.
+>
+> The 1024M cell has since been run at fifteen seeds against thirteen, and the picture is not a
+> spread narrowing. It is two piles — runs train to about 2.5 or diverge to 7.469 — and the
+> ±2.699 above is mostly a record of how many seeds in that draw fell over. Clipping does **not**
+> prevent that (4 of 15 against 3 of 13, Fisher p = 1.00). What it does do, among runs that
+> train, is improve them (2.825 → 2.537, exact p = 0.0010) and tighten them (sd 0.256 → 0.112,
+> F = 5.23, p = 0.020) — both real, both far smaller than thirty-eight.
+>
+> The conclusion of this section survives and its arithmetic does not. See the reports
+> [README](README.md#the-86m-model-was-unpredictable-not-incapable) for the current table.
+
 **At 256M the two models are indistinguishable.** 2.481 ±0.026 against 2.387 ±0.154 — a gap of
 0.094 against a spread that covers it. This is the closest the bigger model has come, and it is
 the first time the comparison has been made with both sides properly seeded.

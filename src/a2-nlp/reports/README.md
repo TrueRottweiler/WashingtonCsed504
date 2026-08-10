@@ -197,18 +197,51 @@ One exception, not smoothed: Wolof at 1.31 sits inside the covered range.
 
 ## The 86M model was unpredictable, not incapable
 
-Clipping gradients at **0.5** instead of 1.0, across the whole ladder at three seeds a rung:
+Clipping gradients at **0.5** instead of 1.0, on the 86M model, at 62,500 steps. Counts are as of
+2026-08-09 and the top rung is still accumulating seeds:
 
-| data | clip 1.0 | clip 0.5 | 33.8M |
+| data | clip 1.0 | clip 0.5 | is the difference resolved? |
 |---|---|---|---|
-| 64M | 3.824 ±1.363 | **2.829 ±0.520** | 2.282 ±0.115 |
-| 256M | 2.755 ±0.123 | **2.481 ±0.026** | 2.387 ±0.154 |
-| 1024M | 4.365 ±2.699 | **2.544 ±0.071** | 2.193 |
+| 16M | 4.207 ±1.290 *(3)* | 4.347 ±1.620 *(3)* | no — exact p = 0.90 |
+| 64M | 3.824 ±1.363 *(3)* | 2.829 ±0.520 *(3)* | no — exact p = 0.30, and 0.10 is the floor |
+| 256M | 2.755 ±0.123 *(3)* | 2.481 ±0.026 *(3)* | no — exact p = 0.10, sitting *on* the floor |
+| 1024M | **2.825 ±0.256** *(11 trained of 15)* | **2.537 ±0.112** *(10 of 13)* | **yes** — exact p = 0.0010 |
 
-The reproducibility change is the bigger one: at the top rung the seed spread falls from 2.699 to
-**0.071**, a factor of thirty-eight. At 256M the two model sizes become indistinguishable — 2.481
-±0.026 against 2.387 ±0.154. There is still no crossover, and clipping changes nothing at 4M and
-16M, where the model has too little data to break through whatever the gradient norm.
+Two things about that table are worth more than the result in it.
+
+**Every three-seed row is unresolved, and three of them could not have been otherwise.** With
+three a side the smallest p a permutation test can return is 0.10, so a 3v3 comparison cannot
+reach significance at α = 0.05 *no matter how far apart the two arms land*. The 256M row is the
+sharp case: 2.755 against 2.481 with barely overlapping spreads, and it comes out at exactly 0.10
+because that is the floor. An earlier version of this section read a 38× spread reduction off
+these rows. That number was three seeds landing well.
+
+**At 1024M the losses are not a spread around a center — they are two piles:**
+
+```
+clip 1.0   2.549 2.649 2.684 2.742 2.777 2.824 2.853 2.924 3.453 …  | 7.469 7.469 7.469 7.469
+clip 0.5   2.405 2.406 2.418 2.526 2.560 2.596 2.689 2.701 …        | 7.469 7.469 7.469
+```
+
+A run either trains or it diverges to 7.469, and a mean taken across that bar describes neither
+kind of run. This is the project's own lesson turning up in the project's own table — the same
+shape as XLM-R's topic cell, three reports later, and we wrote the row before we noticed.
+
+Split into the two questions it was hiding:
+
+| question | verdict |
+|---|---|
+| does clipping **prevent** divergence? | **no** — 4 of 15 against 3 of 13, Fisher p = 1.00 |
+| does it improve runs that **do** train? | **yes** — 2.825 → 2.537, exact p = 0.0010 |
+| does it tighten their **spread**? | **yes** — 0.256 → 0.112, F = 5.23, p = 0.020 |
+
+So clipping is worth doing and the reason is not the one we gave. It does not stop the large model
+from falling over — it makes the runs that survive both better and more alike. And the evidence
+for that came from a study built to answer a different question, at fifteen seeds; the ladder that
+the claim was originally written from could not have supported it either way.
+
+There is still no crossover, and clipping changes nothing at 4M and 16M, where the model has too
+little data to break through whatever the gradient norm.
 
 A *lower* learning rate does the opposite of helping: every seed lands at 5.6 with a spread of
 0.049 — perfectly reproducible and completely useless. See

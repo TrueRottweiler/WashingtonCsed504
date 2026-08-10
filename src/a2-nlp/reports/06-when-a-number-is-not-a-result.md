@@ -81,9 +81,20 @@ Now the reference points. SIB-200's Yoruba test split is 204 items across 7 clas
 51/204, recall 1.0, F1 0.400, averaged across seven classes. Two of the five seeds hit it to three
 decimal places.
 
-Four of five seeds score below uniform random guessing, and the cell mean sits below the untrained
-control's 0.107. A fully pretrained multilingual encoder finishing below an untrained one is as
-clear as this gets: **0.127 was never a measurement of XLM-R's Yoruba coverage.**
+Four of five seeds score below uniform random guessing, and two of them sit on the majority-class
+score of 0.057 to three decimal places.
+
+An earlier version of this paragraph added that the cell mean "sits below the untrained control's
+0.107." It does not — 0.1098 against 0.1073, which is *above* by 0.0025, and the sentence
+contradicted the two numbers inside it. Nor is that difference anything: Welch p = 0.95, exact
+permutation p = 0.82. The two are indistinguishable, which is the honest and slightly duller
+version of the same point.
+
+The withdrawal does not depend on the sign, and that is worth being clear about rather than
+quietly repairing. It rests on the line above: a cell where four of five seeds fail to beat
+uniform guessing and two collapse onto the majority class is not measuring the model. **0.127 was
+never a measurement of XLM-R's Yoruba coverage** — whether it lands a fraction above an untrained
+encoder or a fraction below it.
 
 This is not a property of the harness. mmBERT, through the identical code path, lands at
 0.502–0.558 across five seeds and reproduces the notebook's 0.537 to within 0.016.
@@ -354,7 +365,7 @@ run on NER at all, which after §6 is a gap rather than a detail.
 
 | claim | status |
 |---|---|
-| XLM-R scores 0.127 on Yoruba topic classification | **Withdraw.** At 352 steps one seed in five trains; the cell mean of 0.110 sits below the untrained control. |
+| XLM-R scores 0.127 on Yoruba topic classification | **Withdraw.** At 352 steps four seeds in five fail to beat uniform guessing and two land exactly on the majority-class score. The cell mean of 0.110 is indistinguishable from the untrained control's 0.107 (exact p = 0.82) — *not* below it, as this row used to say. |
 | XLM-R collapsed because of a degenerate fine-tune | **Withdraw.** It was undertrained. At 1056 steps 18 of 25 seeds converge. |
 | mmBERT beats XLM-R by 0.41 on topic classification | **Replace.** At a matched 1056-step budget, mmBERT leads by **0.166** with disjoint intervals. The margin is real; the size was an artifact of comparing a trained model against an untrained one. |
 | XLM-R is a usable Yoruba baseline on SIB-200 | **Withdraw.** At the only budget where it trains it is 0.004 above a randomly initialised encoder, with overlapping intervals. |
