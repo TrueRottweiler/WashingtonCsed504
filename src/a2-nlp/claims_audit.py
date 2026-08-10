@@ -60,6 +60,95 @@ def rank(v):
     return out
 
 
+def exact_p(a, b):
+    """Two-sided permutation p over every way of splitting a+b, and the smallest p it can return.
+
+    Worth reporting next to a t-test, because at these sample sizes the t-test quotes precision
+    the data does not contain. Five against five cannot go below 2/C(10,5) = 0.0079 no matter how
+    far apart the groups are; three against three cannot go below 0.10. A Welch p of 0.0002 on
+    five-a-side is a parametric extrapolation about forty times into a tail that ten observations
+    do not reach, and quoting it invites exactly the objection this file exists to pre-empt.
+    """
+    r = stats.permutation_test((list(a), list(b)),
+                               lambda x, y: st.mean(x) - st.mean(y),
+                               permutation_type='independent', alternative='two-sided',
+                               n_resamples=100_000, random_state=0)
+    floor = 2.0 / math.comb(len(a) + len(b), len(a))
+    return float(r.pvalue), floor
+
+
+def separation(a_rec, b_rec, label_a='A', label_b='B'):
+    """Every test the saved data supports, because no single one answers the whole question.
+
+    Three different uncertainties are in play and they are not nested:
+
+      seeds   would a rerun land somewhere else?      -- uses `scores`, blind to the test set
+      items   do 204 items place the number?          -- uses `ci`,     blind to the seeds
+      paired  do the two arms differ on THESE items?  -- needs predictions, cancels item difficulty
+
+    The project used to decide separation by asking whether the two intervals overlap. That is
+    not a weaker version of the right test, it is a different one: two 95% intervals miss each
+    other only when the margin clears 1.96*(SE_a + SE_b), which is algebraically the assumption
+    that the arms' per-item errors are perfectly ANTI-correlated. Its effective alpha is 0.0056.
+    It is not safe in the other direction either -- the interval cannot see seed spread, so a
+    high-variance arm gets a narrow one and the gate calls it separated when the seeds cannot.
+
+    So print all of them and let the disagreements show.
+    """
+    a, b = a_rec['scores'], b_rec['scores']
+    d = st.mean(a) - st.mean(b)
+    out = {'difference': d, 'n_a': len(a), 'n_b': len(b)}
+
+    t, p_welch = stats.ttest_ind(a, b, equal_var=False)
+    out['welch'] = (float(t), float(p_welch))
+    out['exact'], out['exact_floor'] = exact_p(a, b)
+
+    # The seed-spread rule this project quotes, fed the SAMPLE sd it was derived for.
+    sd_a, sd_b = ft_api.sample_sd(a), ft_api.sample_sd(b)
+    pooled = math.sqrt((sd_a ** 2 + sd_b ** 2) / 2)
+    dfree = len(a) + len(b) - 2
+    bar = stats.t.ppf(1 - ALPHA / 2, dfree) * math.sqrt(1 / len(a) + 1 / len(b))
+    out['spread_ratio'] = abs(d) / pooled if pooled else float('inf')
+    out['spread_bar'] = bar
+
+    # Item-level, from the intervals already stored. Treating each as +-1.96 SE and testing the
+    # DIFFERENCE rather than the overlap is the same data, asked the right question.
+    se_a = (a_rec['ci'][1] - a_rec['ci'][0]) / (2 * 1.959964)
+    se_b = (b_rec['ci'][1] - b_rec['ci'][0]) / (2 * 1.959964)
+    se_item = math.sqrt(se_a ** 2 + se_b ** 2)
+    out['item'] = (d / se_item, 2 * (1 - stats.norm.cdf(abs(d) / se_item)))
+    out['overlap'] = not (a_rec['ci'][0] > b_rec['ci'][1] or b_rec['ci'][0] > a_rec['ci'][1])
+
+    # Both sources, unpaired -- the conservative combination, since pairing only helps.
+    se_seed = math.sqrt(sd_a ** 2 / len(a) + sd_b ** 2 / len(b))
+    se_both = math.sqrt(se_item ** 2 + se_seed ** 2)
+    out['combined'] = (d / se_both, 2 * (1 - stats.norm.cdf(abs(d) / se_both)))
+
+    # And the one that settles it, if the runs were new enough to have saved predictions.
+    out['paired'] = ft_api.paired_bootstrap(a_rec['tag'], b_rec['tag'])
+
+    lines = [f"{label_a} {st.mean(a):.4f} vs {label_b} {st.mean(b):.4f}, margin {d:+.4f}",
+             f"seeds  exact p = {out['exact']:.4f} (floor {out['exact_floor']:.4f} at "
+             f"{len(a)}v{len(b)}), Welch p = {p_welch:.4g}",
+             f"spread {out['spread_ratio']:.2f}x pooled sample sd, bar is {bar:.2f}x at "
+             f"{dfree} df",
+             f"items  z = {out['item'][0]:.2f}, p = {out['item'][1]:.4f}"
+             f"  (intervals {'overlap' if out['overlap'] else 'disjoint'})",
+             f"both   z = {out['combined'][0]:.2f}, p = {out['combined'][1]:.4f}"]
+    if out['paired']:
+        pb = out['paired']
+        lines.append(f"paired {pb['difference']:+.4f} over {pb['n_items']} shared items, "
+                     f"p = {pb['p']:.4f}")
+    else:
+        lines.append('paired unavailable -- these runs predate saved predictions')
+    out['text'] = '\n                      '.join(lines)
+    # Supported only if the two tests that use DIFFERENT uncertainties both clear alpha. That is
+    # deliberately stricter than either alone, and it is the honest reading when the arms have
+    # not been compared item by item.
+    out['supported'] = bool(out['exact'] < ALPHA and out['combined'][1] < ALPHA)
+    return out
+
+
 # ------------------------------------------------------------------------------------------
 def main():
     corr = json.load(open(os.path.join(HERE, 'runs', 'downstream_correlation.json'),
@@ -109,23 +198,46 @@ def main():
             'RETRACTED -- was in an email and a figure before it was checked',
             False,
             f'floor is {shares[0]:.0%} of best on SIB and {shares[1]:.0%} on NER',
-            'five points apart. Kept in the audit so the retraction stays visible')
+            f'{abs(shares[0]-shares[1]):.0%} apart, and the note here used to say "five points" '
+            f'from when it was.\n                      The floors moved when the NER control was '
+            f'finally swept; the retraction did not, because the\n                      band '
+            f'widths are what explain the divergence either way. Kept visible on purpose.')
 
     # --- 5. from-scratch ahead of mmBERT on SIB -------------------------------------------
-    def best(frag, task, steps):
-        c = [r for r in down if frag in r['model'] and r.get('task') == task
-             and r.get('steps') == steps]
-        return max(c, key=lambda r: r['mean']) if c else None
+    # Both fixes here are Patrick's, and both are the same bugs he had just removed from
+    # fig_headline. Arms were matched with `frag in r['model']` -- a substring of a filesystem
+    # path, so 'yor_64M' also caught s1, s2 and the 46.9k model, and the field itself differs
+    # between machines, which is what silently dropped three of five arms from a table in his
+    # sweep notebook. And the rate was taken as max(mean) over TEST cells, which re-selects on
+    # the very items being reported. model_slug fixes the first; reading the rate off the dev
+    # cells fixes the second. They happen to land on the same two cells today, which is exactly
+    # why this needed fixing before it drifted rather than after.
+    dev = ft_api.results(eval_split='validation')
 
-    ours, mmb = best('yor_64M', 'sib200', 1056), best('mmBERT', 'sib200', 1056)
-    overlap = ours['ci'][0] < mmb['ci'][1]
-    verdict('from-scratch is ahead of mmBERT on topic classification',
-            f"{ours['mean']:.3f} vs {mmb['mean']:.3f}, a margin of {ours['mean']-mmb['mean']:.3f}",
-            None if overlap else True,
-            f"CIs [{ours['ci'][0]:.3f},{ours['ci'][1]:.3f}] and "
-            f"[{mmb['ci'][0]:.3f},{mmb['ci'][1]:.3f}] -- "
-            f"{'OVERLAP' if overlap else 'disjoint'}",
-            'both arms also selected on the same 204 test items they are scored on')
+    def dev_pick(slug, task, steps):
+        """The cell report 11 would report: rate chosen on dev, number read off test."""
+        cand = [r for r in dev if r.get('model_slug') == slug and r.get('task') == task
+                and r.get('steps') == steps]
+        if not cand:
+            return None
+        b = max(cand, key=lambda r: r['mean'])
+        hit = [r for r in down if r.get('model_slug') == slug and r.get('task') == task
+               and r.get('steps') == steps and abs(r['lr'] - b['lr']) < 1e-12]
+        return hit[0] if hit else None
+
+    ours = dev_pick('yor-64M-62.5k-s0', 'sib200', 1056)
+    mmb = dev_pick('mmBERT-base', 'sib200', 1056)
+    if ours and mmb:
+        s = separation(ours, mmb, 'ours', 'mmBERT')
+        verdict('from-scratch is ahead of mmBERT on topic classification',
+                f"{ours['mean']:.3f} vs {mmb['mean']:.3f}, a margin of "
+                f"{s['difference']:.3f}",
+                s['supported'],
+                s['text'],
+                f"rate chosen on the 99 dev items (ours {ours['lr']:g}, mmBERT {mmb['lr']:g}), "
+                f"then scored on the 204 test items -- so this is no longer selected on what it "
+                f"reports.\n                      Three of the five reported seeds are the three "
+                f"the dev sweep used, so a residual selection channel remains.")
 
     # --- 6. the tokenizer penalty against the noise it must beat --------------------------
     def arm(pat, corpus):
@@ -135,10 +247,23 @@ def main():
 
     a, c = arm('swap_yor_xlmr_*', 'yor_xlmr'), arm('swap62k_*', 'yor')
     t, p = stats.ttest_ind(a, c, equal_var=False)
+    pe, floor = exact_p(a, c)
+    ratio = abs(st.mean(a) - st.mean(c)) / math.sqrt(
+        (ft_api.sample_sd(a) ** 2 + ft_api.sample_sd(c) ** 2) / 2)
+    bar = stats.t.ppf(1 - ALPHA / 2, len(a) + len(c) - 2) * math.sqrt(1 / len(a) + 1 / len(c))
     verdict('the tokenizer penalty is real at matched compute',
             f'{st.mean(a)-st.mean(c):.3f} bits per character',
-            p < ALPHA,
-            f'Welch t = {t:.2f}, p = {p:.4f}, n = {len(a)} vs {len(c)}')
+            p < ALPHA and pe < ALPHA,
+            f'Welch t = {t:.2f}, p = {p:.4f}, n = {len(a)} vs {len(c)}\n'
+            f'                      exact permutation p = {pe:.3f}, and at {len(a)}v{len(c)} the '
+            f'smallest p reachable is {floor:.2f}\n'
+            f'                      {ratio:.2f}x the pooled sample sd against a bar of '
+            f'{bar:.2f}x',
+            f'This is the largest live exposure on the board: four places assert it as a result '
+            f'while this line\n                      rejects it. At three a side the test cannot '
+            f'return anything below {floor:.2f}, so the honest\n                      reading is '
+            f'"not established at this seed count", not "shown to be nothing". Six seeds are '
+            f'queued.')
 
     # --- 7. does the best learning rate transfer? -----------------------------------------
     lr_rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'lr_transfer.json'),

@@ -39,9 +39,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'runs', 'ner_control_sweep.json')
 
 TASK, LANG, STEPS = 'masakhaner', 'yor', 2150
-# The same eight rates the from-scratch arm was swept over, so the control cannot be accused of
-# having had a narrower search than the thing it is the floor for.
-RATES = [5e-6, 1e-5, 2e-5, 3e-5, 5e-5, 7e-5, 1e-4, 2e-4]
+# Started as the same eight rates the from-scratch arm was swept over, so the control could not be
+# accused of a narrower search than the thing it is the floor for. That turned out not to be
+# enough: the first pass rose monotonically across all eight and peaked at 0.594 on the top rate,
+# which is a sweep reporting its own boundary rather than a maximum. Extended upward until the
+# curve turns over. The floor matters more than most cells here because every "clears the floor
+# by" number on NER is measured against it, and a floor quoted from an unfinished sweep is
+# an overstatement of every one of those gaps.
+RATES = [5e-6, 1e-5, 2e-5, 3e-5, 5e-5, 7e-5, 1e-4, 2e-4, 3e-4, 5e-4, 7e-4, 1e-3]
 SEEDS = (0, 1, 2)
 ARMS = [('our architecture, untrained', 'runs/yor_random_init'),
         ("XLM-R's architecture, untrained", 'runs/xlm-roberta-base_random_init')]

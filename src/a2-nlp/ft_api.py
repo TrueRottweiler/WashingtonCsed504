@@ -39,11 +39,30 @@ the pretraining ones already do -- a separate results directory would be silentl
 session. And the suffix is _ft.json, not _result.json, so mlm_api.results() does not pick these
 up: the pretraining table stays a pretraining table.
 
-POOLED BOOTSTRAP, NOT THE LAST SEED. `evaluate` resamples test ITEMS and averages across seeds
-inside each resample, so the interval covers both sources of variation. A per-seed sd is reported
-alongside it because the two answer different questions: the sd says whether a rerun would land
-somewhere else, the CI says whether the test set is large enough to tell two models apart. On 204
-SIB-200 items it usually is not, which is the point.
+POOLED BOOTSTRAP, NOT THE LAST SEED. `evaluate` resamples test ITEMS, averaging across seeds
+inside each resample. Read that carefully, because this docstring used to claim the opposite: the
+interval carries item-sampling uncertainty ONLY. Averaging the seeds inside each resample makes
+the seed-averaged predictor a fixed function, so seed-to-seed variation contributes exactly zero
+to the interval's width. Raising a cell's per-seed sd from 0.028 to 0.047 moves its CI width by
+about -2%, which is noise, not a response.
+
+So the sd and the CI are two different uncertainties and NEITHER contains the other. The sd says
+whether a rerun would land somewhere else; the CI says whether 204 test items can place the
+number. On SIB-200 the item term is the larger of the two -- about 2.4x the seed term on the
+difference between two arms -- so a comparison that uses only one of them is answering half the
+question, whichever half it picks.
+
+DO NOT USE CI OVERLAP AS A SEPARATION TEST. Two 95% intervals fail to overlap only when the
+margin exceeds 1.96*(SE_a + SE_b), which is algebraically the assumption that the two models'
+per-item errors are perfectly ANTI-correlated -- the most adversarial value available, and the
+opposite of what two models scored on the same items actually do. Its effective alpha is 0.0056,
+not 0.05. It is also not conservative in the other direction: because the interval is blind to
+seeds, a high-variance arm gets a narrow one, and 28 SIB-200 pairs on disk are CI-disjoint with
+a seed-level p above 0.05. Test the difference, not the overlap, and say which uncertainty you
+used.
+
+A per-item test is the one that settles it, which is why `evaluate` now persists predictions
+next to the record; see `predictions()`.
 
 MASAKHANER IS READ FROM CoNLL, NOT load_dataset. The HuggingFace copy ships a custom loading
 script, and that path is no longer executed after the July 2026 incident. The files come from the
@@ -416,10 +435,11 @@ def pooled_ci(score_fn, gold, preds: list, n_boot: int = N_BOOT, seed: int = 0
               ) -> tuple[float, float]:
     """Bootstrap over test ITEMS, averaging across seeds within each resample.
 
-    Not the last seed's interval: resampling one seed's predictions measures test-set size only,
-    and reporting it as the model's interval understates the uncertainty by leaving out the run-
-    to-run variation entirely. Each resample here scores every seed on the same resampled items
-    and averages, so the interval carries both.
+    This is better than resampling a single seed's predictions, which would report one run's
+    luck as the model's interval. But it is not the both-sources interval this docstring used to
+    claim it was. Averaging the seeds inside the resample fixes the predictor before the
+    resampling starts, so the width answers "how well do 204 items place this number" and nothing
+    about whether a rerun would land elsewhere. That is what `sd` and `scores` are for.
     """
     rng = np.random.default_rng(seed)
     n = len(gold)
@@ -701,6 +721,11 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
 
     scores = [score_fn(gold, p) for p in preds]
     lo, hi = pooled_ci(score_fn, gold, preds, n_boot=n_boot)
+    # sd is ddof=0 and stays that way, because changing it would silently move every stored
+    # record. Anything comparing a difference against "the seed spread" wants the SAMPLE sd and
+    # should call sample_sd() on the scores -- the population form is low by sqrt(n/(n-1)), which
+    # is 22% at three seeds and 12% at five, and every "Nx the spread" figure written before this
+    # comment is overstated by that factor.
     mean, sd = float(np.mean(scores)), float(np.std(scores))
 
     # Chance for balanced macro-F1 is 1/k. A cell at or below it has not learned the task, and
@@ -726,6 +751,19 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
         'created': _dt.datetime.now().isoformat(timespec='seconds'),
     }
 
+    # Predictions, next to the record rather than inside it -- a MasakhaNER cell is thousands of
+    # token labels and would swamp a file that people read. Without these the only comparison
+    # anyone can run is "seeds only" or "items only", and the one that actually settles whether
+    # two models differ -- a paired bootstrap over the items they were both scored on -- is
+    # impossible after the fact. It costs a few hundred kilobytes and it is not recoverable
+    # later, which is the whole argument for writing it now.
+    try:
+        with open(os.path.join(RUNS, f'{tag}_preds.json'), 'w', encoding='utf-8') as f:
+            json.dump({'tag': tag, 'seeds': seeds, 'gold': _jsonable(gold),
+                       'preds': [_jsonable(p) for p in preds]}, f)
+    except (OSError, TypeError) as e:                  # never lose a completed run over a sidecar
+        print(f'  (predictions not saved: {e!r})')
+
     os.makedirs(RUNS, exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(rec, f, indent=2)
@@ -743,6 +781,78 @@ def evaluate(model_path: str, task: str = 'sib200', lang: str | None = None,
 # ----------------------------------------------------------------------------------------------
 # reading results back
 # ----------------------------------------------------------------------------------------------
+
+def _jsonable(x):
+    """Numpy arrays and label sequences, as plain lists."""
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+    if isinstance(x, (list, tuple)):
+        return [_jsonable(v) for v in x]
+    return x.item() if hasattr(x, 'item') else x
+
+
+def sample_sd(rec_or_scores) -> float:
+    """The ddof=1 spread, which is what every 'N times the seed spread' rule means.
+
+    The stored `sd` is ddof=0 and is left alone so old records do not move under people, but a
+    threshold derived for a sample sd must be fed a sample sd. At three seeds the difference is
+    22%, which is the whole distance between passing and failing for more than one claim here.
+    """
+    s = rec_or_scores['scores'] if isinstance(rec_or_scores, dict) else rec_or_scores
+    return float(np.std(s, ddof=1)) if len(s) > 1 else float('nan')
+
+
+def predictions(tag: str) -> dict | None:
+    """The per-item predictions for a record, if they were saved. See the module docstring.
+
+    Only runs from 2026-08-10 onward have these; older records were written before `evaluate`
+    persisted them, and there is no way to reconstruct them without re-running the fine-tune.
+    """
+    p = os.path.join(RUNS, f'{tag}_preds.json')
+    if not os.path.exists(p):
+        return None
+    with open(p, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def paired_bootstrap(tag_a: str, tag_b: str, score_fn=None, n_boot: int = 10_000,
+                     seed: int = 0) -> dict | None:
+    """Resample the ITEMS both arms were scored on and bootstrap their DIFFERENCE.
+
+    This is the test the CI-overlap gate was standing in for. Because both arms see the same
+    resampled items, whatever makes an item easy cancels instead of being counted twice, so this
+    sits between the seeds-only test (which assumes it cancels completely) and comparing two
+    independent intervals (which assumes it anti-correlates). Returns None when either arm has no
+    saved predictions, which is most of the back catalogue.
+    """
+    a, b = predictions(tag_a), predictions(tag_b)
+    if not a or not b or len(a['gold']) != len(b['gold']):
+        return None
+    gold = a['gold']
+    if score_fn is None:
+        # MasakhaNER gold is a list of tag sequences; SIB-200 gold is a list of class indices.
+        if gold and isinstance(gold[0], list):
+            score_fn = entity_f1
+        else:
+            k = len(set(gold))
+            score_fn = lambda g, p: macro_f1(g, p, k)   # noqa: E731 - closes over k
+    rng = np.random.default_rng(seed)
+    n, diffs = len(gold), []
+    for _ in range(n_boot):
+        i = rng.integers(0, n, n)
+        g = _take(gold, i)
+        ma = float(np.mean([score_fn(g, _take(p, i)) for p in a['preds']]))
+        mb = float(np.mean([score_fn(g, _take(p, i)) for p in b['preds']]))
+        diffs.append(ma - mb)
+    d = np.asarray(diffs)
+    obs = float(np.mean([score_fn(gold, p) for p in a['preds']])
+                - np.mean([score_fn(gold, p) for p in b['preds']]))
+    # Two-sided bootstrap p: how often the resampled difference crosses zero, doubled.
+    p = 2.0 * min((d <= 0).mean(), (d >= 0).mean())
+    return {'difference': obs, 'ci': [float(np.percentile(d, 2.5)),
+                                      float(np.percentile(d, 97.5))],
+            'p': float(min(1.0, p)), 'n_boot': n_boot, 'n_items': n}
+
 
 def results(pattern: str = '*', task: str | None = None, lang: str | None = None,
             eval_split: str | None = EVAL_SPLIT) -> list[dict]:
