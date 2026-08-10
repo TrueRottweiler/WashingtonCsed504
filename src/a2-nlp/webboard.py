@@ -134,8 +134,25 @@ def running_studies() -> dict:
         m = re.search(r'(study_\w+\.py)', line)
         if not m:
             continue
+        script = m.group(1)
+        # The card comes from CUDA_VISIBLE_DEVICES when the launcher set it on the command line,
+        # and from --gpu otherwise. Before #64 --gpu was ignored by every fine-tuning study, so a
+        # launcher that wanted card 1 had to set the variable instead; the flag works now, and
+        # --gpu is the form to prefer because it is visible here. When the variable is exported by
+        # the shell rather than written inline it is invisible to a command-line scan, and the
+        # honest answer is None rather than a confident wrong number.
+        env = re.search(r'CUDA_VISIBLE_DEVICES=(\d+)', line)
         gpu = re.search(r'--gpu\s+(\d+)', line)
-        found[m.group(1)] = {'gpu': int(gpu.group(1)) if gpu else None}
+        card = int(env.group(1)) if env else (int(gpu.group(1)) if gpu else None)
+
+        # Key on script AND shard. Two shards of one study are two processes with the same script
+        # name, and keying on the name alone collapsed them into one -- so the panel showed a
+        # single worker while both cards were at 70%, which is the failure this function exists
+        # to prevent, one level up.
+        shard = re.search(r'--shard\s+(\S+)', line)
+        key = f'{script} {shard.group(1)}' if shard else script
+        found[key] = {'gpu': card, 'script': script,
+                      'shard': shard.group(1) if shard else None}
     return found
 
 
@@ -541,8 +558,16 @@ def fleet_plan(runs, hours: float) -> dict | None:
     # pending one -- that is what a sequential study is doing by construction. It is flagged as
     # inferred rather than observed, because the honest version of "what is running" here is
     # "this study, somewhere in this cell", not a measurement of that cell.
-    matched = {s: g for g in groups.values()
-               for s in [g.get('script')] if s and s in live_scripts}
+    # live_scripts is keyed by script AND shard, so two shards of one study stay distinct there.
+    # A plan group names only the script, so match on the script field inside each entry rather
+    # than on the key -- and keep every worker that matches, because "how many cards is this
+    # study using" is exactly what the panel should be able to say.
+    matched = {}
+    for key, info in live_scripts.items():
+        for g in groups.values():
+            if g.get('script') and g['script'] == info['script']:
+                matched.setdefault(key, g)
+                break
 
     # Plans written before announce() recorded its script have no name to match on, and a study
     # already running when this code landed will never write one. Rather than be blind until
@@ -563,12 +588,20 @@ def fleet_plan(runs, hours: float) -> dict | None:
         if len(spare) == 1 and len(candidates) > 1:
             candidates = [g for g in candidates if g['study'] == plan.get('queue')]
         if len(candidates) == 1 and len(spare) == 1:
-            candidates[0]['script'] = spare[0]
+            # spare[0] is a "script shard" key; store the script name, which is what a plan
+            # group carries and what the next poll will match on.
+            candidates[0]['script'] = live_scripts[spare[0]]['script']
             candidates[0]['script_inferred'] = True
             matched[spare[0]] = candidates[0]
 
-    for script, g in matched.items():
-        g['active'], g['gpu'] = True, live_scripts[script].get('gpu')
+    for key, g in matched.items():
+        g['active'] = True
+        g.setdefault('workers', []).append(
+            {'gpu': live_scripts[key].get('gpu'), 'shard': live_scripts[key].get('shard')})
+        # One card in `gpu` for the header's simple case; `workers` carries the full picture when
+        # a study is sharded across both.
+        if g.get('gpu') is None:
+            g['gpu'] = live_scripts[key].get('gpu')
         if not g['running'] and g['pending']:
             nxt = next(c for c in g['cells'] if c['state'] == 'pending')
             nxt['state'], nxt['inferred'] = 'running', True
@@ -1568,9 +1601,17 @@ async function tick(){
     // runs writing a curve, so a study fine-tuning for twenty minutes read as an idle machine.
     // Studies get named here, because a study process IS work in progress.
     const act = (d.fleet && d.fleet.groups || []).filter(g => g.active);
+    const where = g => {
+      // A sharded study is several workers, possibly on different cards. Naming one of them
+      // would be the same class of wrong as the panel that named one card while two were busy.
+      const w = g.workers || [];
+      const cards = [...new Set(w.map(x => x.gpu).filter(x => x != null))];
+      if (w.length > 1) return ` · ${w.length} workers${cards.length ? ' on card ' + cards.join(' and ') : ''}`;
+      return g.gpu != null ? ` · card ${g.gpu}` : '';
+    };
     document.getElementById('sub').textContent =
       live.length ? `${live.length} training`
-      : act.length ? act.map(g => g.study + (g.gpu != null ? ` · card ${g.gpu}` : '')).join(' · ')
+      : act.length ? act.map(g => g.study + where(g)).join(' · ')
       : (d.busy_cards || []).length ? 'a card is busy — see below'
       : 'nothing training right now';
     // Show when the SERVER started. An edited file does not reach a process that is already
