@@ -82,6 +82,12 @@ All at 1,056 steps, the budget at which models actually train — see
 
 **SIB-200, Yoruba topic classification**
 
+> **Superseded 9 August.** Every row below picked its learning rate on the same 204 test items it
+> is scored on. [Report 11](11-selecting-on-the-dev-split.md) re-selects all five arms on the
+> 99-item validation split and replaces this table. It is kept here because the two claims that
+> follow it were drawn from it, and both are corrected in place below — one of them reverses
+> sign. The NER table further down is not affected.
+
 | | macro-F1 | 95% CI | best lr |
 |---|---|---|---|
 | **from-scratch, ours (33.8M)** | **0.6659** | [0.603, 0.711] | 3e-5 |
@@ -95,18 +101,31 @@ pretrained on 3 trillion tokens across 1,800 languages. The intervals overlap, s
 decisive win — but it is ahead, and it is the result the study set out to look for. Write it as
 *ahead*, not *beats*, wherever it is quoted.
 
+**Update, 9 August.** Under dev-split selection the margin is **+0.106** — 0.688 against 0.582 —
+and clears the project's 0.06 floor for the first time. The intervals still overlap, by 0.004, so
+*ahead* rather than *beats* survives the correction intact.
+
 Every model here is its own best of a learning-rate sweep. That symmetry took three passes to
 reach and is the subject of §2b.
 
 One caveat §2b does not close: every arm chose its rate on the same 204 test items it is then
 reported on, which inflates all of them. Patrick is re-selecting on SIB-200's 99-item validation
 split — shipped with the dataset and never used by this project until now — and scoring only the
-winner on test. Those are the numbers to quote once they land.
+winner on test. **They landed on 9 August — [report 11](11-selecting-on-the-dev-split.md). Those
+are the numbers to quote.**
 
 The bottom three rows are the more interesting part. **XLM-R's pretraining is worth +0.039 over
 the same architecture with random weights**, with intervals that overlap almost completely. For
 Yoruba, XLM-R's pretraining contributes nothing measurable. That is a sharper statement than
 "XLM-R is weak on Yoruba": whatever it learned from 100 languages does not reach this one.
+
+**Corrected 9 August — the sign reverses and the conclusion hardens.** The +0.039 set XLM-R's
+best of five against a control run at a single rate, so it was an upper bound, as §2b says of
+itself. Selecting both arms the same way on the dev split gives **−0.024**: XLM-R lands *below* a
+randomly initialised model of its own architecture. It also survives the obvious objection. One
+of XLM-R's five seeds collapses to 0.057; discard that seed outright and the margin is +0.052,
+still inside the 0.06 floor. Either way "contributes nothing measurable" holds — and it no longer
+depends on reading an interval overlap, which is the weaker form of the argument.
 
 **MasakhaNER 2.0, Yoruba entity recognition** (2,150 steps, NFC)
 
@@ -151,11 +170,25 @@ margin is 0.071 and not the 0.092 an unextended comparison would have given.
 **A best-of-sweep number is only meaningful if the sweep contains the best.** Three of the five
 sweeps in this project peaked at their own boundary.
 
+**A fourth pass followed on 9 August**, and the +0.071 in the table above is superseded by
+**+0.106** — see [report 11](11-selecting-on-the-dev-split.md). Every pass here still selected on
+the 204 test items it reported; the fourth selects on the 99-item validation split instead. The
+boundary problem recurred there too, on the untrained control, and the count is now four of six.
+
 ### The two tasks disagree, and the control explains why
 
 Our model wins topic classification by 0.059 and loses entity recognition by 0.053. The floors
 say why: **the untrained control scores 0.414 on NER and 0.403 on SIB-200 — but 0.414 out of
 0.851 is 49% of the achievable score, against 0.403 out of 0.632, or 64%.**
+
+> **Retracted 9 August.** Both percentages moved and the gap between them mostly closed: the
+> SIB-200 control is 0.429 once it gets its own swept rate ([report 11](11-selecting-on-the-dev-split.md)),
+> and the denominators depend on which model counts as the ceiling. The better-supported account
+> of the same divergence is that NER scores barely move across from-scratch models — a band of
+> 0.044 — while SIB-200 scores vary three times as much, at 0.143. The paragraphs below are kept
+> because the *direction* survives; the two percentages should not be quoted. Note also that the
+> NER control is a single cell at 3e-5 against baselines that are best-of-a-sweep, so it carries
+> the asymmetry report 11 removed from SIB-200.
 
 Read the other way round: NER hands 0.414 to a model that knows no Yoruba at all. Capitalisation
 and name shape carry it, and those transfer from any language. What the multilingual models add
@@ -173,8 +206,8 @@ not an anomaly and it was not a bug. It is what the tasks measure.
 |---|---|
 | A language-specific vocabulary is worth building for an under-served language | **Hold, now measured.** 0.144 bits/char at matched compute, 1.6× the seed spread. Previously only the fertility ratio was measured. |
 | The tokenizer penalty is 1.65× for Yoruba | **Hold.** Reproduced three independent ways: fertility on the pretraining corpus, on two evaluation sets, and as a 1.75× token-count ratio in the swap corpus. |
-| From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification** (0.666 vs 0.595 best-against-best, overlapping CIs). **Does not hold on entity recognition** (0.837 vs 0.863), though the gap is 0.026 rather than the 0.145 first recorded. The task decides. |
-| XLM-R is a usable Yoruba baseline | **Withdrawn** in report 06, and now explained: its pretraining is worth +0.039 over the same architecture untrained. |
+| From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification**, and strengthened under dev-split selection: 0.688 vs 0.582, a margin of 0.106 that clears the 0.06 floor, though the intervals still overlap by 0.004 ([report 11](11-selecting-on-the-dev-split.md)). **Does not hold on entity recognition** (0.837 vs 0.863), though the gap is 0.026 rather than the 0.145 first recorded. The task decides. |
+| XLM-R is a usable Yoruba baseline | **Withdrawn** in report 06, and now explained: under symmetric dev-split selection its pretraining is worth **−0.024** against the same architecture untrained — below it, not above ([report 11](11-selecting-on-the-dev-split.md)). The +0.039 first recorded here compared its best of five against a control run once. |
 | The from-scratch model loses NER by 0.145 | **Withdrawn.** 0.014 against XLM-R once the Unicode normalization is right and every model gets its own best learning rate. |
 | MLM loss does not predict downstream quality | **Weakened further.** Our model has the best SIB-200 score and the third-best NER score; loss ordering predicts one and not the other. |
 

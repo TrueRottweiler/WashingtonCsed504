@@ -37,6 +37,7 @@ import time
 
 from scipy import stats
 
+import fleet_plan
 import mlm_api as f
 import mlm_train as _train
 
@@ -76,6 +77,15 @@ def main():
     if a.dry_run:
         print('\n--dry-run: nothing was executed.')
         return
+
+    fleet_plan.announce('tokenizer penalty: three more seeds per arm',
+                        [fleet_plan.cell(
+                            f"{arm['prefix']}_{_train.cell_tag(arm['corpus'], arm['tokens'], arm['steps'], s, PRESET)}",
+                            f"{arm['name']}  seed {s}", corpus=arm['corpus'],
+                            steps=arm['steps'], eta_s=2460,
+                            update_tokens=arm['steps'] * 128 * 128)
+                         for arm, s in cells],
+                        replace_prefix='swap')
 
     rows, t0 = [], time.time()
     for i, (arm, seed) in enumerate(cells, 1):

@@ -31,6 +31,7 @@ import os
 import statistics as st
 import time
 
+import fleet_plan
 import ft_api
 import mlm_api as factory
 
@@ -73,6 +74,13 @@ def main():
     if a.dry_run:
         print('\n--dry-run: nothing was executed.')
         return
+
+    fleet_plan.announce('MasakhaNER: sweeping the untrained floor',
+                        [fleet_plan.cell(
+                            ft_api.record_tag(path, TASK, LANG, None, lr, STEPS),
+                            f'{label}  lr={lr:g}', kind='finetune', steps=STEPS, eta_s=135)
+                         for label, path, lr in cells],
+                        replace_prefix='ft_masakhaner_yor_yor-random-init')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
     rows, t0 = [], time.time()

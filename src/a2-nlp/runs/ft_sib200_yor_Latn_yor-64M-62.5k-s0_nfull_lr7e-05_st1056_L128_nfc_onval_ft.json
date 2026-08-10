@@ -1,6 +1,6 @@
 {
-  "tag": "ft_sib200_yor_Latn_yor-64M-62.5k-s0_nfull_lr3e-05_st1056_L128_nfc",
-  "label": "from-scratch ours",
+  "tag": "ft_sib200_yor_Latn_yor-64M-62.5k-s0_nfull_lr7e-05_st1056_L128_nfc_onval",
+  "label": "from-scratch ours lr7e-05",
   "task": "sib200",
   "lang": "yor_Latn",
   "metric": "macro_f1",
@@ -8,42 +8,38 @@
   "model_slug": "yor-64M-62.5k-s0",
   "n_train": 701,
   "n_train_requested": null,
-  "n_test": 204,
+  "n_test": 99,
   "steps": 1056,
   "batch": 16,
-  "lr": 3e-05,
+  "lr": 7e-05,
   "max_length": 128,
   "clip": 1.0,
   "normalize": "NFC",
-  "eval_split": "test",
+  "eval_split": "validation",
   "seeds": [
     0,
     1,
-    2,
-    3,
-    4
+    2
   ],
   "scores": [
-    0.6665707897049795,
-    0.6950089126559715,
-    0.6545194684666708,
-    0.7124668410409726,
-    0.7120489810465752
+    0.6256912886612135,
+    0.5692581255510317,
+    0.6059448104411986
   ],
-  "mean": 0.6881229985830339,
-  "sd": 0.023690445579967953,
+  "mean": 0.6002980748844813,
+  "sd": 0.023382182554111824,
   "ci": [
-    0.6308064407580366,
-    0.7335135250146826
+    0.48877100352199676,
+    0.6795550881452349
   ],
   "chance": 0.14285714285714285,
   "degenerate": false,
-  "seconds_per_seed": 30.09777913093567,
+  "seconds_per_seed": 29.84662914276123,
   "n_boot": 500,
   "gpu": "NVIDIA A100-SXM4-80GB",
   "ft_api_version": [
     1,
     4
   ],
-  "created": "2026-08-09T21:08:10"
+  "created": "2026-08-09T20:08:25"
 }

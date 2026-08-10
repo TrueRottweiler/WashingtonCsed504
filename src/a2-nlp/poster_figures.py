@@ -72,56 +72,88 @@ def fig_headline():
     untrained floor is drawn as a rule rather than a bar -- it is a reference level, not a
     competitor, and drawing it as a bar invites reading it as one.
 
-    HANDED TO PATRICK, and this selection rule is why. `max(mean)` over every matching record is
-    best-on-TEST per arm, which is the procedure his dev-split sweep exists to replace. Folding
-    the new rows in would not fix it: the old test-selected grids stay on disk and the max keeps
-    choosing from the union, so the figure would look updated while remaining immune to the
-    correction. Worse, the arms are no longer one-dimensional -- study 1 added fixed-rate runs on
-    seeds 1 and 2, so `max` now ranges over learning rate AND choice of checkpoint, and a higher
-    draw from a different seed would silently relabel which model "from-scratch" means. It did
-    not happen (0.6558 against 0.6659) but only by luck.
-
-    Whoever changes the selection rule has to own the numbers, which is the person running the
-    sweep. Left here unchanged rather than half-fixed, so the broken version is not mistaken for
-    a corrected one.
+    Every bar carries its per-seed scores as dots, which is not decoration. XLM-R's topic cell is
+    four seeds that trained and one that collapsed below chance, so its mean of 0.358 describes no
+    run that happened. A bar hides that. So does the confidence interval, which resamples test
+    items with predictions pooled across seeds and cannot see between-seed spread at all.
     """
-    rows = ft_api.results('*')
+    test = ft_api.results()                        # test-scored cells only; that is the default
+    dev = ft_api.results(eval_split='validation')
 
-    def best(frag, task, steps):
-        c = [r for r in rows if frag in r['model'] and r.get('task') == task
-             and r.get('steps') == steps]
-        return max(c, key=lambda r: r['mean'])['mean'] if c else None
+    def pick(slug, task, steps):
+        """The cell this figure reports, chosen the way the study chose it.
+
+        Where dev cells exist the learning rate is taken from THEM and only then looked up on
+        test -- what report 11 did. Taking max() over test cells instead re-selects on the items
+        being reported, which is the practice report 11 removed; feeding this figure the new rows
+        without changing this would leave it doing the old thing while looking updated, because
+        the superseded grids are still on disk.
+
+        Arms are matched on model_slug. r['model'] is the directory a run was launched from and
+        differs between machines for the same weights, and a substring like 'yor_64M' also matches
+        the s1, s2 and 46.9k checkpoints -- either way "best" can wander onto a different model.
+        """
+        t = [r for r in test
+             if r['model_slug'] == slug and r.get('task') == task and r.get('steps') == steps]
+        if not t:
+            return None
+        d = [r for r in dev
+             if r['model_slug'] == slug and r.get('task') == task and r.get('steps') == steps]
+        if d:
+            lr = max(d, key=lambda r: r['mean'])['lr']
+            on_test = [r for r in t if r['lr'] == lr]
+            if on_test:
+                return dict(on_test[0], chosen_on='dev')
+        return dict(max(t, key=lambda r: r['mean']), chosen_on='test')
 
     # Two short lines rather than one long one: at three bars across a half-width panel, a
-    # single line of "33.8M · Yoruba only" runs into its neighbor.
-    models = [('from-scratch', '33.8M\nYoruba only', 'yor_64M', C1),
-              ('mmBERT', '246M\n1,800 languages', 'mmBERT', C2),
+    # single line of "33.8M - Yoruba only" runs into its neighbor.
+    models = [('from-scratch', '33.8M\nYoruba only', 'yor-64M-62.5k-s0', C1),
+              ('mmBERT', '246M\n1,800 languages', 'mmBERT-base', C2),
               ('XLM-R', '277M\n100 languages', 'xlm-roberta-base', C3)]
     tasks = [('Topic classification', 'needs meaning', 'sib200', 1056),
              ('Entity recognition', 'needs surface form', 'masakhaner', 2150)]
+    FLOOR = 'yor-random-init'
 
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 6.4))
-    floors = []
+    floors, chosen_on_test, mixed = [], [], []
     for ax, (tlabel, tsub, task, steps) in zip(axes, tasks):
-        vals, colors, names = [], [], []
-        for short, detail, frag, color in models:
-            if frag == 'xlm-roberta-base':
-                cand = [r for r in rows if r['model'].endswith('xlm-roberta-base')
-                        and r.get('task') == task and r.get('steps') == steps]
-                v = max(r['mean'] for r in cand) if cand else None
-            else:
-                v = best(frag, task, steps)
-            if v is None:
+        recs, colors, names = [], [], []
+        for short, detail, slug, color in models:
+            r = pick(slug, task, steps)
+            if r is None:
                 continue
-            vals.append(v); colors.append(color); names.append((short, detail))
+            recs.append(r)
+            colors.append(color)
+            names.append((short, detail))
+            if r['chosen_on'] == 'test':
+                chosen_on_test.append(tlabel.lower())
 
-        bars = ax.bar(range(len(vals)), vals, color=colors, width=0.58)
-        ax.bar_label(bars, fmt='%.3f', padding=7, fontsize=14, color=INK, fontweight='bold')
+        ax.bar(range(len(recs)), [r['mean'] for r in recs], color=colors, width=0.58)
 
-        floor = best('yor_random_init', task, steps)
-        if floor:
-            ax.axhline(floor, ls=(0, (5, 4)), lw=1.8, color=MUTED)
-            floors.append(f'{floor:.3f} on {tlabel.lower()}')
+        # The seeds themselves, over the bar they average to.
+        for i, r in enumerate(recs):
+            ys = r.get('scores') or []
+            if ys:
+                ax.scatter([i] * len(ys), ys, s=20, zorder=3, color=INK, alpha=0.5, linewidths=0)
+            # The value goes above the bar AND above its dots. bar_label only knows the bar, so
+            # with five seeds drawn it puts the number inside the cluster on every arm whose best
+            # seed beats its mean -- which is most of them.
+            top = max([r['mean']] + list(ys))
+            ax.text(i, top + 0.022, f'{r["mean"]:.3f}', ha='center', va='bottom',
+                    fontsize=14, color=INK, fontweight='bold')
+            chance = r.get('chance')
+            if chance and 0 < sum(y < chance for y in ys) < len(ys):
+                ok = sum(y >= chance for y in ys)
+                # Say which count this is. "(4 of 5)" after the words "below chance" reads as
+                # four seeds having failed, when four is the number that worked.
+                mixed.append(f'{names[i][0]} on {tlabel.lower()} trained in {ok} of {len(ys)} '
+                             f'seeds, {len(ys) - ok} collapsing below chance')
+
+        f = pick(FLOOR, task, steps)
+        if f:
+            ax.axhline(f['mean'], ls=(0, (5, 4)), lw=1.8, color=MUTED)
+            floors.append(f'{f["mean"]:.3f} on {tlabel.lower()}')
 
         ax.set_xticks(range(len(names)))
         ax.set_xticklabels([n[0] for n in names], fontsize=13.5, color=INK)
@@ -133,20 +165,29 @@ def fig_headline():
 
         ax.set_title(f'{tlabel}\n{tsub}', pad=12, fontsize=15)
         # One scale across both panels: a reader WILL compare them, and different scales would
-        # make 0.666 and 0.837 look like the same height.
+        # make 0.688 and 0.837 look like the same height.
         ax.set_ylim(0, 1.0)
         ax.set_ylabel('score  (higher is better)')
 
     fig.suptitle('A 33.8M model trained only on Yoruba, against two much larger multilingual models',
                  fontsize=17, fontweight='bold', color=INK, y=1.02)
-    # The floor is explained beneath the panels rather than inside them. Every in-plot position
-    # for this sentence either collided with a bar label or had to be set on an opaque plate,
-    # and the plate punched a visible hole through the bars it crossed.
-    fig.text(0.5, 0.02,
-             'The dashed line is what the same architecture scores with no pretraining at all: '
+
+    # Everything the bars cannot say, said beneath them. Each line is generated from the records,
+    # so none of it can drift the way a typed caption does.
+    notes = ['The dashed line is what the same architecture scores with no pretraining at all: '
              + ', '.join(floors) + '.',
-             ha='center', color=INK2, fontsize=12.5)
-    fig.subplots_adjust(bottom=0.22, wspace=0.22)
+             'Dots are individual seeds.']
+    if mixed:
+        # No .capitalize() here: it lowercases the rest of the string and turns XLM-R into
+        # Xlm-r. The arm names already start these clauses and are already cased correctly.
+        notes.append('; '.join(mixed) + ' -- a bar like that is a mixture, not a mean.')
+    if chosen_on_test:
+        notes.append('Learning rates for ' + ', '.join(sorted(set(chosen_on_test)))
+                     + ' were chosen on the same test items they are scored on, which inflates '
+                       'them; the other panel was chosen on a held-out split.')
+    for i, line in enumerate(notes):
+        fig.text(0.5, 0.075 - i * 0.028, line, ha='center', color=INK2, fontsize=11.5)
+    fig.subplots_adjust(bottom=0.28, wspace=0.22)
     save(fig, '01-headline')
 
 
@@ -848,9 +889,26 @@ def fig_pipeline():
 
 
 if __name__ == '__main__':
-    for fn in (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-               fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors, fig_how_many_seeds, fig_speedup, fig_pipeline):
+    import sys
+
+    ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
+           fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
+           fig_how_many_seeds, fig_speedup, fig_pipeline)
+
+    # No argument regenerates everything, which is the right default. Naming one or more figures
+    # renders only those, and that matters when the machine at hand is not the one the rest were
+    # rendered on: a different matplotlib can shift layout by a pixel and churn all fourteen files
+    # for no reason, which is the noise save()'s fixed hashsalt exists to keep out of git status.
+    # Patrick's, from #53, kept verbatim -- he rendered figure 01 on a Colab runtime and this is
+    # what stopped it touching the other nine.
+    want = [w.lower() for w in sys.argv[1:]]
+    fns = [fn for fn in ALL if not want or any(w in fn.__name__.lower() for w in want)]
+    if want and not fns:
+        raise SystemExit('no figure matches ' + repr(want) + ' -- have: '
+                         + ', '.join(fn.__name__ for fn in ALL))
+
+    for fn in fns:
         try:
             fn()
         except Exception as e:                       # noqa: BLE001 -- one figure must not stop the rest
-            print(f'  {fn.__name__} FAILED: {repr(e)[:140]}')
+            print('  ' + fn.__name__ + ' FAILED: ' + repr(e)[:140])
