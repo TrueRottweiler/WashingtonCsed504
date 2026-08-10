@@ -888,6 +888,82 @@ def fig_pipeline():
     save(fig, '15-what-a-run-is-made-of')
 
 
+def fig_tokenizer_lottery():
+    """Is the large vocabulary a cost, or a coin flip?
+
+    Cell 7 of the board, and the figure that replaced a bar chart. The bar chart was honest about
+    the number it drew and dishonest about the finding, because the finding is not a difference
+    between two heights.
+
+    Report 08 carried a 0.144 bits-per-character penalty from three seeds a side. Six seeds --
+    fixed in advance from the power calculation and written into the script before the runs
+    started -- did not confirm it. The gap SHRANK to 0.059 with p = 0.37, and the two arms
+    interleave: three of the six large-vocabulary runs land below the small vocabulary's median.
+    A mean and an error bar would show two overlapping blobs and invite the reader to conclude
+    "no difference", which is also wrong.
+
+    What is there is a difference in SPREAD -- 0.145 against 0.037, F = 15.1, p = 0.0098 -- and
+    the large-vocabulary arm is not merely wider, it is in two clusters. So the figure draws all
+    twelve runs as individual points. That is the only presentation where the reader sees the
+    thing that is actually true: choosing the large vocabulary does not cost you a fixed amount,
+    it decides how much of a gamble the run is.
+
+    The same shape holds downstream, which is noted on the figure rather than drawn: 4.0x wider
+    on topic classification, 7.7x on entities.
+    """
+    import claims_audit as ca
+
+    def arm(pattern, corpus):
+        cpt = f.corpus_info(corpus)['chars_per_token']
+        return sorted(r['val_loss'] / math.log(2) / cpt
+                      for r in f.results(pattern) if r.get('corpus') == corpus)
+
+    big = arm('swap_yor_xlmr_*', 'yor_xlmr')
+    small = arm('swap62k_*', 'yor')
+    _, p_loc = stats_ttest(big, small)
+    F = (st.stdev(big) ** 2) / (st.stdev(small) ** 2)
+
+    fig, ax = plt.subplots(figsize=(10.0, 6.0))
+    for i, (label, vals, color) in enumerate((('250k vocabulary\n(XLM-R’s)', big, C2),
+                                              ('16k vocabulary\n(ours)', small, C1))):
+        # A little horizontal jitter would hide that these are exact values, so points are laid
+        # out on a fixed lattice instead -- deterministic, and it keeps the SVG stable.
+        for j, v in enumerate(vals):
+            ax.plot([i + (j - (len(vals) - 1) / 2) * 0.055], [v], 'o', color=color,
+                    markersize=13, zorder=3)
+        ax.plot([i - 0.20, i + 0.20], [st.mean(vals)] * 2, '-', color=INK2, lw=2.0, zorder=4)
+        ax.text(i - 0.24, st.mean(vals), f'mean {st.mean(vals):.3f}', va='center', ha='right',
+                fontsize=12, color=INK2)
+        # sd goes ABOVE its column, inside the axes. Below the axis it landed on the tick label.
+        ax.text(i - 0.30, 0.99, f'sd {st.stdev(vals):.3f}', ha='right', va='top', fontsize=14,
+                color=color, fontweight='bold', transform=ax.get_xaxis_transform())
+
+    # The band the small arm occupies: the large arm straddles it rather than sitting above it.
+    # Label on the LOWER edge -- the upper edge sits a hair under the large arm's mean line.
+    ax.axhspan(min(small), max(small), color=C1, alpha=0.10, zorder=1)
+    ax.text(-0.45, min(small), ' the 16k range', va='bottom', ha='left',
+            fontsize=11.5, color=MUTED)
+
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['250k vocabulary\n(XLM-R’s)', '16k vocabulary\n(ours)'])
+    ax.set_xlim(-0.5, 1.5)
+    ax.set_ylabel('bits per character  (lower is better)')
+    ax.set_title('Not a penalty — a lottery', pad=14)
+    fig.text(0.5, -0.10,
+             f'Six seeds a side, the sample size fixed in advance. The MEANS do not separate: '
+             f'{st.mean(big)-st.mean(small):+.3f} bits/char, p = {p_loc:.2f}, and three of the six\n'
+             f'250k runs land below the 16k median. The SPREADS do: F = {F:.1f}, p = 0.0098. The '
+             f'same holds downstream — 4.0× wider on topic, 7.7× on entities.',
+             ha='center', fontsize=11.5, color=INK2)
+    save(fig, '17-tokenizer-lottery')
+
+
+def stats_ttest(a, b):
+    """Welch, kept separate so the figure module does not import scipy at the top level."""
+    from scipy import stats as _s
+    return _s.ttest_ind(a, b, equal_var=False)
+
+
 def fig_lr_transfer():
     """Does a learning rate tuned on one language transfer to another?
 
@@ -1003,7 +1079,8 @@ if __name__ == '__main__':
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
-           fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer)
+           fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
+           fig_tokenizer_lottery)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were

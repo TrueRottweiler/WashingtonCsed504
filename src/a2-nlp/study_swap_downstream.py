@@ -86,16 +86,6 @@ def main():
     ck = checkpoints()
     missing = [(label, s, p) for label, s, p in ck
                if not os.path.exists(os.path.join(HERE, p, 'config.json'))]
-    if missing:
-        print(f'{len(missing)} checkpoint(s) not on disk; building them first')
-        for label, s, p in missing:
-            print(f'  pretraining {label} seed {s} -> {p}')
-        if not a.dry_run:
-            os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
-            import mlm_api as factory
-            for label, s, p in missing:
-                factory.pretrain(seed=s, tag=os.path.basename(p), reuse=True,
-                                 **PRETRAIN[label], **PRETRAIN_COMMON)
 
     n_dev = len(ck) * len(RATES)
     print(f'{len(ck)} checkpoints x {len(RATES)} rates x {len(DEV_SEEDS)} seeds = '
@@ -112,13 +102,36 @@ def main():
         print('\n--dry-run: nothing was executed.')
         return
 
-    fleet_plan.announce(
-        'tokenizer swap: both arms, rate chosen on dev',
-        [fleet_plan.cell(
+    # Announce EVERYTHING before doing any of it, pretraining included. The first version of this
+    # declared only the fine-tuning cells and did it after the checkpoints were built, so for the
+    # fifty minutes this study spent pretraining, the dashboard showed "200 of 200 done, 0
+    # running" while a card sat at 94% and 300 watts. That is the same blindness fleet_plan was
+    # written to end, reintroduced by putting the declaration after the expensive part instead of
+    # before it. A study must publish its whole queue as its first act.
+    pretrain_cells = [
+        fleet_plan.cell(os.path.basename(p), f'{label} s{s}  pretrain', kind='pretrain',
+                        corpus=PRETRAIN[label]['name'], steps=PRETRAIN_COMMON['steps'],
+                        update_tokens=PRETRAIN_COMMON['steps'] * PRETRAIN_COMMON['batch'] * 128,
+                        preset=PRETRAIN_COMMON['preset'],
+                        eta_s=2600 if 'xlmr' in p else 500)
+        for label, s, p in missing]
+    finetune_cells = [
+        fleet_plan.cell(
             ft_api.record_tag(p, SIB, 'yor_Latn', None, lr, SIB_STEPS, eval_split='validation'),
             f'{label} s{s}  dev lr={lr:g}', kind='finetune', steps=SIB_STEPS, eta_s=90)
-         for label, s, p in ck for lr in RATES],
-        owner='Patrick', replace_prefix='ft_sib200_yor_Latn_swap')
+        for label, s, p in ck for lr in RATES]
+    fleet_plan.announce('tokenizer swap: both arms, rate chosen on dev',
+                        pretrain_cells + finetune_cells,
+                        owner='Patrick', replace_prefix='ft_sib200_yor_Latn_swap')
+
+    if missing:
+        print(f'{len(missing)} checkpoint(s) not on disk; building them first')
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
+        import mlm_api as factory
+        for label, s, p in missing:
+            print(f'  pretraining {label} seed {s} -> {p}', flush=True)
+            factory.pretrain(seed=s, tag=os.path.basename(p), reuse=True,
+                             **PRETRAIN[label], **PRETRAIN_COMMON)
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
     rows, t0 = [], time.time()

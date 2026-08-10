@@ -65,9 +65,9 @@ unpredictable, and clipping is what makes it a measurement rather than a coin fl
 > The 1024M cell has since been run at fifteen seeds against thirteen, and the picture is not a
 > spread narrowing. It is two piles — runs train to about 2.5 or diverge to 7.469 — and the
 > ±2.699 above is mostly a record of how many seeds in that draw fell over. Clipping does **not**
-> prevent that (4 of 15 against 3 of 13, Fisher p = 1.00). What it does do, among runs that
-> train, is improve them (2.825 → 2.537, exact p = 0.0010) and tighten them (sd 0.256 → 0.112,
-> F = 5.23, p = 0.020) — both real, both far smaller than thirty-eight.
+> prevent that (4 of 15 against 3 of 15, Fisher p = 1.00). What it does do, among runs that
+> train, is improve them (2.825 → 2.530, exact p = 0.0003) and tighten them (sd 0.256 → 0.104,
+> F = 6.03, p = 0.0065) — both real, both far smaller than thirty-eight.
 >
 > The conclusion of this section survives and its arithmetic does not. See the reports
 > [README](README.md#the-86m-model-was-unpredictable-not-incapable) for the current table.

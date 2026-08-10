@@ -85,6 +85,78 @@ def gpus() -> list[dict]:
         return out
 
 
+def live_from_files(window_s: float = 210.0) -> set:
+    """Tags whose curve file was written to in the last few minutes.
+
+    This is the reliable half of liveness detection and it exists because the other half keeps
+    failing. `live_runs()` below finds runs by matching a process command line, which only works
+    for runs launched as their own `mlm_run.py` process. Studies now call `mlm_api.pretrain()`
+    IN-PROCESS, so a study spending fifty minutes pretraining shows up nowhere in the process
+    scan -- the dashboard reported "0 running" while a card sat at 94% and 300 watts, and it was
+    not wrong so much as looking for the wrong thing.
+
+    A training run appends to runs/<tag>.jsonl every logging interval whatever launched it. File
+    mtime is therefore the one signal that does not care how the run was started. The window is
+    generous because the logging interval on a slow cell is a couple of minutes.
+    """
+    now = time.time()
+    out = set()
+    for p in glob.glob(os.path.join(RUNS, '*.jsonl')):
+        try:
+            if now - os.path.getmtime(p) < window_s:
+                out.add(os.path.basename(p)[:-6])
+        except OSError:
+            pass
+    return out
+
+
+def running_studies() -> dict:
+    """Study scripts with a live process, mapped to the GPU they were given.
+
+    This is the answer to "what is training right now" for every study that fine-tunes, and there
+    was never a good reason not to ask. A fine-tuning study writes nothing between cells, so run
+    files cannot see it and the panel reported an idle machine — while the process was sitting in
+    the process table the entire time with its name and its --gpu argument on the command line.
+
+    Saying "I cannot account for this work" is the right answer only when it is true. It was not.
+    """
+    try:
+        out = subprocess.run(
+            ['powershell', '-NoProfile', '-Command',
+             "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | "
+             r"Where-Object { $_.CommandLine -match 'study_\w+\.py' } | "
+             "ForEach-Object { $_.CommandLine }"],
+            capture_output=True, text=True, timeout=8).stdout
+    except Exception:                                  # noqa: BLE001
+        return {}
+    found = {}
+    for line in out.splitlines():
+        m = re.search(r'(study_\w+\.py)', line)
+        if not m:
+            continue
+        gpu = re.search(r'--gpu\s+(\d+)', line)
+        found[m.group(1)] = {'gpu': int(gpu.group(1)) if gpu else None}
+    return found
+
+
+def cards_busy(threshold: int = 25) -> list:
+    """Utilization per GPU, so the page can notice work it cannot otherwise account for."""
+    try:
+        out = subprocess.run(
+            ['nvidia-smi', '--query-gpu=index,utilization.gpu,memory.used',
+             '--format=csv,noheader,nounits'],
+            capture_output=True, text=True, timeout=8).stdout
+    except Exception:                                  # noqa: BLE001 - no GPU, or no driver
+        return []
+    busy = []
+    for line in out.splitlines():
+        parts = [x.strip() for x in line.split(',')]
+        if len(parts) >= 2 and parts[1].isdigit() and int(parts[1]) >= threshold:
+            busy.append({'index': int(parts[0]), 'util': int(parts[1]),
+                         'mem_mb': int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0})
+    return busy
+
+
 def live_runs() -> dict:
     """Tags with a training process attached, mapped to what its command line reveals.
 
@@ -408,7 +480,19 @@ def fleet_plan(runs, hours: float) -> dict | None:
         # was hiding four more that a person waiting on the machine would want to see.
         kind = c.get('kind', 'pretrain')
         record = f'{tag}_ft.json' if kind == 'finetune' else f'{tag}_result.json'
-        if tag in live:
+        # A fine-tune in flight writes nothing until it finishes, so without this marker such a
+        # cell goes QUEUED -> done with no visible middle and the panel reports zero running
+        # through an entire sweep. ft_api.evaluate() writes the marker and removes it in a
+        # finally block; anything older than ten minutes is treated as a crashed run's litter
+        # rather than as work, so a killed study cannot leave a cell looking busy forever.
+        marker = os.path.join(RUNS, f'{tag}_ft.running')
+        in_flight = False
+        try:
+            in_flight = time.time() - os.path.getmtime(marker) < 600
+        except OSError:
+            pass
+
+        if tag in live or in_flight:
             state, running = 'running', running + 1
         elif os.path.exists(os.path.join(RUNS, record)):
             state, done = 'done', done + 1
@@ -439,14 +523,49 @@ def fleet_plan(runs, hours: float) -> dict | None:
     # only "is the machine busy". Groups with something running sort first, then groups with
     # work left, then the finished ones -- which is the order you care about when you look up
     # from something else and want to know whether to keep waiting.
+    live_scripts = running_studies()
     groups = {}
     for c in cells:
         study, owner = attribute(c)
         c['study'], c['owner'] = study, owner
         g = groups.setdefault(study, {'study': study, 'owner': owner, 'cells': [],
-                                      'done': 0, 'running': 0, 'pending': 0})
+                                      'done': 0, 'running': 0, 'pending': 0,
+                                      'script': c.get('script'), 'active': False, 'gpu': None})
         g['cells'].append(c)
         g[c['state']] += 1
+        if c.get('script') and not g.get('script'):
+            g['script'] = c['script']
+
+    # A study whose process is alive is working, whatever its individual cells look like. Mark
+    # the group active and, when nothing else has claimed a cell, attribute the work to its next
+    # pending one -- that is what a sequential study is doing by construction. It is flagged as
+    # inferred rather than observed, because the honest version of "what is running" here is
+    # "this study, somewhere in this cell", not a measurement of that cell.
+    matched = {s: g for g in groups.values()
+               for s in [g.get('script')] if s and s in live_scripts}
+
+    # Plans written before announce() recorded its script have no name to match on, and a study
+    # already running when this code landed will never write one. Rather than be blind until
+    # every study restarts: if some study process is alive, is unmatched, and exactly one group
+    # still has work outstanding, that is where the work is. One unexplained worker and one
+    # unfinished queue is not a guess worth hedging over.
+    if len(live_scripts) > len(matched):
+        waiting = [g for g in groups.values() if g['pending'] and not g.get('script')]
+        spare = [s for s in live_scripts if s not in matched]
+        if len(waiting) == 1 and len(spare) == 1:
+            waiting[0]['script'] = spare[0]
+            waiting[0]['script_inferred'] = True
+            matched[spare[0]] = waiting[0]
+
+    for script, g in matched.items():
+        g['active'], g['gpu'] = True, live_scripts[script].get('gpu')
+        if not g['running'] and g['pending']:
+            nxt = next(c for c in g['cells'] if c['state'] == 'pending')
+            nxt['state'], nxt['inferred'] = 'running', True
+            g['running'] += 1
+            g['pending'] -= 1
+            running += 1
+            pending -= 1
     for g in groups.values():
         g['remaining_s'] = schedule_remaining(g['cells'], n_gpu, rates, live)
         g['finish_at'] = time.time() + g['remaining_s']
@@ -466,6 +585,11 @@ def fleet_plan(runs, hours: float) -> dict | None:
 def snapshot(hours: float) -> dict:
     """Everything the page draws, in one JSON payload."""
     alive = live_runs()
+    # A run that is writing its curve right now is running, whatever the process scan thinks.
+    # The two sources disagree exactly when a study pretrains in-process, which is most of them
+    # now, so the union is what the page should believe.
+    for tag in live_from_files():
+        alive.setdefault(tag, {})
     cutoff = time.time() - hours * 3600
     tags = set(alive)
     for p in glob.glob(os.path.join(LOGS, '*.log')):
@@ -618,9 +742,29 @@ def snapshot(hours: float) -> dict:
             r['best_seen'] = None
 
     runs.sort(key=lambda r: (not r['live'], r['tag']))
+    fleet = fleet_plan(runs, hours)
+
+    # Reconciliation. Everything above this line trusts what studies declared about themselves;
+    # this compares that against the one thing that cannot be misdeclared, which is whether the
+    # cards are drawing power. Four separate times this panel has said "finished" while the
+    # machine was busy, and each time the fix was to declare better -- which works until the next
+    # study declares late, or declares a cell under a name the panel does not recognise.
+    #
+    # So: when the GPUs are working and nothing in the plan accounts for it, say exactly that.
+    # A dashboard that admits it cannot explain the machine is far more useful than one that
+    # quietly reports zero. This turns the failure that keeps recurring from invisible into loud,
+    # which is the only property that has ever actually held.
+    busy = cards_busy()
+    studies = running_studies()
+    # Only genuinely unexplained if no run is writing a curve AND no study process is alive. The
+    # first version fired on the second condition alone and told the reader nothing was known,
+    # while the answer was one process scan away.
+    unexplained = bool(busy) and not any(r['live'] for r in runs) and not studies
     return {'now': time.time(), 'server_started': SERVER_STARTED,
-            'fleet': fleet_plan(runs, hours),
+            'fleet': fleet,
             'page_version': page_version(),
+            'busy_cards': busy, 'unexplained_work': unexplained,
+            'running_studies': [{'script': k, **v} for k, v in sorted(studies.items())],
             'gpus': gpus(), 'runs': runs}
 
 
@@ -792,6 +936,7 @@ table.past td.num{text-align:right;color:var(--dim)}
 <div id="stale" class="stale" hidden>
   This page is running older code than the server. <b>Reload</b> to pick up the latest.
 </div>
+<div id="unexplained" class="stale" hidden></div>
 <div class="help">
   <b>Reading this:</b> the blue line is loss on held-out text (lower is better), orange is
   training loss. The dashed line is what a model that learned nothing scores — a curve still
@@ -1364,6 +1509,22 @@ async function tick(){
     const d = await (await fetch('/api/', {cache:'no-store'})).json();
     document.getElementById('stale').hidden =
       !d.page_version || d.page_version === MY_VERSION;
+
+    // The cards are working and nothing on this page accounts for it. Say so rather than
+    // rendering a confident zero -- this exact situation has been misread as "finished" four
+    // times, and every previous fix made the declaration better instead of making the gap
+    // visible.
+    const un = document.getElementById('unexplained');
+    un.hidden = !d.unexplained_work;
+    if(d.unexplained_work){
+      const cards = (d.busy_cards || [])
+        .map(c => `card ${c.index} at ${c.util}%`).join(' and ');
+      un.innerHTML = `<b>Work in progress that this page cannot account for.</b> ${cards}, `
+        + `but no run is writing a curve and nothing in the queue is marked running. `
+        + `Most likely a study is pretraining before it declared its cells, or is writing under `
+        + `a tag the plan does not contain. The machine is busy — this panel is not.`;
+    }
+
     renderQueue(d.fleet);
     document.getElementById('gpus').innerHTML = d.gpus.map(gpuCard).join('');
     // Runs still going get a full card. Everything finished collapses into one closed list --
@@ -1393,8 +1554,15 @@ async function tick(){
       <td class="num">${fmtT(r.elapsed)}</td>
       <td class="mini-cell">${miniChart(r.curve, r.random_loss)}</td></tr>`).join('');
 
-    document.getElementById('sub').textContent = live.length
-      ? `${live.length} training` : 'nothing training right now';
+    // "nothing training right now" was wrong far more often than it was right: it counted only
+    // runs writing a curve, so a study fine-tuning for twenty minutes read as an idle machine.
+    // Studies get named here, because a study process IS work in progress.
+    const act = (d.fleet && d.fleet.groups || []).filter(g => g.active);
+    document.getElementById('sub').textContent =
+      live.length ? `${live.length} training`
+      : act.length ? act.map(g => g.study + (g.gpu != null ? ` · card ${g.gpu}` : '')).join(' · ')
+      : (d.busy_cards || []).length ? 'a card is busy — see below'
+      : 'nothing training right now';
     // Show when the SERVER started. An edited file does not reach a process that is already
     // running, and a dashboard that silently serves stale code wastes a lot of confusion.
     const up = new Date(d.server_started*1000).toLocaleTimeString();
