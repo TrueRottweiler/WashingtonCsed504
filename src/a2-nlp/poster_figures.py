@@ -129,18 +129,26 @@ def fig_headline():
             if r['chosen_on'] == 'test':
                 chosen_on_test.append(tlabel.lower())
 
-        bars = ax.bar(range(len(recs)), [r['mean'] for r in recs], color=colors, width=0.58)
-        ax.bar_label(bars, fmt='%.3f', padding=7, fontsize=14, color=INK, fontweight='bold')
+        ax.bar(range(len(recs)), [r['mean'] for r in recs], color=colors, width=0.58)
 
         # The seeds themselves, over the bar they average to.
         for i, r in enumerate(recs):
             ys = r.get('scores') or []
             if ys:
                 ax.scatter([i] * len(ys), ys, s=20, zorder=3, color=INK, alpha=0.5, linewidths=0)
+            # The value goes above the bar AND above its dots. bar_label only knows the bar, so
+            # with five seeds drawn it puts the number inside the cluster on every arm whose best
+            # seed beats its mean -- which is most of them.
+            top = max([r['mean']] + list(ys))
+            ax.text(i, top + 0.022, f'{r["mean"]:.3f}', ha='center', va='bottom',
+                    fontsize=14, color=INK, fontweight='bold')
             chance = r.get('chance')
             if chance and 0 < sum(y < chance for y in ys) < len(ys):
                 ok = sum(y >= chance for y in ys)
-                mixed.append(f'{names[i][0]} on {tlabel.lower()} ({ok} of {len(ys)})')
+                # Say which count this is. "(4 of 5)" after the words "below chance" reads as
+                # four seeds having failed, when four is the number that worked.
+                mixed.append(f'{names[i][0]} on {tlabel.lower()} trained in {ok} of {len(ys)} '
+                             f'seeds, {len(ys) - ok} collapsing below chance')
 
         f = pick(FLOOR, task, steps)
         if f:
@@ -170,8 +178,9 @@ def fig_headline():
              + ', '.join(floors) + '.',
              'Dots are individual seeds.']
     if mixed:
-        notes.append('Seeds below chance in: ' + '; '.join(mixed)
-                     + ' -- that bar is a mixture, not a mean.')
+        # No .capitalize() here: it lowercases the rest of the string and turns XLM-R into
+        # Xlm-r. The arm names already start these clauses and are already cased correctly.
+        notes.append('; '.join(mixed) + ' -- a bar like that is a mixture, not a mean.')
     if chosen_on_test:
         notes.append('Learning rates for ' + ', '.join(sorted(set(chosen_on_test)))
                      + ' were chosen on the same test items they are scored on, which inflates '
