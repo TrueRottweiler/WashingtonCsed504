@@ -115,13 +115,36 @@ def main():
                         preset=PRETRAIN_COMMON['preset'],
                         eta_s=2600 if 'xlmr' in p else 500)
         for label, s, p in missing]
-    finetune_cells = [
+    dev_cells = [
         fleet_plan.cell(
             ft_api.record_tag(p, SIB, 'yor_Latn', None, lr, SIB_STEPS, eval_split='validation'),
             f'{label} s{s}  dev lr={lr:g}', kind='finetune', steps=SIB_STEPS, eta_s=90)
         for label, s, p in ck for lr in RATES]
+
+    # The test and NER cells belong in the queue too, and leaving them out was the third instance
+    # of one bug: a study that declares PART of its work. The dev sweep is 72 cells and the study
+    # does 88, so the panel reached 218 of 218 and reported every study finished while this one
+    # carried on through sixteen cells nobody had told it about -- with a card at 79% and the
+    # header reduced to saying a card was busy.
+    #
+    # Their learning rate is not known until dev picks it, so the tag cannot be computed here.
+    # That is not a reason to omit them; a placeholder tag with the right label still tells a
+    # reader how much work is left, which is the question the panel exists to answer. It resolves
+    # to the real record once the rate is chosen and the study re-announces.
+    tail_cells = [
+        fleet_plan.cell(f'swap_test_{os.path.basename(p)}',
+                        f'{label} s{s}  test at the dev-chosen rate',
+                        kind='finetune', steps=SIB_STEPS, eta_s=150)
+        for label, s, p in ck]
+    if not a.skip_ner:
+        tail_cells += [
+            fleet_plan.cell(ft_api.record_tag(p, NER, 'yor', None, NER_LR, NER_STEPS),
+                            f'{label} s{s}  MasakhaNER lr={NER_LR:g}',
+                            kind='finetune', steps=NER_STEPS, eta_s=140)
+            for label, s, p in ck]
+
     fleet_plan.announce('tokenizer swap: both arms, rate chosen on dev',
-                        pretrain_cells + finetune_cells,
+                        pretrain_cells + dev_cells + tail_cells,
                         owner='Patrick', replace_prefix='ft_sib200_yor_Latn_swap')
 
     if missing:

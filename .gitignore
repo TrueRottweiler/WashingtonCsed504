@@ -259,3 +259,8 @@ src/a1-cv/hpo_outputs/
 # The fleet's in-flight queue. Transient state for the dashboard, not a result --
 # it describes whatever run happens to be going right now.
 **/runs/_fleet_plan.json
+
+# Drafts meant to be read and then sent somewhere else -- emails, notes to partners. They live
+# in the working tree so they are one click away in the editor, and out of git because a draft
+# of a message is not a project artifact.
+drafts/
