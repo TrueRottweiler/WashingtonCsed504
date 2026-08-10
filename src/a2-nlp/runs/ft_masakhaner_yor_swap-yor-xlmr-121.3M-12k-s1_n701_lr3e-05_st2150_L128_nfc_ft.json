@@ -1,0 +1,45 @@
+{
+  "tag": "ft_masakhaner_yor_swap-yor-xlmr-121.3M-12k-s1_n701_lr3e-05_st2150_L128_nfc",
+  "label": "swap-yor-xlmr-121.3M-12k-s1 n=701",
+  "task": "masakhaner",
+  "lang": "yor",
+  "metric": "entity_f1",
+  "model": "runs\\swap_yor_xlmr_121.3M_12k_s1",
+  "model_slug": "swap-yor-xlmr-121.3M-12k-s1",
+  "n_train": 701,
+  "n_train_requested": 701,
+  "n_test": 1964,
+  "steps": 2150,
+  "batch": 16,
+  "lr": 3e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "eval_split": "test",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.5872241579558652,
+    0.5813308687615527,
+    0.5826369545032498
+  ],
+  "mean": 0.5837306604068893,
+  "sd": 0.002527166903166739,
+  "ci": [
+    0.5645346001302437,
+    0.6052577866342105
+  ],
+  "chance": null,
+  "degenerate": false,
+  "seconds_per_seed": 56.891031901041664,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    4
+  ],
+  "created": "2026-08-10T14:04:48"
+}
