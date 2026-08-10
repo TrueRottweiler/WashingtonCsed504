@@ -550,12 +550,22 @@ def fleet_plan(runs, hours: float) -> dict | None:
     # still has work outstanding, that is where the work is. One unexplained worker and one
     # unfinished queue is not a guess worth hedging over.
     if len(live_scripts) > len(matched):
-        waiting = [g for g in groups.values() if g['pending'] and not g.get('script')]
+        # Deliberately NOT requiring pending cells. A study whose declared cells are all done but
+        # whose process is still alive is doing work it never declared -- which has happened, and
+        # is exactly the case where saying so matters most. Requiring pending here made the panel
+        # go quiet in the one situation it was rebuilt to catch.
         spare = [s for s in live_scripts if s not in matched]
-        if len(waiting) == 1 and len(spare) == 1:
-            waiting[0]['script'] = spare[0]
-            waiting[0]['script_inferred'] = True
-            matched[spare[0]] = waiting[0]
+        candidates = [g for g in groups.values() if not g.get('script')]
+        # With every declared cell finished, "the group with work outstanding" no longer picks
+        # one out, so fall back to the plan's own note of who announced last -- the running study
+        # is overwhelmingly likely to be it. Only used when there is exactly one live script to
+        # place; two unexplained processes and a guess is worse than saying nothing.
+        if len(spare) == 1 and len(candidates) > 1:
+            candidates = [g for g in candidates if g['study'] == plan.get('queue')]
+        if len(candidates) == 1 and len(spare) == 1:
+            candidates[0]['script'] = spare[0]
+            candidates[0]['script_inferred'] = True
+            matched[spare[0]] = candidates[0]
 
     for script, g in matched.items():
         g['active'], g['gpu'] = True, live_scripts[script].get('gpu')
