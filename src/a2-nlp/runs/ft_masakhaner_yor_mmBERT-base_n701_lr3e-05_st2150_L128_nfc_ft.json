@@ -1,0 +1,45 @@
+{
+  "tag": "ft_masakhaner_yor_mmBERT-base_n701_lr3e-05_st2150_L128_nfc",
+  "label": "mmBERT base n=701",
+  "task": "masakhaner",
+  "lang": "yor",
+  "metric": "entity_f1",
+  "model": "jhu-clsp/mmBERT-base",
+  "model_slug": "mmBERT-base",
+  "n_train": 701,
+  "n_train_requested": 701,
+  "n_test": 1964,
+  "steps": 2150,
+  "batch": 16,
+  "lr": 3e-05,
+  "max_length": 128,
+  "clip": 1.0,
+  "normalize": "NFC",
+  "eval_split": "test",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "scores": [
+    0.7072681704260652,
+    0.6856859340114114,
+    0.6885821831869511
+  ],
+  "mean": 0.6938454292081425,
+  "sd": 0.009564676372785868,
+  "ci": [
+    0.6755496337587356,
+    0.7129371696355052
+  ],
+  "chance": null,
+  "degenerate": false,
+  "seconds_per_seed": 159.6697402795156,
+  "n_boot": 500,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "ft_api_version": [
+    1,
+    4
+  ],
+  "created": "2026-08-10T15:32:24"
+}
