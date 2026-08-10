@@ -1,0 +1,34 @@
+[
+  {
+    "claim": "validation loss predicts SIB-200 score",
+    "supported": true
+  },
+  {
+    "claim": "validation loss predicts MasakhaNER score",
+    "supported": true
+  },
+  {
+    "claim": "SIB scores vary more between models than NER scores do",
+    "supported": true
+  },
+  {
+    "claim": "the floors explain the task divergence",
+    "supported": false
+  },
+  {
+    "claim": "from-scratch is ahead of mmBERT on topic classification",
+    "supported": null
+  },
+  {
+    "claim": "the tokenizer penalty is real at matched compute",
+    "supported": false
+  },
+  {
+    "claim": "the best learning rate is not the same across languages",
+    "supported": null
+  },
+  {
+    "claim": "past 64M tokens, more text buys nothing measurable",
+    "supported": true
+  }
+]

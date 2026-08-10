@@ -623,28 +623,284 @@ def fig_metric_validity():
         ax.legend(loc='lower left', fontsize=11)
         ax.set_ylim(0.42, 0.86)
 
+    # "Flat", not "inverted". r = +0.303 at n = 16 is t = 1.19, p ~ 0.25 -- indistinguishable from
+    # zero. Calling it a sign flip would assert an inversion the data cannot carry, which is
+    # exactly the failure the panel beside this one is about. Patrick's catch.
     axes[1].annotate('these three carry the whole correlation.\nTake them out and it is flat.',
                      xy=(4.6, 0.55), xytext=(3.15, 0.70), color=INK, fontsize=12,
                      fontweight='bold',
                      arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.8))
 
-    fig.suptitle('Validation loss tells you a model is broken. It does not tell you which '
-                 'working model is better.',
+    fig.suptitle('Validation loss tells you a model is broken. On entity recognition it does '
+                 'not tell you which working model is better.',
                  fontsize=16, fontweight='bold', color=INK, y=1.02)
     fig.tight_layout()
     save(fig, '11-metric-validity')
+
+
+
+
+# --------------------------------------------------------------------------------------------
+def fig_floors():
+    """Why one task can be predicted from pretraining loss and the other cannot.
+
+    Cell 5 of the board. It replaces figure 01 there, which went to Patrick -- that comparison is
+    his and its selection rule is his sweep's to fix. This is the part that is ours.
+
+    An earlier version of this figure drew the floor as a share of the achievable score and
+    claimed the difference between those shares explained the task divergence. It does not: the
+    shares are 57% and 52%, near enough identical, and the claim was wrong in the writeup, in this
+    figure and in an email before anybody checked it.
+
+    What actually separates the tasks is the VARIABILITY of the gain, not its size. Entity
+    recognition hands every working model between 0.340 and 0.384 -- a large benefit that is
+    nearly constant, varying by 13% of the smallest gain. Topic classification hands them 0.159 to
+    0.301, varying by 90%. A near-constant benefit cannot be predicted from anything, which is why
+    validation loss tracks one task and not the other. So the figure draws the BAND the trained
+    models occupy rather than a single best.
+    """
+    corr = json.load(open(os.path.join(HERE, 'runs', 'downstream_correlation.json'),
+                          encoding='utf-8'))
+    rows = ft_api.results('*')
+    out = []
+    for label, task, steps in (('Topic classification\n(needs meaning)', 'sib200', 1056),
+                               ('Entity recognition\n(needs surface form)', 'masakhaner', 2150)):
+        floor = max((r for r in rows if r.get('task') == task and r.get('steps') == steps
+                     and 'yor_random_init' in r['model']), key=lambda r: r['mean'])['mean']
+        # The 16 that actually trained -- same cut as figure 11, for the same reason.
+        y = [r['mean'] for r in corr if r['task'] == task and r['val_loss'] < 3.1]
+        out.append((label, floor, min(y), max(y)))
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    for i, (label, floor, lo, hi) in enumerate(out):
+        ax.bar(i, floor, color=MUTED, width=0.46)
+        ax.bar(i, hi - lo, bottom=lo, color=C1, width=0.46)
+        # The dead space between the floor and the worst trained model: benefit every model gets.
+        ax.bar(i, lo - floor, bottom=floor, color=C1, width=0.46, alpha=0.28)
+
+        ax.text(i, floor / 2, f'floor\n{floor:.3f}', ha='center', va='center',
+                color=SURFACE, fontsize=13, fontweight='bold')
+        ax.text(i, floor + (lo - floor) / 2, f'+{lo-floor:.3f}\nevery model gets this',
+                ha='center', va='center', color=INK2, fontsize=11.5)
+        ax.text(i, lo + (hi - lo) / 2 + 0.005, f'{hi-lo:.3f}', ha='center', va='center',
+                color=SURFACE, fontsize=13, fontweight='bold')
+        ax.annotate(f'{lo:.3f} – {hi:.3f}', xy=(i + 0.26, (lo + hi) / 2),
+                    xytext=(i + 0.34, (lo + hi) / 2), va='center', color=INK, fontsize=12,
+                    fontweight='bold')
+
+    ax.plot([], [], 's', color=MUTED, markersize=11, label='an untrained model already scores')
+    ax.plot([], [], 's', color=C1, alpha=0.28, markersize=11,
+            label='the gain EVERY trained model gets')
+    ax.plot([], [], 's', color=C1, markersize=11,
+            label='the band 16 trained models actually span')
+    ax.set_xticks(range(len(out)))
+    ax.set_xticklabels([o[0] for o in out], fontsize=13, color=INK)
+    ax.set_ylabel('score  (higher is better)')
+    ax.set_ylim(0, 1.02)
+    ax.set_xlim(-0.5, 1.75)
+    ax.legend(loc='upper left', fontsize=11)
+    ax.grid(axis='x', visible=False)
+    ax.set_title('A benefit that every model gets equally cannot be predicted', pad=14)
+    fig.text(0.5, -0.04,
+             'Entity recognition hands every working model roughly the same large gain — the band '
+             'is 0.044 wide.\nTopic classification spreads them over 0.143. That, not the floor, '
+             'is why loss predicts one task and not the other.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '12-floors')
+
+
+
+
+# --------------------------------------------------------------------------------------------
+def fig_how_many_seeds():
+    """The bar our own rule was set below, and by how much.
+
+    Week 4 of the board. The project's working rule was "treat a difference smaller than the
+    cell's own seed spread as no difference" -- a threshold of 1.0x the spread. That rule is
+    sound in one direction and silent in the other, and we had been reading it as symmetric.
+
+    The curve is what a two-sample t-test actually demands at alpha = 0.05: at three seeds per
+    arm a difference has to be 2.27x the spread before it is distinguishable from nothing. Our
+    rule sat at 1.0, which is the shaded band -- every difference that lands there is one we
+    would have called real and could not have.
+
+    The points are our own claims. The tokenizer penalty sits squarely in the band, which is how
+    claims_audit.py found it, and is why six more runs are queued rather than a hedge written.
+    """
+    from scipy.stats import t as tdist
+
+    ns = list(range(2, 21))
+    need = [tdist.ppf(0.975, 2 * n - 2) * math.sqrt(2 / n) for n in ns]
+
+    fig, ax = plt.subplots(figsize=(10, 6.2))
+    ax.fill_between(ns, 1.0, need, color=C2, alpha=0.16, lw=0)
+    ax.plot(ns, need, 'o-', color=C2, markersize=7,
+            label='what a t-test actually needs (α = 0.05)')
+    ax.axhline(1.0, color=C1, lw=2.6, ls=(0, (5, 4)),
+               label='our rule: "bigger than the seed spread"')
+
+    # Upper middle: the only region neither the curve, the rule line, nor a claim label crosses.
+    ax.annotate('everything in this band we would\nhave called real, and could not have',
+                xy=(12.5, 2.9), ha='center', color=C2, fontsize=12.5, fontweight='bold')
+
+    # Our own claims, placed where they actually sit.
+    # Both labels sit to the RIGHT of their point and never below it: the lower one ran off the
+    # axis and collided with the tick labels.
+    pts = [(3, 0.144 / 0.105,
+            'tokenizer penalty, 0.144 bits/char —\ninside the band, which is how\nthe audit caught it', 0.60),
+           (3, 0.080 / 0.185,
+            '16× more text: an ABSENCE claim,\nso below the bar is the point', 0.28)]
+    for n, ratio, label, dy in pts:
+        ax.plot(n, ratio, 'o', color=INK, markersize=13, zorder=5,
+                markeredgecolor=SURFACE, markeredgewidth=2)
+        ax.annotate(label, xy=(n, ratio), xytext=(n + 2.2, ratio + dy),
+                    color=INK, fontsize=11.5, fontweight='bold', va='center',
+                    arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.6))
+
+    ax.set_xlabel('seeds per arm')
+    ax.set_ylabel('difference, as a multiple of the seed spread')
+    ax.set_xticks([2, 3, 4, 5, 6, 8, 10, 12, 16, 20])
+    ax.set_ylim(0, 4.6)
+    ax.legend(loc='upper right', fontsize=12)
+    ax.set_title('Three seeds tells you what is definitely noise, not what is definitely real',
+                 pad=14)
+    fig.text(0.5, -0.03,
+             'The rule is sound in one direction and silent in the other. Below the spread is '
+             'reliably nothing;\nslightly above it is not reliably something — and that is where '
+             'our own headline number sat.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '13-how-many-seeds')
+
+
+
+
+# --------------------------------------------------------------------------------------------
+def fig_speedup():
+    """Where the 2.07x came from, and why the two halves are different kinds of win.
+
+    Panel 1. A waterfall rather than a before/after pair, because the point is that the speedup
+    decomposes into two independent changes with different characters: a batch size that was
+    simply too small, and a second card the notebook had never used. The first is efficiency --
+    less GPU-time for the same work. The second is only wall-clock: the same GPU-minutes, spent
+    in parallel. Conflating them is how a project claims 2x efficiency when it bought 1.3x.
+
+    Numbers from report 03's A/B, four matched cells, same recipe both sides.
+    """
+    stages = [('the notebook\nbatch 64, one card', 25.2, MUTED),
+              ('batch 128\n1.32× less GPU-time', 19.1, C1),
+              ('both cards\nsame GPU-time', 12.2, C3)]
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.0))
+    xs = range(len(stages))
+    ax.bar(xs, [s[1] for s in stages], color=[s[2] for s in stages], width=0.55)
+    for i, (label, v, _) in enumerate(stages):
+        ax.text(i, v + 0.5, f'{v:.1f} min', ha='center', color=INK, fontsize=15,
+                fontweight='bold')
+
+    # The two arrows are the story: one shrinks the work, the other splits it.
+    ax.annotate('', xy=(0.72, 19.1), xytext=(0.28, 25.2),
+                arrowprops=dict(arrowstyle='->', color=INK2, lw=2.2))
+    ax.text(0.5, 23.4, '−1.32×\nefficiency', ha='center', color=INK2, fontsize=12,
+            fontweight='bold')
+    ax.annotate('', xy=(1.72, 12.2), xytext=(1.28, 19.1),
+                arrowprops=dict(arrowstyle='->', color=INK2, lw=2.2))
+    ax.text(1.5, 17.0, '−1.57×\nparallelism', ha='center', color=INK2, fontsize=12,
+            fontweight='bold')
+
+    ax.set_xticks(list(xs))
+    ax.set_xticklabels([s[0] for s in stages], fontsize=12, color=INK, linespacing=1.4)
+    ax.set_ylabel('wall-clock for the same four cells (minutes)')
+    ax.set_ylim(0, 29)
+    ax.grid(axis='x', visible=False)
+    ax.set_title('2.07× — and only 1.32× of it is efficiency', pad=14)
+    fig.text(0.5, -0.06,
+             'Both changes were available on day one and neither is clever. The batch was simply '
+             'too small, and the\nsecond card had never been used. Utilization went from one card '
+             'busy and one idle to 91% and 93%.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '14-where-the-speedup-came-from')
+
+
+# --------------------------------------------------------------------------------------------
+def fig_pipeline():
+    """What a language-model run is actually made of, in wall-clock.
+
+    Panel 2. Students picture "training a model" as one activity. It is a pipeline, and the
+    proportions are so lopsided that they decide the shape of the whole factory: preparation is
+    well under a minute and training is an hour and a half, which is exactly why everything cheap
+    belongs in a notebook and everything expensive belongs in a queue.
+
+    Dots on a log axis, not bars -- the same correction figure 06 needed. The stages differ by
+    more than two orders of magnitude so the axis has to be logarithmic, and a bar encodes its
+    value as a length from a baseline, which on a log axis is meaningless. The first version drew
+    bars and clipped the two shortest stages out of the plot entirely.
+
+    Measured on the real Yoruba corpus by pipeline_bench.py: 80,000 documents, 260M characters.
+    The two CPU stages are reported for the FULL corpus rather than the timed sample, which is
+    what "a run" actually costs.
+    """
+    b = json.load(open(os.path.join(HERE, 'runs', 'pipeline_bench.json'), encoding='utf-8'))
+    by = {s['name']: s for s in b['stages']}
+
+    def find(prefix):
+        return next(s for k, s in by.items() if k.startswith(prefix))
+
+    tok = find('2.')['seconds']
+    enc = find('3.').get('extrapolated_full_s') or find('3.')['seconds']
+    load = find('5.')['seconds']
+    small = find('6. train step, 33.8M')['hours_for_62500_steps'] * 3600
+    big = find('6. train step, 98M')['hours_for_62500_steps'] * 3600
+
+    stages = [('train the tokenizer', tok, C4, 'CPU'),
+              ('encode the whole corpus', enc, C4, 'CPU'),
+              ('load it onto the card', load, C4, 'once'),
+              ('PRETRAIN, 33.8M model', small, C1, '62,500 steps'),
+              ('PRETRAIN, 98M model', big, C2, '62,500 steps')]
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.6))
+    for i, (label, s, color, note) in enumerate(stages):
+        y = len(stages) - 1 - i
+        ax.plot([0.5, s], [y, y], color=color, lw=2.4, alpha=0.4, zorder=1)
+        ax.plot(s, y, 'o', color=color, markersize=15, markeredgecolor=SURFACE,
+                markeredgewidth=2, zorder=2)
+        txt = f'{s:.0f} s' if s < 90 else f'{s/60:.0f} min'
+        ax.text(s * 1.35, y, txt, va='center', color=INK, fontsize=14, fontweight='bold')
+        ax.text(s * 1.35, y - 0.30, note, va='center', color=MUTED, fontsize=10.5)
+
+    ax.set_xscale('log')
+    ax.set_xlim(0.5, big * 12)
+    ax.set_xticks([1, 10, 60, 600, 3600])
+    ax.set_xticklabels(['1 s', '10 s', '1 min', '10 min', '1 hour'], fontsize=12)
+    ax.minorticks_off()
+    ax.set_yticks(range(len(stages)))
+    ax.set_yticklabels([s[0] for s in reversed(stages)], fontsize=12.5, color=INK)
+    ax.set_ylim(-0.7, len(stages) - 0.3)
+    ax.grid(axis='y', visible=False)
+    ax.set_title('Preparation is under a minute. Training is an hour and a half.',
+                 pad=34, loc='left')
+    ax.text(0, 1.04, 'every stage of one run, measured end to end on the real corpus',
+            transform=ax.transAxes, color=INK2, fontsize=12.5, va='bottom')
+    fig.text(0.5, -0.05,
+             'Which is the whole reason the factory is shaped the way it is: everything cheap '
+             'happens interactively in a\nnotebook, and everything expensive goes into a queue '
+             'that runs while nobody is watching.',
+             ha='center', color=INK2, fontsize=12)
+    save(fig, '15-what-a-run-is-made-of')
 
 
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
-           fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity)
+           fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
+           fig_how_many_seeds, fig_speedup, fig_pipeline)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
-    # rendered on: a different matplotlib can shift layout by a pixel and churn all ten files for
-    # no reason, which is the noise save()'s fixed hashsalt exists to keep out of git status.
+    # rendered on: a different matplotlib can shift layout by a pixel and churn all fourteen files
+    # for no reason, which is the noise save()'s fixed hashsalt exists to keep out of git status.
+    # Patrick's, from #53, kept verbatim -- he rendered figure 01 on a Colab runtime and this is
+    # what stopped it touching the other nine.
     want = [w.lower() for w in sys.argv[1:]]
     fns = [fn for fn in ALL if not want or any(w in fn.__name__.lower() for w in want)]
     if want and not fns:

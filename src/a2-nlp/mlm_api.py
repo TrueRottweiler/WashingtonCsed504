@@ -198,6 +198,42 @@ def pretrain(name: str, tokens: int, steps: int, seed: int = 0, preset: str = 'p
         if os.path.exists(done) and os.path.exists(ckpt):
             with open(done, encoding='utf-8') as f:
                 rec = json.load(f)
+
+            # Check that the stored run was trained the way THIS call asks for, because the tag
+            # cannot. cell_tag encodes corpus, tokens, steps, seed and preset -- not lr, clip,
+            # warmup, batch or seq_len. So `pretrain(..., clip=0.5)` after a clip-1.0 run at the
+            # same cell used to return the clip-1.0 record and print "reusing the completed run",
+            # which is a silently wrong answer to a question nobody realised they had asked.
+            #
+            # Renaming the tag to include these would rename every record on disk, so the guard
+            # goes here instead: compare, and refuse rather than reuse. A mismatch is a caller
+            # error -- either pass an explicit tag for the new condition, as the clipping study
+            # does, or pass reuse=False.
+            # The first version of this check skipped any field the record did not carry, which
+            # made it useless for the one case that matters: `clip` and `warmup` are ABSENT from
+            # every record written before they were exposed, and those are exactly the older runs
+            # a new condition would collide with. Absent has to mean "cannot confirm", not "fine".
+            #
+            # But it can only mean that for a NON-DEFAULT request. Reuse at the defaults is the
+            # property every study script depends on, so a default request against a record that
+            # predates the field is still reused.
+            DEFAULTS = {'lr': None, 'clip': 1.0, 'warmup': None, 'batch': 128, 'seq_len': 128}
+            asked = {'lr': lr, 'clip': clip, 'warmup': warmup, 'batch': batch, 'seq_len': seq_len}
+            problems = []
+            for k, v in sorted(asked.items()):
+                if v == DEFAULTS[k]:
+                    continue                       # asking for the default: nothing to confirm
+                if k not in rec:
+                    problems.append(f'{k}: requested {v!r}, record predates the field')
+                elif rec[k] != v:
+                    problems.append(f'{k}: requested {v!r}, record has {rec[k]!r}')
+            if problems:
+                raise ValueError(
+                    f'[{tag}] a completed run exists but cannot be confirmed to match this '
+                    f'request ({"; ".join(problems)}). cell_tag does not encode these settings, '
+                    f'so reusing would silently return a different experiment. Pass an explicit '
+                    f'tag for this condition -- as the clipping study does -- or reuse=False.')
+
             print(f'[{tag}] reusing the completed run '
                   f'(val {rec["val_loss"]:.3f}, {rec["seconds"]/60:.1f} min) -- '
                   f'pass reuse=False to retrain')

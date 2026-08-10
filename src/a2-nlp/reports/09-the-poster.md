@@ -37,10 +37,44 @@ The sequence already teaches you to build a model, one layer of abstraction at a
 
 | | what it gave you |
 |---|---|
-| **501** | the statistics: what an estimate is, what a difference is, when you are allowed to believe one |
-| **502** | the mechanics: you wrote `lstm_step_forward` and its backward pass by hand |
-| **503** | the language stack: n-gram models and perplexity, GloVe, attention from scratch into minGPT, decoding |
-| **504** | scale: the same thing on real hardware, twice — images, then text |
+| **501** | classical ML and the statistics under it — regression on house prices, `model.fit()` **is** the training, and *Elements of Statistical Learning* on the reading list |
+| **502** | everything by hand, in NumPy: kNN and softmax, backprop, ConvNets, BatchNorm and Dropout, the LSTM cell, and attention — first built here, over image captions |
+| **503** | the language stack: n-gram models and perplexity, GloVe, attention again and checked against PyTorch to 1e-7, minGPT on Shakespeare, decoding and distillation |
+| **504** | scale, twice — images then text — on hardware you have to schedule |
+
+### The factory is a year old, and nobody assigned it
+
+This is the part that reframes everything below, so it goes first.
+
+The tooling on this poster did not begin with this project. It began in **CSED 501, in autumn**,
+and has been rebuilt every quarter since — none of it set as coursework, none of it provided by
+an instructor.
+
+| | | what got built alongside the assignments |
+|---|---|---|
+| **501** | autumn 2025 | classical ML; the habit of running the same thing on a Mac, a Windows box and Colab and expecting the same answer |
+| **502** | winter 2026 | `setup_utils.py` — one import that detects Colab, mounts Drive, fixes the path, and otherwise stays out of the way locally |
+| **503** | spring 2026 | **`hyper_sweep.py`, 915 lines** |
+| **504** | summer 2026 | the factory on this board |
+
+`hyper_sweep.py` is worth opening if you want to know where the rest came from. It auto-detects
+CUDA, MPS or CPU and picks a different strategy for each: compiled kernels and device-resident
+features on CUDA, `joblib` across cores with shared memory on CPU. It carries seeds, timing,
+caching and resume. And it explains its own fallback rather than asserting it:
+
+> *Apple's MPS backend doesn't support `torch.compile`. Without compilation every tensor op
+> dispatches a separate Metal kernel — each ~3–5 µs of overhead. For tiny logistic-regression
+> batches that finish their math in ~2 µs, the GPU spends more time waiting for Python than
+> computing.*
+
+That is a measured explanation of a design decision, written for logistic regression, a year
+before any of this. Every habit the rest of this board argues for — measure before you assume,
+say why, make it run anywhere — is already in that docstring.
+
+**So the honest version of the progression is not that a term project produced infrastructure.**
+It is that a tool built over a year for small problems met a term where the runs took ninety
+minutes instead of two seconds, and had to become something else. What changed was not the
+principles. It was that at this scale, being wrong got expensive enough to notice.
 
 Every one of those ends when a model finishes training. **None of them covers what happens when
 you need a hundred models and have to believe the differences between them.** That is a different
@@ -59,7 +93,7 @@ the two cards over the weekend this poster was written.
 | | | |
 |---|---|---|
 | **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is 1.024B tokens ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>*panel 5* | **2 · Why optimize before anything needs it?**<br>2.07×, measured before it was necessary. Had to learn: the hours saved are not the point. Speed changes which experiments you are willing to **start**, and four of our five corrections came from a cheap re-run somebody did on a hunch.<br>*panel 4* | **3 · Infrastructure that survives you**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint, and a dashboard that shows an empty page while both cards sit at 85% is worse than none.<br>*panels 6–8 · figure 07* |
-| **4 · Is this difference real?**<br>Had to learn — expensively — that run-to-run spread is a property of the **cell**, not a constant of the project. It ranges 0.003 to 2.156. We used one number, 0.049, everywhere, and judged a term of claims too generously.<br>*panel 10 · figure 04* | **5 · What does a model that learned nothing score?**<br>0.403 and 0.414. Had to learn that you cannot read any result before that number exists: one of our "findings" was a baseline that had never trained, and the floor is what exposed it.<br>*panels 9–10 · figure 01* | **6 · Units that silently are not units**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to bits per character — and that matched *steps* handed one arm 5.1× the compute and reversed the conclusion.<br>*panel 10 · figure 03* |
+| **4 · Is this difference real?**<br>Two lessons, the second learned this weekend. Spread is a property of the **cell**, not a constant — it ranges 0.003 to 2.156 and we used one number everywhere. And our rule, *"bigger than the spread"*, is half a rule: at three seeds a difference must be **2.27×** the spread, not 1.0×. Our own headline number was sitting in that gap.<br>*panel 10 · figures 04, 13* | **5 · What does a model that learned nothing score?**<br>0.403 and 0.414. Had to learn that you cannot read any result before that number exists: one of our "findings" was a baseline that had never trained, and the floor is what exposed it.<br>*panels 9–10 · figure 01* | **6 · Units that silently are not units**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to bits per character — and that matched *steps* handed one arm 5.1× the compute and reversed the conclusion.<br>*panel 10 · figure 03* |
 | **7 · Is your metric the right metric?**<br>**Run this weekend.** We minimized validation loss for a term and never checked it. 19 checkpoints, both tasks: it predicts topic classification (r = −0.888) and entity recognition **not at all** (r = +0.303). The aggregate −0.935 is three broken models holding up a line.<br>*panel 14 · figure 11* | **8 · Does a tuned setting transfer?**<br>**Run this weekend.** The board claims adding a language is one function call — true only if the settings come too. Five languages, four rates: the best rate is **not** the same, and one language diverges exactly where three others improve. The sweep then caught itself hitting its own boundary.<br>*panel 14* | **9 · Detect the failure, or prevent it?**<br>13 runs never learned — 16% of all compute. Had to learn that every abandonment rule **loses money**: best case −24 GPU-hours, because a 12% base rate against an asymmetric penalty cannot close. **Running now:** whether clipping prevents them instead.<br>*panel 14 · figure 10* |
 
 **10 · Writing it down so it stays true** — *the strip along the bottom.* What it cost, what we
@@ -880,9 +914,51 @@ across cells of the same study. For most of the term we used a single number, 0.
 on one model on one language, and applied it everywhere. That was the first of the five constants
 in the table below, and it is why every early claim was judged too generously.
 
-**The rule we ended up with, which is the one worth putting on a poster:** run the same cell at
-three seeds *before* comparing it to anything, and treat a difference smaller than that cell's own
-spread as no difference at all.
+**The rule we worked to for most of the term:** run the same cell at three seeds *before*
+comparing it to anything, and treat a difference smaller than that cell's own spread as no
+difference at all.
+
+### The rule was half right, and we read it as if it were whole
+
+That rule is sound in one direction and **silent in the other**, and we had been using it in both.
+It correctly rejects a difference smaller than the noise. It says nothing whatever about a
+difference slightly *larger* than the noise — and we had been treating "clears the spread" as
+"is real."
+
+Here is the bar a two-sample test actually sets:
+
+![The multiple of the seed spread a difference must reach, against the number of seeds, with our
+own claims plotted on it](figures/13-how-many-seeds.png)
+
+| seeds per arm | the difference must be | |
+|---|---|---|
+| 2 | 4.30× the spread | |
+| **3** | **2.27×** | ← where we worked |
+| 5 | 1.46× | |
+| 6 | 1.29× | |
+| 10 | 0.94× | the rule finally becomes true here |
+
+At three seeds a difference has to be **more than twice** the spread before it is distinguishable
+from nothing. Our threshold was 1.0. Everything between those two lines is a difference we would
+have called real and could not have.
+
+**And one of ours was sitting in that gap.** The tokenizer penalty — 0.144 bits per character at
+matched compute, the headline of report 08 and a cell on this board — is 1.4× the spread. It
+passed our rule and fails the test: Welch t = 1.68, **p = 0.22** at three seeds against three. The
+direction is consistent across every seed and the number is not wrong; it is simply not
+established.
+
+The audit that found it is [`claims_audit.py`](../claims_audit.py), and it exists because the
+check we already had verified that *numbers* in the prose still matched the records while having
+nothing to say about whether the claim wrapped around a number was supported. Every mistake this
+project shipped lived in that gap.
+
+**What we did about it is the part worth copying.** Not a hedge — three more seeds per arm, which
+is four GPU-hours. At the observed effect size n = 6 reaches p = 0.039 and n = 5 only reaches
+0.061, so six was fixed in advance and written into the script before the runs started. If the
+penalty still fails at six seeds, report 08 will say it is not established. Choosing the sample
+size after seeing the result is the failure this whole board is about, and the only thing
+separating buying power from p-hacking is which of those two you decided first.
 
 That is why the count is high, and it is where the project's hardest lessons came from.
 
@@ -1303,10 +1379,15 @@ shaded](figures/11-metric-validity.png)
 | | all 19 models | the 16 that actually trained |
 |---|---|---|
 | Topic classification | r = −0.616 | **r = −0.888** |
-| Entity recognition | r = −0.935 | **r = +0.303** |
+| Entity recognition | r = −0.935 | **r = +0.303 — i.e. none** (t = 1.19, p ≈ 0.25) |
 
 Read the second row twice. Across all nineteen the correlation looks like the tightest number in
-the study. Restrict it to models that trained, and **the sign flips**.
+the study. Restrict it to models that trained, and **it disappears**.
+
+Not *inverts* — disappears. The +0.303 is tempting to read as a reversal and it is not one: at
+n = 16 that is t = 1.19, p ≈ 0.25, indistinguishable from zero. Asserting an inversion would claim
+something the data cannot carry, which is exactly the failure the panel beside this one is about.
+The supportable statement is that the relationship is **absent**, and that is enough.
 
 That −0.935 is manufactured entirely by three under-trained models sitting far to the right.
 Among the sixteen working ones, 0.79 nats of pretraining loss buys a score range of 0.044 with a
@@ -1315,9 +1396,33 @@ models; it simply is not tracking the thing we spent a term minimizing.
 
 **So validation loss tells you a model is broken. On entity recognition it does not tell you which
 working model is better.** On topic classification it does, strongly. Two tasks, opposite answers,
-the same checkpoints — and it lines up exactly with the floor result from report 06: entity
-recognition sits at 49% of achievable before any pretraining at all, so most of what that task
-needs is surface form that even a mediocre model has.
+the same checkpoints.
+
+### Why the two tasks differ — and the explanation we got wrong first
+
+The first version of this panel blamed the floor: entity recognition starts closer to its ceiling,
+so less is left for pretraining to supply. That is wrong, and it survived into a figure and an
+email before anyone checked it. **The floors are near enough identical** — 0.403 of 0.705 on topic
+classification is 57%, 0.414 of 0.798 on entity recognition is 52%. A five-point difference
+explains nothing.
+
+![Floor, the gain every trained model receives, and the band the sixteen actually
+span](figures/12-floors.png)
+
+What separates them is not the *size* of the benefit but its **variability**:
+
+| | the gain every model gets | the band 16 trained models span |
+|---|---|---|
+| Topic classification | +0.159 | **0.143** wide |
+| Entity recognition | +0.340 | **0.044** wide |
+
+Entity recognition hands every working model a large and **nearly constant** benefit — the spread
+between the best and worst of sixteen is 0.044, about 13% of the smallest gain. Topic
+classification spreads them over 0.143, about 90% of the smallest gain.
+
+**A benefit that everyone receives equally cannot be predicted by anything**, because there is
+nothing left to predict. That is the whole reason validation loss tracks one task and not the
+other, and it has nothing to do with where the floor sits.
 
 The uncomfortable implication is for the data ladder, the step budgets and the seed replication —
 all chosen to move a number that, on one of our two tasks, moves nothing downstream.

@@ -36,6 +36,7 @@ import os
 import statistics as st
 import time
 
+import fleet_plan
 import mlm_api as f
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,6 +74,16 @@ def main():
     if a.dry_run:
         print('\n--dry-run: nothing was executed.')
         return
+
+    # Announce before the first run, so the dashboard shows the whole grid rather than the
+    # fraction that has started. Extending the rate range re-announces and replaces.
+    fleet_plan.announce('learning-rate transfer across languages',
+                        [fleet_plan.cell(f'lrx_{lang}_{lr:g}_s{seed}',
+                                         f'{lang}  lr={lr:g}  seed {seed}',
+                                         corpus=lang, steps=STEPS, eta_s=540,
+                                         update_tokens=STEPS * 128 * 128)
+                         for lang, lr, seed in cells],
+                        replace_prefix='lrx_')
 
     rows, t0 = [], time.time()
     for i, (lang, lr, seed) in enumerate(cells, 1):
