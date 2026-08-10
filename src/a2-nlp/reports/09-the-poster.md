@@ -37,15 +37,44 @@ The sequence already teaches you to build a model, one layer of abstraction at a
 
 | | what it gave you |
 |---|---|
-| **501** | classical ML with `sklearn` — `model.fit()` **is** the training. No loop, no device, no batch |
+| **501** | classical ML and the statistics under it — regression on house prices, `model.fit()` **is** the training, and *Elements of Statistical Learning* on the reading list |
 | **502** | everything by hand, in NumPy: kNN and softmax, backprop, ConvNets, BatchNorm and Dropout, the LSTM cell, and attention — first built here, over image captions |
 | **503** | the language stack: n-gram models and perplexity, GloVe, attention again and checked against PyTorch to 1e-7, minGPT on Shakespeare, decoding and distillation |
 | **504** | scale, twice — images then text — on hardware you have to schedule |
 
-One thread runs the whole way through and it is worth naming, because it is the reason this poster
-exists. **In 503 assignment 1 you wrote `hyper_sweep.py`** — a cross-platform hyperparameter sweep
-that uploads its features to the GPU once and reuses them. That file is the direct ancestor of
-`train_fleet.py`. The first version of the factory was a homework submission.
+### The factory is a year old, and nobody assigned it
+
+This is the part that reframes everything below, so it goes first.
+
+The tooling on this poster did not begin with this project. It began in **CSED 501, in autumn**,
+and has been rebuilt every quarter since — none of it set as coursework, none of it provided by
+an instructor.
+
+| | | what got built alongside the assignments |
+|---|---|---|
+| **501** | autumn 2025 | classical ML; the habit of running the same thing on a Mac, a Windows box and Colab and expecting the same answer |
+| **502** | winter 2026 | `setup_utils.py` — one import that detects Colab, mounts Drive, fixes the path, and otherwise stays out of the way locally |
+| **503** | spring 2026 | **`hyper_sweep.py`, 915 lines** |
+| **504** | summer 2026 | the factory on this board |
+
+`hyper_sweep.py` is worth opening if you want to know where the rest came from. It auto-detects
+CUDA, MPS or CPU and picks a different strategy for each: compiled kernels and device-resident
+features on CUDA, `joblib` across cores with shared memory on CPU. It carries seeds, timing,
+caching and resume. And it explains its own fallback rather than asserting it:
+
+> *Apple's MPS backend doesn't support `torch.compile`. Without compilation every tensor op
+> dispatches a separate Metal kernel — each ~3–5 µs of overhead. For tiny logistic-regression
+> batches that finish their math in ~2 µs, the GPU spends more time waiting for Python than
+> computing.*
+
+That is a measured explanation of a design decision, written for logistic regression, a year
+before any of this. Every habit the rest of this board argues for — measure before you assume,
+say why, make it run anywhere — is already in that docstring.
+
+**So the honest version of the progression is not that a term project produced infrastructure.**
+It is that a tool built over a year for small problems met a term where the runs took ninety
+minutes instead of two seconds, and had to become something else. What changed was not the
+principles. It was that at this scale, being wrong got expensive enough to notice.
 
 Every one of those ends when a model finishes training. **None of them covers what happens when
 you need a hundred models and have to believe the differences between them.** That is a different
