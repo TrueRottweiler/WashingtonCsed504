@@ -200,6 +200,10 @@ def main():
     ap.add_argument('--all-models', action='store_true',
                     help='include the rungs that never left the unigram plateau. Off by default so '
                          'the band matches the published one; the report prints both cuts anyway.')
+    ap.add_argument('--shard', default=None, metavar='i/k',
+                    help='run only every k-th cell, starting at the i-th. Two cards on the same '
+                         'levels: --shard 1/2 on one, --shard 2/2 on the other. Safe to combine '
+                         'because the results file is merged on every write, not held in memory.')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--report', action='store_true',
                     help='print what this machine can contribute, and any results already on disk. '
@@ -242,6 +246,23 @@ def main():
     if a.context:
         cells += [(label, path, n, lr, 'context')
                   for n in levels for label, path, lr in CONTEXT]
+
+    # Sharding, so two cards can share one level rather than taking a level each.
+    #
+    # Splitting by --levels looks like the obvious way to use both GPUs and is not: the levels are
+    # not equal work, and once a level's cells are mostly on disk its card finishes in a minute
+    # and then sits idle while the other grinds through a full pass. Dealing every k-th cell puts
+    # the same number on each card whatever is already cached, and because reuse=True makes a
+    # finished cell free, a shard that happens to draw cached cells simply finishes early rather
+    # than doing someone else's work twice.
+    #
+    # Interleaved rather than split down the middle on purpose: the band models are ordered by
+    # size, so contiguous halves would hand one card all the large-vocabulary checkpoints.
+    if a.shard:
+        i, k = (int(x) for x in a.shard.split('/'))
+        cells = cells[i - 1::k]
+        print(f'shard {i} of {k}: {len(cells)} of the cells')
+
     est = sum(38 if kind == 'band' else 161 for *_, kind in cells) * len(SEEDS) / 60
     print(f'\n{len(cells)} cells x {len(SEEDS)} seeds = {len(cells)*len(SEEDS)} fine-tuning runs')
     print(f'  ~{est:.0f} min on a Blackwell card, ~{est*1.7:.0f} min on an A100, from '
@@ -264,24 +285,48 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = str(a.gpu)
     # Resume rather than restart. reuse=True makes a finished cell free to re-request, but the
     # results file should not lose the cells an interrupted run already wrote.
-    rows: list[dict] = []
-    if os.path.exists(OUT):
-        rows = [r for r in json.load(open(OUT, encoding='utf-8')) if 'mean' in r]
+    def merge(rec=None, n=None, kind=None, label=None):
+        """Re-read, merge, write. Never hold the results file in memory across a cell.
+
+        The original held `rows` in memory and rewrote the whole file after each cell, which is
+        correct for one process and destructive for two: each would write back its own view and
+        drop the other's cells. That is not hypothetical -- the same shape made ten finished cells
+        appear to vanish from the NER floor sweep on the 9th, and the per-cell ft_*.json records
+        were the only reason nothing was actually lost.
+
+        Re-reading immediately before each write costs a few milliseconds and makes it safe to
+        run one level per card, which is what turns this from a ninety-minute job into a
+        forty-five-minute one.
+        """
+        try:
+            with open(OUT, encoding='utf-8') as fh:
+                cur = [r for r in json.load(fh) if 'mean' in r]
+        except (OSError, ValueError):
+            cur = []
+        if rec is not None:
+            cur = [r for r in cur
+                   if not (r.get('model_slug') == rec['model_slug']
+                           and r.get('n_train_requested') == n)]
+            cur.append({'kind': kind, 'label': label, 'model_slug': rec['model_slug'],
+                        'n_train_requested': n, 'n_train': rec['n_train'], 'lr': rec['lr'],
+                        'mean': rec['mean'], 'sd': rec.get('sd'), 'ci': rec.get('ci'),
+                        'scores': rec.get('scores'), 'seeds': rec.get('seeds')})
+        tmp = f'{OUT}.{os.getpid()}.tmp'
+        with open(tmp, 'w', encoding='utf-8') as fh:
+            json.dump(cur, fh, indent=2)
+        os.replace(tmp, OUT)
+        return cur
+
+    rows = merge()
     t0 = time.time()
     for i, (label, path, n, lr, kind) in enumerate(cells, 1):
         try:
             rec = ft_api.evaluate(path, task=TASK, lang=LANG, steps=STEPS, lr=lr, n_train=n,
                                   seeds=SEEDS, reuse=True, label=f'{label} n={n}')
-            rows = [r for r in rows
-                    if not (r.get('model_slug') == rec['model_slug']
-                            and r.get('n_train_requested') == n)]
-            rows.append({'kind': kind, 'label': label, 'model_slug': rec['model_slug'],
-                         'n_train_requested': n, 'n_train': rec['n_train'], 'lr': lr,
-                         'mean': rec['mean'], 'sd': rec.get('sd'), 'ci': rec.get('ci'),
-                         'scores': rec.get('scores'), 'seeds': rec.get('seeds')})
+            rows = merge(rec, n=n, kind=kind, label=label)
         except Exception as e:                   # noqa: BLE001 -- one cell must not stop the rest
             print(f'  FAILED {label} n={n}: {repr(e)[:120]}', flush=True)
-        json.dump(rows, open(OUT, 'w', encoding='utf-8'), indent=2)
+            rows = merge()
         print(f'  [{i}/{len(cells)}] {label} n={n}  ({(time.time()-t0)/60:.0f} min elapsed)',
               flush=True)
 
