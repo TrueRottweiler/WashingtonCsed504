@@ -522,6 +522,8 @@ same lesson from a unit to a setting.
 
 **Big number:** `7e-4: best for three languages, fatal to a fourth` · **Figure:**
 `16-lr-transfer.svg`
+*(alternative, if the cell should carry the budget lesson instead of the transfer one:*
+`12× — what length buys against what seeds buy`*. Both are below; only one fits.)*
 
 **Problem.** The factory's selling point is that adding a language is one function call. That is
 only true if the *settings* come with it, and we had never checked whether they do.
@@ -533,12 +535,19 @@ we imagined was leaving a little performance on the table.
 **Approach.** Five languages — Hausa, Igbo, Nyanja, Swahili, Yoruba — six learning rates, two
 seeds, sixty runs. Plot them as small multiples rather than five curves on one axis, because the
 heights are not comparable across languages with different corpora and the *shape* is what carries
-the answer. Draw every seed, not the cell mean: three cells here are split, with one seed training
+the answer. Draw every seed, not the cell mean: two cells here are split, with one seed training
 and the other collapsing, and a mean over those describes no run that happened.
 
 **Results.** Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo **collapses** at 7e-4 and at
-every rate above it — 2.889 at 5e-4 against 5.638 at 7e-4, and it stays there. Yoruba peaks at
-5e-4 and degrades at 1e-3. So the rate that is optimal for three of the five destroys a fourth.
+every rate above it — 2.889 at 5e-4 against 5.638 at 7e-4, and it stays there. So the rate that is
+optimal for three of the five destroys a fourth.
+
+Yoruba's own top end is the more instructive row, and an earlier draft of this cell got it wrong.
+It said *"Yoruba peaks at 5e-4 and degrades at 1e-3."* The 1e-3 cell does not degrade. It is
+**split**: one seed collapsed at 5.540 and the other trained to 3.326, which is within 0.32 of
+Yoruba's best rate. "Degrades" is what the average of those two numbers looks like, and it
+describes neither run. That is the mistake the Approach paragraph above warns about, made in the
+Results paragraph directly underneath it, which is roughly how these errors actually happen.
 
 **Learning.** The risk of transferring a tuned setting is not a slightly worse model; it is a
 wasted night that looks like a result until you check it against something. A setting is part of
@@ -546,8 +555,93 @@ the experiment, not part of the tooling, and "one function call" is a claim abou
 than about the science. When a hyperparameter can fail catastrophically rather than gradually,
 sweep it per language or do not claim transfer.
 
-**What this makes possible.** If runs can fail this way, the obvious engineering response is to
-catch them early and stop paying for them. Week 9 tries exactly that.
+### Luck, skill, and what to spend the next hour on
+
+The honest question underneath this cell is one nobody asks out loud: **how much of a tuned result
+is knowing what you are doing, and how much is having run enough things that one of them came out
+well?** Sixty runs is enough to answer that, and the answer is uncomfortable.
+
+**1. The winning rate is not identified — in any of the five languages.** For each language, the
+gap between the best rate and the runner-up is *smaller than the gap between two seeds at the same
+rate*. Every "peak" quoted above is a range, not a point.
+
+| language | best | runner-up | gap between them | seed sd at one rate | identified? |
+|---|---|---|---|---|---|
+| Hausa | 7e-4 · 3.139 | 8.5e-4 · 3.160 | 0.021 | 0.022 | no |
+| Igbo | 5e-4 · 2.889 | 3e-4 · 2.956 | 0.067 | 0.127 | no |
+| Nyanja | 7e-4 · 2.734 | 8.5e-4 · 2.782 | 0.048 | 0.354 | no |
+| Swahili | 7e-4 · 2.853 | 8.5e-4 · 2.916 | 0.063 | 0.070 | no |
+| Yoruba | 5e-4 · 3.006 | 7e-4 · 3.026 | 0.020 | 0.090 | no |
+
+What the experiment *did* establish is real and worth having: which rates are fatal, and roughly
+where the usable band sits. What it did not establish is which rate inside that band is best.
+Those are different claims, and only the first one survives Week 6's bar.
+
+**2. What identifying it would cost.** Apply the same arithmetic as Week 6 in reverse — how many
+seeds a side to resolve a gap that small against that much seed noise. Hausa needs 9 and Swahili
+10, which are affordable. Yoruba needs **164 seeds per rate** and Nyanja **413**. Across the five
+languages and six rates that is **3,744 runs — 565 GPU-hours, about four times this entire
+project**, spent to move a validation loss by two hundredths of a nat. The correct response to
+that number is not to run it. It is to stop describing the winner as the winner.
+
+**3. Longer, or more seeds?** The one place we paid for both arms: Yoruba's full corpus at 5e-4,
+run at 12,000 steps for four seeds and 62,500 steps for six. A long run costs **5.4×** a short
+one, so the comparison is one long run against five short ones with the best kept.
+
+| what you buy with the same compute | expected validation loss |
+|---|---|
+| one run at 12,000 steps | 2.9274 |
+| best of 2 at 12,000 steps | 2.8879 |
+| best of 4 at 12,000 steps | 2.8855 |
+| **one run at 62,500 steps** | **2.4067** |
+
+**Length buys 0.521 nats. Best-of-four seeds buys 0.042 — twelve times less.** And it is not
+close in the tail either: the *worst* of the six long runs (2.5326) beats the *best* of the four
+short ones (2.8855) by 0.35 nats, with no overlap between the two sets at all. Given a fixed
+budget and a rate you already believe in, **train longer**.
+
+Two honest caveats on that table. Only four short seeds exist, so best-of-*five* — the true
+like-for-like against one long run — cannot be priced; but going from three to four bought
+0.0008 nats, so the missing row would not change the conclusion by anything visible. And this
+holds *at a rate that works*. The trade reverses completely at a rate near the cliff, where the
+long run is a coin flip and the short runs are cheap information about which way it lands.
+
+**4. Then why run more than one seed at all?** Not for quality — for finding out which kind of
+cell you are standing in. Collapse is partly a seed event: of the nine cells in the grid where
+collapse happened at all, **two collapsed for one seed and not the other**. A single run at
+Yoruba's 1e-3 tells you either "this rate is fatal" or "this rate is fine", with a coin deciding
+which, and a sweep built from single runs inherits that coin at every rate. Seeds are not how you
+buy a better number. They are how you find out whether your number was a number.
+
+**The order to spend in, measured rather than asserted.** A wrong rate costs about **3 nats** —
+Hausa at 1.5e-4 is 6.204 against 3.139 at its best. Five times the training length buys **0.52**.
+Four seeds buy **0.042**. That is roughly **75 : 13 : 1**, and it is the whole budget policy:
+find the usable band first, then spend everything left on length, and run a second seed for
+information rather than for a better score.
+
+And the sharpest way to say it: **inside the usable band, choosing the rate is worth about as much
+as choosing the seed.** Comparing the spread across rates against the spread across seeds at one
+rate, over trained runs only, the median ratio across the five languages is **1.2×** — Hausa 7.1,
+Swahili 3.1, Yoruba 1.2, Nyanja 1.0, Igbo 0.4, where below 1.0 means the seed mattered *more* than
+the rate did. Almost the entire measured effect of the learning rate is the cliff, not the slope.
+Which means the sweep was worth running and the winner was not worth quoting, and those two
+sentences have to be said together or the second one sounds like modesty.
+
+**And the reproducibility consequence.** "We tuned the learning rate on a held-out set" is a
+sentence in almost every paper, this one's drafts included, and on this evidence it usually means
+*we ran a grid and reported the argmin.* With one seed per cell the argmin is substantially a draw
+from the seed distribution, which is why a tuned setting reproduces so badly on somebody else's
+machine: they are not failing to reproduce your model, they are failing to reproduce your luck.
+The defensible version is narrower and costs nothing extra to say — **report the band, name the
+rates that failed, and say how many seeds each cell got.** Every number in this section came out
+of records that were already on disk, which is the only reason the question could be asked at all
+after the fact rather than re-run from scratch — not one new model was trained to produce any of
+it. `study_budget.py` recomputes all five parts and writes `runs/budget.json`; quote it from there
+rather than from this sheet.
+
+**What this makes possible.** If runs can fail this way — and if a second seed is the cheapest
+instrument for noticing — the obvious engineering response is to catch the failures early and stop
+paying for them. Week 9 tries exactly that, and fails.
 
 ---
 
@@ -607,6 +701,12 @@ three failures are ours. That is the claim worth making: not that we were carefu
 ran the test, published the count of our own failures, and did not quietly drop the two claims
 that failed — a tokenizer penalty and a floor explanation, both already written up, one already
 emailed.
+
+The AI disclosure belongs in this column too, in one line, because it is the same kind of claim
+and it is derived the same way: **120 of the repository's 144 commits carry a `Co-Authored-By:
+Claude` trailer.** That is `git log`, not a promise. Reference 19 has the rest, and report 09 §13
+has the version worth actually reading — including the three occasions it was confidently and
+completely wrong.
 
 ---
 
@@ -791,10 +891,12 @@ machine.
 
 # References
 
-Everything the board leans on that we did not measure ourselves. The poster should carry a
-shortened version of this — a board that quotes a significance threshold and a dataset without
-saying where either came from is asking to be taken on trust, which is the one thing this board
-argues against.
+Everything the board leans on that we did not measure ourselves — **including the assistant**,
+which belongs here rather than in a footnote, because a tool that wrote code you are now reading
+results from is a source in exactly the sense the other eighteen entries are. The poster should
+carry a shortened version of this. A board that quotes a significance threshold, a dataset and a
+model without saying where any of them came from is asking to be taken on trust, which is the one
+thing this board argues against.
 
 Five entries left with the two cut cells — Levene, Pearson, Spearman, Simpson and Anscombe, which
 between them supported the metric-validity and tokenizer-variance results. They are still cited in
@@ -862,6 +964,49 @@ people who built them, and that using the tool is not the same as endorsing the 
     one-cycle schedule every run here anneals under, which is why a run cannot be truncated and
     still compared. [arXiv:1803.09820](https://arxiv.org/abs/1803.09820)
 
+### Search, seeds, and reproducibility
+
+Week 8's luck-versus-skill section is the part of this board most likely to be met with "surely
+somebody has already shown that." They have, repeatedly, and for longer than this project has
+existed. Our contribution there is not the finding; it is that we measured it on our own grid
+instead of citing it and carrying on.
+
+14. **Bergstra, J. and Bengio, Y.** (2012). "Random Search for Hyper-Parameter Optimization."
+    *Journal of Machine Learning Research* 13, 281–305. — why a grid spends most of its budget
+    re-measuring dimensions that do not matter. Our sweep is a grid, which is defensible only
+    because it varies one parameter.
+    [JMLR](https://jmlr.org/papers/v13/bergstra12a.html)
+15. **Dodge, J., Gururangan, S., Card, D., Schwartz, R. and Smith, N. A.** (2019). "Show Your
+    Work: Improved Reporting of Experimental Results." *EMNLP-IJCNLP 2019.* — the expected-maximum
+    curve as a function of search budget, which is exactly the best-of-*k* column in Week 8's
+    second table, and the argument that a result is not reportable without the budget that
+    produced it. [arXiv:1909.03004](https://arxiv.org/abs/1909.03004)
+16. **Melis, G., Dyer, C. and Blunsom, P.** (2018). "On the State of the Art of Evaluation in
+    Neural Language Models." *ICLR 2018.* — a plain LSTM, tuned with the same budget as its
+    challengers, beats several architectures published as improvements on it. The cleanest
+    demonstration that search budget masquerades as method.
+    [arXiv:1707.05589](https://arxiv.org/abs/1707.05589)
+17. **Reimers, N. and Gurevych, I.** (2017). "Reporting Score Distributions Makes a Difference:
+    Performance Study of LSTM-networks for Sequence Tagging." *EMNLP 2017.* — report the
+    distribution over seeds rather than a single number. Written about the same task family as our
+    MasakhaNER half. [arXiv:1707.09861](https://arxiv.org/abs/1707.09861)
+18. **Picard, D.** (2021). "torch.manual_seed(3407) is all you need." — the seed lottery measured
+    at scale on vision models; the title is a joke and the measurement is not.
+    [arXiv:2109.08203](https://arxiv.org/abs/2109.08203)
+
+### The assistant, disclosed
+
+19. **Anthropic Claude**, used through the Claude Code command-line tool — Opus 4.8, Opus 5 and
+    Fable 5 over the term. Scaffolding, analysis code, written explanations, and the group's
+    coordination email. **120 of this repository's 144 commits carry a `Co-Authored-By: Claude`
+    trailer** — 83%, and that figure is `git log` rather than a sentence about honesty, which is
+    the only form of disclosure this board is entitled to make. What it did not do: no model ran
+    unattended overnight, no result was analyzed without a person reading the records, and the
+    scheduler that spent every one of the 143.3 GPU-hours has no model in it. It was also
+    confidently and completely wrong three times, in ways worth reading rather than summarizing.
+    **The full account is [report 09 §13](09-the-poster.md), "How we used AI, honestly."**
+
 **Check before printing.** Reference 6 is the one to verify — mmBERT is recent enough that the
 canonical citation may have changed since this was written, and a poster is a bad place to be
-wrong about somebody else's model.
+wrong about somebody else's model. Reference 19's commit counts move every time anybody pushes;
+recompute them rather than reprinting these.
