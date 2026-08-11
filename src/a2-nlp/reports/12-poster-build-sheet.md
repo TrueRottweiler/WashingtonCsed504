@@ -273,10 +273,13 @@ genuinely separated at three seeds a side.
 reader would otherwise have to take on faith. Four of them, in order.
 
 **Where 0.05 comes from.** It is a convention, not a fact about the world — the probability we are
-willing to accept of announcing a difference that is not there. Fisher proposed it, it stuck, and
-nothing in the mathematics requires it. It matters here only because everything below is
-calibrated to it: change it to 0.01 and every threshold moves. Stating it as a choice rather than
-a law is the first honest thing a panel about significance can do.
+willing to accept of announcing a difference that is not there. It comes from **Ronald A. Fisher**
+(1890–1962), the British statistician who built most of the machinery this panel uses, in
+*Statistical Methods for Research Workers* (1925) — where he suggested one-in-twenty as a
+convenient line and said so in about that many words [[1](#references)]. It stuck because it was
+convenient, and nothing in the mathematics requires it. It matters here only because everything
+below is calibrated to it: change α to 0.01 and every threshold in this cell moves. Stating it as
+a choice rather than a law is the first honest thing a panel about significance can do.
 
 **Where 2.27× comes from.** A two-sample t-test asks whether the difference between two means is
 large compared with the noise in those means. Written as a multiple of the pooled standard
@@ -287,9 +290,10 @@ of freedom, and `t*` at the 97.5th percentile — two-sided 0.05 — is **2.776*
 falls as seeds are added because `t*` shrinks and `√(2/n)` shrinks with it.
 
 **Where 0.10 comes from, and why it is the sharper limit.** A permutation test makes no
-distributional assumption at all. It pools the six numbers, tries *every* way of splitting them
-into two groups of three, and asks how often a split as extreme as the one you observed comes up
-by chance. There are `C(6,3) = 20` such splits. If your actual arrangement is the most extreme
+distributional assumption at all — the idea is Fisher's again, from *The Design of Experiments*
+(1935), and was put on a formal footing by Pitman two years later [[2](#references),
+[3](#references)]. It pools the six numbers, tries *every* way of splitting them into two groups of
+three, and asks how often a split as extreme as the one you observed comes up by chance. There are `C(6,3) = 20` such splits. If your actual arrangement is the most extreme
 possible, exactly one split beats it in each direction, so the two-sided p is `2/20 = 0.10`. **No
 arrangement of six numbers can do better.** Even if every seed of one arm beats every seed of the
 other by a mile, the test reports 0.10 — and 0.10 is above 0.05, so a three-seed experiment cannot
@@ -688,3 +692,80 @@ three cost routes annotated. Then the last blocked cell is unblocked, and the bo
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
 numbers say so, and right now we have one machine's worth of evidence for a claim about every
 machine.
+
+---
+
+# References
+
+Everything the board leans on that we did not measure ourselves. The poster should carry a
+shortened version of this — a board that quotes a significance threshold and a dataset without
+saying where either came from is asking to be taken on trust, which is the one thing this board
+argues against.
+
+### Statistics
+
+1. **Fisher, R. A.** (1925). *Statistical Methods for Research Workers.* Oliver & Boyd,
+   Edinburgh. — the source of the 0.05 convention, offered there as a convenience rather than a
+   law. [Archive copy](https://archive.org/details/statisticalmethod031898mbp)
+2. **Fisher, R. A.** (1935). *The Design of Experiments.* Oliver & Boyd, Edinburgh. — randomization
+   as the basis of inference; the ancestor of the permutation test used throughout this board.
+3. **Pitman, E. J. G.** (1937). "Significance tests which may be applied to samples from any
+   populations." *Supplement to the Journal of the Royal Statistical Society* 4(1), 119–130. — the
+   formal treatment of permutation tests. [DOI: 10.2307/2984124](https://doi.org/10.2307/2984124)
+4. **Welch, B. L.** (1947). "The generalization of Student's problem when several different
+   population variances are involved." *Biometrika* 34(1–2), 28–35. — the unequal-variance t-test
+   `claims_audit.py` uses by default.
+   [DOI: 10.1093/biomet/34.1-2.28](https://doi.org/10.1093/biomet/34.1-2.28)
+5. **Levene, H.** (1960). "Robust tests for equality of variances." In *Contributions to
+   Probability and Statistics*, Stanford University Press, 278–292. — the variance test behind the
+   tokenizer-lottery result in Week 7.
+
+*A note worth making to a class rather than hiding in a bibliography:* Fisher was also a prominent
+eugenicist, and that is a matter of record rather than a matter of opinion. It does not make the
+arithmetic wrong. It is a useful reminder that a field's foundational tools arrive attached to the
+people who built them, and that using the tool is not the same as endorsing the person.
+
+### Models
+
+6. **Conneau, A. et al.** (2020). "Unsupervised Cross-lingual Representation Learning at Scale."
+   *ACL 2020.* — XLM-R, our 277M-parameter multilingual baseline, loaded as
+   `FacebookAI/xlm-roberta-base`. [arXiv:1911.02116](https://arxiv.org/abs/1911.02116)
+7. **mmBERT** — loaded as [`jhu-clsp/mmBERT-base`](https://huggingface.co/jhu-clsp/mmBERT-base);
+   246M parameters, reported by its authors as trained on roughly three trillion tokens across
+   1,800 languages. *Cite the model card directly — check the current card for the paper reference
+   before the poster is printed.*
+8. **Liu, Y. et al.** (2019). "RoBERTa: A Robustly Optimized BERT Pretraining Approach." — the
+   architecture our from-scratch models use.
+   [arXiv:1907.11692](https://arxiv.org/abs/1907.11692)
+9. **Devlin, J. et al.** (2019). "BERT: Pre-training of Deep Bidirectional Transformers for
+   Language Understanding." *NAACL 2019.* — the 80/10/10 masking scheme every pretraining run here
+   follows. [arXiv:1810.04805](https://arxiv.org/abs/1810.04805)
+10. **Ogueji, K., Zhu, Y. and Lin, J.** (2021). "Small Data? No Problem! Exploring the Viability of
+    Pretrained Multilingual Language Models for Low-resourced Languages." *MRL Workshop, EMNLP
+    2021.* — AfriBERTa, after which our 86M `afriberta` preset is shaped and named.
+    [ACL Anthology](https://aclanthology.org/2021.mrl-1.11/)
+
+### Data
+
+11. **Adelani, D. et al.** (2024). "SIB-200: A Simple, Inclusive, and Big Evaluation Dataset for
+    Topic Classification in 200+ Languages and Dialects." *EACL 2024.* — our topic-classification
+    task, loaded as `Davlan/sib200`. 701 train / 99 validation / 204 test for Yoruba.
+    [arXiv:2309.07445](https://arxiv.org/abs/2309.07445)
+12. **Adelani, D. et al.** (2022). "MasakhaNER 2.0: Africa-centric Transfer Learning for Named
+    Entity Recognition." *EMNLP 2022.* — our entity-recognition task. Read from
+    [the CoNLL files in the masakhane-ner repository](https://github.com/masakhane-io/masakhane-ner),
+    **not** via `load_dataset` — the HuggingFace copy ships a custom loading script and that path
+    is no longer executed. [arXiv:2210.12391](https://arxiv.org/abs/2210.12391)
+13. **FineWeb-2** — [`HuggingFaceFW/fineweb-2`](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2),
+    the source of every corpus in the language gradient, including all 69.1M tokens of Yoruba that
+    exist there. English rungs come from `fineweb-edu` and `fineweb`.
+
+### Method
+
+14. **Smith, L. N.** (2018). "A disciplined approach to neural network hyper-parameters." — the
+    one-cycle schedule every run here anneals under, which is why a run cannot be truncated and
+    still compared. [arXiv:1803.09820](https://arxiv.org/abs/1803.09820)
+
+**Check before printing.** Reference 7 is the one to verify — mmBERT is recent enough that the
+canonical citation may have changed since this was written, and a poster is a bad place to be
+wrong about somebody else's model.
