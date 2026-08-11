@@ -107,26 +107,86 @@ premature.
 counter-argument, which turned out to be the real one, is that speed does not only shorten the
 work you already planned; it changes which work you are willing to begin.
 
-**Approach.** Two changes, neither clever: raise the batch from 64 to 128, and actually use the
-second card, which the notebook had never touched. Measure the same work both ways rather than
-comparing to a remembered number. **25.2 minutes → 12.2 minutes.** Then decompose it, because the
-two halves are different kinds of win: the batch change is real efficiency at **1.32×** — less
-GPU-time for the same work — while the second card is pure wall-clock, the same GPU-minutes spent
-in parallel.
+**Approach.** The 2.07× on the board is the *last two steps* of about a year, and quoting it
+alone badly undersells what a student would have to learn. The path ran from hand-written NumPy in
+CSED 502, through PyTorch in 503, to a workstation whose two cards sit at 91% and 93% under load.
+Almost none of it was clever; nearly all of it was measuring instead of assuming, and roughly a
+third of what was tried turned out not to be worth keeping. The full list is below because the
+*shape* of it is the teaching point: the wins are concentrated in the data path and in precision,
+not in the model.
 
-**Results.** The project spent 83.3 GPU-hours; without the change it would have been about 172,
-which on two cards and realistic evenings is ten or eleven nights instead of five. That is the
-boring half. The interesting half is that four of the five corrections on this board came from a
-cheap re-run somebody did on a hunch — and a hunch is not worth acting on at 25 minutes a cell.
+**Results.** 25.2 minutes → 12.2 minutes on the same four cells, decomposed honestly: **1.32× is
+real efficiency** — less GPU-time for the same work — and the rest is a second card doing the same
+GPU-minutes in parallel. The project has since spent 143.3 GPU-hours; without the throughput work
+it would have been roughly double, which on realistic evenings is weeks rather than nights.
 
-**Learning.** The hours saved are not the point; the experiments you become willing to start are.
-Conflating efficiency with parallelism is how a project claims 2× and bought 1.3×, so decompose
-any speedup before quoting it. Optimize early when the thing you are buying is *iteration*, not
-throughput.
+**Learning.** The hours saved are not the point; the experiments you become willing to start are —
+four of the five corrections on this board came from a cheap re-run somebody did on a hunch, and a
+hunch is not worth acting on at 25 minutes a cell. Conflating efficiency with parallelism is how a
+project claims 2× and bought 1.3×, so decompose any speedup before quoting it. And optimize early
+when what you are buying is *iteration* rather than throughput.
 
 **What this makes possible.** Weeks 4 through 9 each rest on running one cell three to fifteen
-times. At 25 minutes a run, nobody would have done that, and every result below would have been a
+times. At 25 minutes a run nobody would have done that, and every result below would have been a
 single seed with an anecdote attached.
+
+### The year, in twenty changes
+
+Measured on this hardware unless marked. "Kept?" matters as much as the number — a third of these
+were tried and rejected, and a list of only the wins would be marketing rather than a log.
+
+#### The data path — where most of the win actually is
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 1 | **Delete the DataLoader; hold the dataset resident in GPU memory.** One CPU core augments ~4,000 img/s while the card trains at ~13,000 — the CPU was starving the GPU 3× and the card spent its life waiting on Python. | CIFAR: 13.8k img/s (workers, bs128) → **18.5k** (resident, bs512), at far higher utilization | yes |
+| 2 | **Store images as uint8, convert to float per batch.** Float residency would be 4× the memory for no gain; the conversion is nearly free on-device. | CIFAR-100 train = **147 MB**; ImageNet-32 = 3.9 GB on a 96 GB card | yes |
+| 3 | **Augment on the GPU** — crop, flip, erase, normalize as tensor ops on data already in VRAM. | no PIL, no JPEG decode, no Python in the inner loop, no per-batch host→device copy | yes |
+| 4 | **Tokenize once, up front, into a flat array.** Training never touches raw text, the tokenizer, or the datasets library again — it indexes. | prep is **22 s** against 85 min of training: a 232× ratio | yes |
+| 5 | **Choose the token dtype from the vocabulary**, not a fixed uint16. | yor at 16k vocab: 2 bytes/token, **0.15 GB**. yor_xlmr at 250k: 4 bytes, **0.49 GB** — same text | yes |
+
+#### Precision and kernels
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 6 | **bf16 autocast instead of fp16.** Same speed, but bf16 keeps fp32's exponent range — no GradScaler, no loss-scale underflow to diagnose at 3 a.m. | **1.34×** on a power-capped sm_89 laptop (with #7); ~**+2%** on Blackwell | yes |
+| 7 | **channels_last (NHWC) for CNNs — bf16 only.** | see #6 — and the trap: fp16 + channels_last drops into a pathological cuDNN path, **3.5× slower** on sm_89 | yes, guarded |
+| 8 | **channels_last for ViTs** | a no-op for a transformer; pure overhead | **no** |
+| 9 | **TF32 for matmul and cuDNN** | free on Ampere and later | yes |
+| 10 | **`cudnn.benchmark = True`** — let cuDNN autotune per shape | worth it when shapes are fixed, which ours are | yes |
+| 11 | **Fused optimizers** — `SGD(nesterov, fused=True)`, `AdamW(fused=True)` | one kernel instead of a chain of elementwise ops | yes |
+| 12 | **`torch.compile`** | **unavailable**: Windows PyTorch wheels ship without Triton, and `triton-windows` is unreliable on Blackwell | **no** |
+| 13 | **Attention backend** | already `sdpa`; nothing to win | **no change** |
+
+#### Host-sync discipline
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 14 | **Every `.item()` is a GPU→CPU sync.** Accumulate loss and top-k counts in on-device tensors; pay the sync once per epoch, not once per batch. | **~7%** on CIFAR | yes |
+| 15 | **The same discipline at MLM scale** | only **2%** — an MLM step is ~23 ms against a CNN step's fraction of a millisecond, so the sync is genuinely in the noise. **Kept the `.item()`**: a readable live loss is worth 2% | **rejected** |
+| 16 | **`zero_grad(set_to_none=True)`** | skips a full zero-fill of every gradient buffer | yes |
+
+#### Batching and scheduling
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 17 | **Batch 64 → 128** | **1.33×** predicted from the sweep, **1.31×** measured. Throughput *peaks* at 128–256 and then falls — batch 2048 is slower than 128 while using 89.7 GB. There is no reward for filling the card | yes |
+| 18 | **Memory-saving tricks** (gradient accumulation, checkpointing) | peak allocation at the shipped config is **3.3 GB of 96**. Nothing here is memory-bound; this would have been wasted effort | **no** |
+| 19 | **Use the second card** | utilization **91% and 93%** at 300 W each, against one card busy and one idle | yes |
+| 20 | **Order the queue longest-budget-first.** Card 1 finished its long cell at 7.9 min then sat at 1–3% for four minutes while card 0 worked the tail — both short cells had landed behind a long one. | projected **2.55×** against the observed 2.07× | yes |
+
+**Two more that are not speed-ups and matter more than several that are.** The compute axis moved
+from *optimizer steps* to *tokens of updates*, because steps are not comparable across batch sizes
+— raising the batch while holding steps fixed would have been a different, larger experiment that
+scores better, and reporting it as a speed-up would have been wrong. And `pretrain(reuse=True)`
+means re-running a notebook to iterate on the fine-tuning gates no longer spends twenty minutes
+reproducing checkpoints that are already on disk.
+
+**What the shape of that list says.** Fourteen kept, six rejected or unavailable. The largest
+single win was deleting a component (#1) rather than tuning one, the second largest was a dtype
+choice (#6), and the model architecture was never touched. Also worth a student's attention: #7
+and #15 are the same idea evaluated on two workloads and answered differently, which is the whole
+reason the list has a "kept?" column.
 
 ---
 
@@ -141,6 +201,37 @@ different vocabularies, and nothing in either record said so.
 **Hypothesis.** We believed a descriptive filename was enough — that `yor_64M_62.5k_s0` told you
 what a run was. It does, right up until you vary something the name does not mention, at which
 point the name becomes a collision rather than an identity.
+
+### What there is to keep track of
+
+This is the part that does not fit in anyone's head, and the reason the cell exists. As of
+2026-08-10:
+
+| | count |
+|---|---|
+| **pretraining runs** | **197** |
+| **fine-tuning records** | **278** |
+| **individual fine-tuning runs behind them** | **892** |
+| distinct models fine-tuned | 28 |
+| corpora prepared | 22, across 17 languages |
+| figures generated from those records | 16 |
+
+The pretraining runs, by corpus — and note that the shape is lopsided on purpose, because English
+is the ruler the Yoruba results are read against:
+
+```
+eng_1b  70    yor  48    hau 13    ibo 13    nya 13    swh 13    yor_xlmr 7    other 20
+```
+
+And by axis: **two model presets** (33.8M `poc`, 86M `afriberta`), **twelve seeds** (0–11),
+**ten distinct step budgets** from 2,930 to 62,500, and downstream, **twelve learning rates** swept
+across **two tasks** — 172 SIB-200 records and 106 MasakhaNER.
+
+Nine hundred runs is not a number you manage by being careful. Every one of them has a corpus, a
+vocabulary, a token budget, a step budget, a seed, a learning rate, a gradient-clipping value, a
+normalization form, a maximum sequence length and an evaluation split — and **any one of those
+silently deciding a result is a real event that has happened to this project five times.** That is
+the five-constants table on the bottom strip.
 
 **Approach.** Put **every setting that moves the number** into the record's name, and hash the
 vocabulary itself rather than trusting the corpus label. Normalization goes in the tag because it
