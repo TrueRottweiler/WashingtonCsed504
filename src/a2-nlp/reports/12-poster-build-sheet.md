@@ -269,13 +269,48 @@ spread." That rule is doing something real — it correctly rejects anything sma
 Nobody had asked what multiple of the spread a difference must clear before the two arms are
 genuinely separated at three seeds a side.
 
-**Approach.** Derive the bar. At n = 3 a difference must be about **2.27×** the pooled sample
-standard deviation to reach p < 0.05, not 1.0×. Then a second and sharper limit: the **exact
-permutation test cannot return a p below 0.10 at three a side**, no matter how far apart the arms
-land, because there are only ten ways to split six numbers. At five a side the floor is 0.0079, at
-four a side 0.029. And the spread itself must be the *sample* standard deviation; the stored one
-is a population sd, low by 22% at three seeds, which quietly inflates every "× the spread" figure
-that used it.
+**Approach.** Derive the bar rather than look it up, because every number in this panel is one a
+reader would otherwise have to take on faith. Four of them, in order.
+
+**Where 0.05 comes from.** It is a convention, not a fact about the world — the probability we are
+willing to accept of announcing a difference that is not there. Fisher proposed it, it stuck, and
+nothing in the mathematics requires it. It matters here only because everything below is
+calibrated to it: change it to 0.01 and every threshold moves. Stating it as a choice rather than
+a law is the first honest thing a panel about significance can do.
+
+**Where 2.27× comes from.** A two-sample t-test asks whether the difference between two means is
+large compared with the noise in those means. Written as a multiple of the pooled standard
+deviation, the threshold is `t* × √(2/n)`, where `t*` is the critical value of the t-distribution
+at your chosen α and `n` is the seeds per arm. At three seeds a side there are `2n − 2 = 4` degrees
+of freedom, and `t*` at the 97.5th percentile — two-sided 0.05 — is **2.776**. Then
+`√(2/3) = 0.8165`, and `2.776 × 0.8165 = 2.267`. That is the whole derivation: **2.27**, and it
+falls as seeds are added because `t*` shrinks and `√(2/n)` shrinks with it.
+
+**Where 0.10 comes from, and why it is the sharper limit.** A permutation test makes no
+distributional assumption at all. It pools the six numbers, tries *every* way of splitting them
+into two groups of three, and asks how often a split as extreme as the one you observed comes up
+by chance. There are `C(6,3) = 20` such splits. If your actual arrangement is the most extreme
+possible, exactly one split beats it in each direction, so the two-sided p is `2/20 = 0.10`. **No
+arrangement of six numbers can do better.** Even if every seed of one arm beats every seed of the
+other by a mile, the test reports 0.10 — and 0.10 is above 0.05, so a three-seed experiment cannot
+reach significance *at all* on this test. The floor is `2/C(2n, n)`:
+
+| seeds a side | ways to split | smallest reachable p |
+|---|---|---|
+| 3 v 3 | C(6,3) = 20 | **0.100** — above α, so unreachable |
+| 4 v 4 | C(8,4) = 70 | **0.029** |
+| 5 v 5 | C(10,5) = 252 | **0.0079** |
+| 6 v 6 | C(12,6) = 924 | **0.0022** |
+
+That table is why the swap experiment got a fourth seed: going from three to four is the cheapest
+change available to what the experiment is *allowed to claim*, and it costs about 50 minutes.
+
+**Where the 22% comes from.** There are two standard deviations. The *population* sd divides by
+`n`; the *sample* sd divides by `n − 1`, because estimating the mean from the same data uses up a
+degree of freedom. The ratio is `√(n/(n−1))`, which at n = 3 is **1.2247** — so the sample sd is
+22% larger, and at n = 5 it is 12% larger. Our records store the population form, and every
+threshold above is derived for the sample form. Feeding one to the other silently inflates every
+"× the spread" figure by that factor, which is more than enough to move a claim across a line.
 
 **Results.** Two of our own claims were sitting in the gap between 1.0× and 2.27×. The tokenizer
 penalty passed the old rule at 1.4× and fails the real one. The clipping ladder's celebrated "38×
