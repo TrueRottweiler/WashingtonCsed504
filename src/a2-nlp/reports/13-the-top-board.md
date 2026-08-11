@@ -259,11 +259,15 @@ the data existed:
 | the band widens toward topic's | label **quantity** |
 | the band stays near its full-data value | task **type** |
 
+**All four rows below are over the identical sixteen models**, which is the only way the comparison
+is legitimate — a range grows with the number of models in it, so a band measured over one set and
+compared against a constant from another set is measuring arithmetic:
+
 | labels | band (range) | between-model sd | vs full split |
 |---|---|---|---|
 | 6,876 (full split) | 0.0441 | 0.0129 | — |
 | **2,000** | 0.0559 | 0.0127 | ×1.27 range, **×0.99 sd** |
-| **701** | 0.0691 | 0.0190 | ×1.57 range, **×1.51 sd** |
+| **701** | 0.0691 | 0.0195 | ×1.57 range, **×1.51 sd** |
 | *SIB-200 topic, for scale* | *0.1426* | *0.0457* | |
 
 **The rule returns BETWEEN THE TWO, and the honest panel says so.** At SIB-200's label count NER
@@ -281,6 +285,11 @@ It does not; it sits on top of the full split.
 
 Context arms, not part of the band: mmBERT 0.6938 at 701 and 0.7856 at 2,000; the untrained floor
 0.3519 and 0.4650.
+
+*A seventeenth from-scratch model has a 701 cell but no 2,000 cell, so the study's own report shows
+the 701 band over seventeen (0.0691, sd 0.0190 — the same to three decimals). The table above uses
+the sixteen that carry all three levels, because the dose-response compares the levels with each
+other and that only means anything on a matched set.*
 
 *No figure exists for this panel yet — it is the one chart the board still needs.*
 
