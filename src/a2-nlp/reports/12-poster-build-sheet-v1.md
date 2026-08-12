@@ -107,26 +107,86 @@ premature.
 counter-argument, which turned out to be the real one, is that speed does not only shorten the
 work you already planned; it changes which work you are willing to begin.
 
-**Approach.** Two changes, neither clever: raise the batch from 64 to 128, and actually use the
-second card, which the notebook had never touched. Measure the same work both ways rather than
-comparing to a remembered number. **25.2 minutes → 12.2 minutes.** Then decompose it, because the
-two halves are different kinds of win: the batch change is real efficiency at **1.32×** — less
-GPU-time for the same work — while the second card is pure wall-clock, the same GPU-minutes spent
-in parallel.
+**Approach.** The 2.07× on the board is the *last two steps* of about a year, and quoting it
+alone badly undersells what a student would have to learn. The path ran from hand-written NumPy in
+CSED 502, through PyTorch in 503, to a workstation whose two cards sit at 91% and 93% under load.
+Almost none of it was clever; nearly all of it was measuring instead of assuming, and roughly a
+third of what was tried turned out not to be worth keeping. The full list is below because the
+*shape* of it is the teaching point: the wins are concentrated in the data path and in precision,
+not in the model.
 
-**Results.** The project spent 83.3 GPU-hours; without the change it would have been about 172,
-which on two cards and realistic evenings is ten or eleven nights instead of five. That is the
-boring half. The interesting half is that four of the five corrections on this board came from a
-cheap re-run somebody did on a hunch — and a hunch is not worth acting on at 25 minutes a cell.
+**Results.** 25.2 minutes → 12.2 minutes on the same four cells, decomposed honestly: **1.32× is
+real efficiency** — less GPU-time for the same work — and the rest is a second card doing the same
+GPU-minutes in parallel. The project has since spent 143.3 GPU-hours; without the throughput work
+it would have been roughly double, which on realistic evenings is weeks rather than nights.
 
-**Learning.** The hours saved are not the point; the experiments you become willing to start are.
-Conflating efficiency with parallelism is how a project claims 2× and bought 1.3×, so decompose
-any speedup before quoting it. Optimize early when the thing you are buying is *iteration*, not
-throughput.
+**Learning.** The hours saved are not the point; the experiments you become willing to start are —
+four of the five corrections on this board came from a cheap re-run somebody did on a hunch, and a
+hunch is not worth acting on at 25 minutes a cell. Conflating efficiency with parallelism is how a
+project claims 2× and bought 1.3×, so decompose any speedup before quoting it. And optimize early
+when what you are buying is *iteration* rather than throughput.
 
 **What this makes possible.** Weeks 4 through 9 each rest on running one cell three to fifteen
-times. At 25 minutes a run, nobody would have done that, and every result below would have been a
+times. At 25 minutes a run nobody would have done that, and every result below would have been a
 single seed with an anecdote attached.
+
+### The year, in twenty changes
+
+Measured on this hardware unless marked. "Kept?" matters as much as the number — a third of these
+were tried and rejected, and a list of only the wins would be marketing rather than a log.
+
+#### The data path — where most of the win actually is
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 1 | **Delete the DataLoader; hold the dataset resident in GPU memory.** One CPU core augments ~4,000 img/s while the card trains at ~13,000 — the CPU was starving the GPU 3× and the card spent its life waiting on Python. | CIFAR: 13.8k img/s (workers, bs128) → **18.5k** (resident, bs512), at far higher utilization | yes |
+| 2 | **Store images as uint8, convert to float per batch.** Float residency would be 4× the memory for no gain; the conversion is nearly free on-device. | CIFAR-100 train = **147 MB**; ImageNet-32 = 3.9 GB on a 96 GB card | yes |
+| 3 | **Augment on the GPU** — crop, flip, erase, normalize as tensor ops on data already in VRAM. | no PIL, no JPEG decode, no Python in the inner loop, no per-batch host→device copy | yes |
+| 4 | **Tokenize once, up front, into a flat array.** Training never touches raw text, the tokenizer, or the datasets library again — it indexes. | prep is **22 s** against 85 min of training: a 232× ratio | yes |
+| 5 | **Choose the token dtype from the vocabulary**, not a fixed uint16. | yor at 16k vocab: 2 bytes/token, **0.15 GB**. yor_xlmr at 250k: 4 bytes, **0.49 GB** — same text | yes |
+
+#### Precision and kernels
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 6 | **bf16 autocast instead of fp16.** Same speed, but bf16 keeps fp32's exponent range — no GradScaler, no loss-scale underflow to diagnose at 3 a.m. | **1.34×** on a power-capped sm_89 laptop (with #7); ~**+2%** on Blackwell | yes |
+| 7 | **channels_last (NHWC) for CNNs — bf16 only.** | see #6 — and the trap: fp16 + channels_last drops into a pathological cuDNN path, **3.5× slower** on sm_89 | yes, guarded |
+| 8 | **channels_last for ViTs** | a no-op for a transformer; pure overhead | **no** |
+| 9 | **TF32 for matmul and cuDNN** | free on Ampere and later | yes |
+| 10 | **`cudnn.benchmark = True`** — let cuDNN autotune per shape | worth it when shapes are fixed, which ours are | yes |
+| 11 | **Fused optimizers** — `SGD(nesterov, fused=True)`, `AdamW(fused=True)` | one kernel instead of a chain of elementwise ops | yes |
+| 12 | **`torch.compile`** | **unavailable**: Windows PyTorch wheels ship without Triton, and `triton-windows` is unreliable on Blackwell | **no** |
+| 13 | **Attention backend** | already `sdpa`; nothing to win | **no change** |
+
+#### Host-sync discipline
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 14 | **Every `.item()` is a GPU→CPU sync.** Accumulate loss and top-k counts in on-device tensors; pay the sync once per epoch, not once per batch. | **~7%** on CIFAR | yes |
+| 15 | **The same discipline at MLM scale** | only **2%** — an MLM step is ~23 ms against a CNN step's fraction of a millisecond, so the sync is genuinely in the noise. **Kept the `.item()`**: a readable live loss is worth 2% | **rejected** |
+| 16 | **`zero_grad(set_to_none=True)`** | skips a full zero-fill of every gradient buffer | yes |
+
+#### Batching and scheduling
+
+| # | change | measured impact | kept? |
+|---|---|---|---|
+| 17 | **Batch 64 → 128** | **1.33×** predicted from the sweep, **1.31×** measured. Throughput *peaks* at 128–256 and then falls — batch 2048 is slower than 128 while using 89.7 GB. There is no reward for filling the card | yes |
+| 18 | **Memory-saving tricks** (gradient accumulation, checkpointing) | peak allocation at the shipped config is **3.3 GB of 96**. Nothing here is memory-bound; this would have been wasted effort | **no** |
+| 19 | **Use the second card** | utilization **91% and 93%** at 300 W each, against one card busy and one idle | yes |
+| 20 | **Order the queue longest-budget-first.** Card 1 finished its long cell at 7.9 min then sat at 1–3% for four minutes while card 0 worked the tail — both short cells had landed behind a long one. | projected **2.55×** against the observed 2.07× | yes |
+
+**Two more that are not speed-ups and matter more than several that are.** The compute axis moved
+from *optimizer steps* to *tokens of updates*, because steps are not comparable across batch sizes
+— raising the batch while holding steps fixed would have been a different, larger experiment that
+scores better, and reporting it as a speed-up would have been wrong. And `pretrain(reuse=True)`
+means re-running a notebook to iterate on the fine-tuning gates no longer spends twenty minutes
+reproducing checkpoints that are already on disk.
+
+**What the shape of that list says.** Fourteen kept, six rejected or unavailable. The largest
+single win was deleting a component (#1) rather than tuning one, the second largest was a dtype
+choice (#6), and the model architecture was never touched. Also worth a student's attention: #7
+and #15 are the same idea evaluated on two workloads and answered differently, which is the whole
+reason the list has a "kept?" column.
 
 ---
 
@@ -141,6 +201,37 @@ different vocabularies, and nothing in either record said so.
 **Hypothesis.** We believed a descriptive filename was enough — that `yor_64M_62.5k_s0` told you
 what a run was. It does, right up until you vary something the name does not mention, at which
 point the name becomes a collision rather than an identity.
+
+### What there is to keep track of
+
+This is the part that does not fit in anyone's head, and the reason the cell exists. As of
+2026-08-10:
+
+| | count |
+|---|---|
+| **pretraining runs** | **197** |
+| **fine-tuning records** | **278** |
+| **individual fine-tuning runs behind them** | **892** |
+| distinct models fine-tuned | 28 |
+| corpora prepared | 22, across 17 languages |
+| figures generated from those records | 16 |
+
+The pretraining runs, by corpus — and note that the shape is lopsided on purpose, because English
+is the ruler the Yoruba results are read against:
+
+```
+eng_1b  70    yor  48    hau 13    ibo 13    nya 13    swh 13    yor_xlmr 7    other 20
+```
+
+And by axis: **two model presets** (33.8M `poc`, 86M `afriberta`), **twelve seeds** (0–11),
+**ten distinct step budgets** from 2,930 to 62,500, and downstream, **twelve learning rates** swept
+across **two tasks** — 172 SIB-200 records and 106 MasakhaNER.
+
+Nine hundred runs is not a number you manage by being careful. Every one of them has a corpus, a
+vocabulary, a token budget, a step budget, a seed, a learning rate, a gradient-clipping value, a
+normalization form, a maximum sequence length and an evaluation split — and **any one of those
+silently deciding a result is a real event that has happened to this project five times.** That is
+the five-constants table on the bottom strip.
 
 **Approach.** Put **every setting that moves the number** into the record's name, and hash the
 vocabulary itself rather than trusting the corpus label. Normalization goes in the tag because it
@@ -178,13 +269,52 @@ spread." That rule is doing something real — it correctly rejects anything sma
 Nobody had asked what multiple of the spread a difference must clear before the two arms are
 genuinely separated at three seeds a side.
 
-**Approach.** Derive the bar. At n = 3 a difference must be about **2.27×** the pooled sample
-standard deviation to reach p < 0.05, not 1.0×. Then a second and sharper limit: the **exact
-permutation test cannot return a p below 0.10 at three a side**, no matter how far apart the arms
-land, because there are only ten ways to split six numbers. At five a side the floor is 0.0079, at
-four a side 0.029. And the spread itself must be the *sample* standard deviation; the stored one
-is a population sd, low by 22% at three seeds, which quietly inflates every "× the spread" figure
-that used it.
+**Approach.** Derive the bar rather than look it up, because every number in this panel is one a
+reader would otherwise have to take on faith. Four of them, in order.
+
+**Where 0.05 comes from.** It is a convention, not a fact about the world — the probability we are
+willing to accept of announcing a difference that is not there. It comes from **Ronald A. Fisher**
+(1890–1962), the British statistician who built most of the machinery this panel uses, in
+*Statistical Methods for Research Workers* (1925) — where he suggested one-in-twenty as a
+convenient line and said so in about that many words [[1](#references)]. It stuck because it was
+convenient, and nothing in the mathematics requires it. It matters here only because everything
+below is calibrated to it: change α to 0.01 and every threshold in this cell moves. Stating it as
+a choice rather than a law is the first honest thing a panel about significance can do.
+
+**Where 2.27× comes from.** A two-sample t-test asks whether the difference between two means is
+large compared with the noise in those means. Written as a multiple of the pooled standard
+deviation, the threshold is `t* × √(2/n)`, where `t*` is the critical value of the t-distribution
+at your chosen α and `n` is the seeds per arm. At three seeds a side there are `2n − 2 = 4` degrees
+of freedom, and `t*` at the 97.5th percentile — two-sided 0.05 — is **2.776**. Then
+`√(2/3) = 0.8165`, and `2.776 × 0.8165 = 2.267`. That is the whole derivation: **2.27**, and it
+falls as seeds are added because `t*` shrinks and `√(2/n)` shrinks with it.
+
+**Where 0.10 comes from, and why it is the sharper limit.** A permutation test makes no
+distributional assumption at all — the idea is Fisher's again, from *The Design of Experiments*
+(1935), and was put on a formal footing by Pitman two years later [[2](#references),
+[3](#references)]. It pools the six numbers, tries *every* way of splitting them into two groups of
+three, and asks how often a split as extreme as the one you observed comes up by chance. There are `C(6,3) = 20` such splits. If your actual arrangement is the most extreme
+possible, exactly one split beats it in each direction, so the two-sided p is `2/20 = 0.10`. **No
+arrangement of six numbers can do better.** Even if every seed of one arm beats every seed of the
+other by a mile, the test reports 0.10 — and 0.10 is above 0.05, so a three-seed experiment cannot
+reach significance *at all* on this test. The floor is `2/C(2n, n)`:
+
+| seeds a side | ways to split | smallest reachable p |
+|---|---|---|
+| 3 v 3 | C(6,3) = 20 | **0.100** — above α, so unreachable |
+| 4 v 4 | C(8,4) = 70 | **0.029** |
+| 5 v 5 | C(10,5) = 252 | **0.0079** |
+| 6 v 6 | C(12,6) = 924 | **0.0022** |
+
+That table is why the swap experiment got a fourth seed: going from three to four is the cheapest
+change available to what the experiment is *allowed to claim*, and it costs about 50 minutes.
+
+**Where the 22% comes from.** There are two standard deviations. The *population* sd divides by
+`n`; the *sample* sd divides by `n − 1`, because estimating the mean from the same data uses up a
+degree of freedom. The ratio is `√(n/(n−1))`, which at n = 3 is **1.2247** — so the sample sd is
+22% larger, and at n = 5 it is 12% larger. Our records store the population form, and every
+threshold above is derived for the sample form. Feeding one to the other silently inflates every
+"× the spread" figure by that factor, which is more than enough to move a claim across a line.
 
 **Results.** Two of our own claims were sitting in the gap between 1.0× and 2.27×. The tokenizer
 penalty passed the old rule at 1.4× and fails the real one. The clipping ladder's celebrated "38×
@@ -213,19 +343,59 @@ mistake for the thing we want.
 model, and a model with better loss will be better downstream. If that held, one number could
 stand in for two expensive evaluations.
 
-**Approach.** Take the sixteen checkpoints that actually trained — the `val_loss < 3.1` cut,
-which matters and is stated rather than hidden — and correlate final loss against both downstream
-tasks. Topic classification: **r = −0.888**, p < 0.001, a strong relationship in the expected
-direction. Entity recognition: **r = +0.303**, p = 0.25, nothing. Do not read the sign: the claim
-is *absence*, and at n = 16 that correlation is indistinguishable from zero. The aggregate across
-all nineteen models is −0.935, which looks decisive and is three under-trained models holding up
-a line.
+**Approach.** Take the checkpoints that actually trained, correlate their final validation loss
+against both downstream scores, and test whether each correlation is distinguishable from nothing.
+Four numbers in that sentence deserve to be derived rather than asserted.
+
+**What r is.** The Pearson correlation coefficient [[6](#references)] measures how close a
+scatter of points lies to a straight line, on a scale from −1 to +1. Zero means no linear
+relationship. Negative is what we *want* here, because lower loss should mean a higher score — the
+two move in opposite directions.
+
+**Where the cut comes from, and why it is not a free parameter.** The 19 models split cleanly. Laid
+out in order, their validation losses run 2.253, 2.315 … 3.008, 3.042, and then jump to **4.128,
+5.385, 5.670**. There is a gap of **1.086 nats** with nothing in it. Sixteen models trained; three
+never left the unigram plateau. So `val_loss < 3.1` is arbitrary in *value* and not in *effect* —
+any cut between 3.05 and 4.12 produces the identical split, because no model lives there. That is
+the difference between a threshold and a knob, and it is worth checking before trusting any
+result that rests on one.
+
+**Where the p-values come from.** A correlation is turned into a significance test with
+`t = r × √((n−2)/(1−r²))`, read against the t-distribution on `n−2` degrees of freedom. Both tasks
+have n = 16, so df = 14 in both.
+
+| | r | t | df | p | Spearman |
+|---|---|---|---|---|---|
+| Topic classification | **−0.888** | −7.22 | 14 | **0.0000045** | −0.800 |
+| Entity recognition | **+0.303** | +1.19 | 14 | **0.25** | +0.159 |
+
+Put the two t-statistics beside each other and the asymmetry stops being a matter of judgment.
+−7.22 is far into the tail; +1.19 is the sort of number you get from sixteen random points.
+**Do not read the sign on the second row.** The claim is *absence*, not inversion — asserting that
+loss predicts entity recognition *backwards* is a claim these data cannot carry, and an earlier
+draft of this panel made exactly that mistake. Spearman's rank correlation [[7](#references)] is
+reported alongside because it makes no assumption of linearity, and it agrees with both rows.
+
+**Where −0.935 comes from, and why it is the most misleading number on the board.** Run the same
+correlation over all nineteen models — including the three that never trained — and entity
+recognition gives **r = −0.935, p = 4.5 × 10⁻⁹**, which looks like the most decisive result in the
+project. It is three points, far out on the loss axis, dragging a line through a cloud that has no
+slope of its own. Restricted to the sixteen models that trained, that same relationship is
++0.303 and nothing.
+
+This is an aggregation artifact of the kind Simpson described [[8](#references)]: a statistic
+computed over a pooled population can point the opposite way from the same statistic computed
+within the groups that make it up. It is also the reason to plot the scatter before quoting the
+coefficient, which is Anscombe's argument [[9](#references)] and remains the cheapest safeguard
+in statistics.
 
 **Results.** Then the harder question — why one task and not the other. The first answer we
 published was that the floors differ, and it was wrong: the floors are near-identical as a share
-of achievable, and were retracted. What separates them is the **variability of the gain**. Entity
-recognition hands every working model a score between 0.754 and 0.798 — a band **0.044** wide.
-Topic classification spreads the same models over **0.143**, more than three times as far.
+of achievable, and were retracted. What separates them is the **variability of the gain**. Over the
+identical sixteen models, entity recognition returns scores from **0.754 to 0.798** — a band
+**0.044** wide — while topic classification spreads the same models from **0.562 to 0.705**, a band
+of **0.143**. The ratio is **3.24×**, and unlike the normalised version it depends on no floor and
+no ceiling, so nothing can move it.
 
 **Learning.** A benefit that every model receives equally cannot be predicted by anything, because
 there is nothing left to predict. That is why loss tracks one task and not the other, and it is a
@@ -562,3 +732,96 @@ three cost routes annotated. Then the last blocked cell is unblocked, and the bo
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
 numbers say so, and right now we have one machine's worth of evidence for a claim about every
 machine.
+
+---
+
+# References
+
+Everything the board leans on that we did not measure ourselves. The poster should carry a
+shortened version of this — a board that quotes a significance threshold and a dataset without
+saying where either came from is asking to be taken on trust, which is the one thing this board
+argues against.
+
+### Statistics
+
+1. **Fisher, R. A.** (1925). *Statistical Methods for Research Workers.* Oliver & Boyd,
+   Edinburgh. — the source of the 0.05 convention, offered there as a convenience rather than a
+   law. [Archive copy](https://archive.org/details/statisticalmethod031898mbp)
+2. **Fisher, R. A.** (1935). *The Design of Experiments.* Oliver & Boyd, Edinburgh. — randomization
+   as the basis of inference; the ancestor of the permutation test used throughout this board.
+3. **Pitman, E. J. G.** (1937). "Significance tests which may be applied to samples from any
+   populations." *Supplement to the Journal of the Royal Statistical Society* 4(1), 119–130. — the
+   formal treatment of permutation tests. [DOI: 10.2307/2984124](https://doi.org/10.2307/2984124)
+4. **Welch, B. L.** (1947). "The generalization of Student's problem when several different
+   population variances are involved." *Biometrika* 34(1–2), 28–35. — the unequal-variance t-test
+   `claims_audit.py` uses by default.
+   [DOI: 10.1093/biomet/34.1-2.28](https://doi.org/10.1093/biomet/34.1-2.28)
+5. **Levene, H.** (1960). "Robust tests for equality of variances." In *Contributions to
+   Probability and Statistics*, Stanford University Press, 278–292. — the variance test behind the
+   tokenizer-lottery result in Week 7.
+6. **Pearson, K.** (1895). "Notes on regression and inheritance in the case of two parents."
+    *Proceedings of the Royal Society of London* 58, 240–242. — the correlation coefficient, `r`,
+    that Week 5 rests on. [DOI: 10.1098/rspl.1895.0041](https://doi.org/10.1098/rspl.1895.0041)
+7. **Spearman, C.** (1904). "The proof and measurement of association between two things."
+    *American Journal of Psychology* 15(1), 72–101. — the rank correlation reported beside every
+    Pearson figure in Week 5, because it assumes no linearity and so cannot be fooled by a curve.
+    [DOI: 10.2307/1412159](https://doi.org/10.2307/1412159)
+8. **Simpson, E. H.** (1951). "The interpretation of interaction in contingency tables."
+    *Journal of the Royal Statistical Society B* 13(2), 238–241. — why the entity-recognition
+    correlation is −0.935 over nineteen models and +0.303 over the sixteen that trained. The
+    effect is usually met in contingency tables; this is the continuous form of the same trap.
+    [DOI: 10.1111/j.2517-6161.1951.tb00088.x](https://doi.org/10.1111/j.2517-6161.1951.tb00088.x)
+9. **Anscombe, F. J.** (1973). "Graphs in statistical analysis." *The American Statistician*
+    27(1), 17–21. — four datasets with identical means, variances and correlation coefficients and
+    entirely different shapes. The reason figure 11 plots the scatter instead of printing `r`.
+    [DOI: 10.1080/00031305.1973.10478966](https://doi.org/10.1080/00031305.1973.10478966)
+
+*A note worth making to a class rather than hiding in a bibliography:* Fisher was also a prominent
+eugenicist, and that is a matter of record rather than a matter of opinion. It does not make the
+arithmetic wrong. It is a useful reminder that a field's foundational tools arrive attached to the
+people who built them, and that using the tool is not the same as endorsing the person.
+
+### Models
+
+10. **Conneau, A. et al.** (2020). "Unsupervised Cross-lingual Representation Learning at Scale."
+   *ACL 2020.* — XLM-R, our 277M-parameter multilingual baseline, loaded as
+   `FacebookAI/xlm-roberta-base`. [arXiv:1911.02116](https://arxiv.org/abs/1911.02116)
+11. **mmBERT** — loaded as [`jhu-clsp/mmBERT-base`](https://huggingface.co/jhu-clsp/mmBERT-base);
+   246M parameters, reported by its authors as trained on roughly three trillion tokens across
+   1,800 languages. *Cite the model card directly — check the current card for the paper reference
+   before the poster is printed.*
+12. **Liu, Y. et al.** (2019). "RoBERTa: A Robustly Optimized BERT Pretraining Approach." — the
+   architecture our from-scratch models use.
+   [arXiv:1907.11692](https://arxiv.org/abs/1907.11692)
+13. **Devlin, J. et al.** (2019). "BERT: Pre-training of Deep Bidirectional Transformers for
+   Language Understanding." *NAACL 2019.* — the 80/10/10 masking scheme every pretraining run here
+   follows. [arXiv:1810.04805](https://arxiv.org/abs/1810.04805)
+14. **Ogueji, K., Zhu, Y. and Lin, J.** (2021). "Small Data? No Problem! Exploring the Viability of
+    Pretrained Multilingual Language Models for Low-resourced Languages." *MRL Workshop, EMNLP
+    2021.* — AfriBERTa, after which our 86M `afriberta` preset is shaped and named.
+    [ACL Anthology](https://aclanthology.org/2021.mrl-1.11/)
+
+### Data
+
+15. **Adelani, D. et al.** (2024). "SIB-200: A Simple, Inclusive, and Big Evaluation Dataset for
+    Topic Classification in 200+ Languages and Dialects." *EACL 2024.* — our topic-classification
+    task, loaded as `Davlan/sib200`. 701 train / 99 validation / 204 test for Yoruba.
+    [arXiv:2309.07445](https://arxiv.org/abs/2309.07445)
+16. **Adelani, D. et al.** (2022). "MasakhaNER 2.0: Africa-centric Transfer Learning for Named
+    Entity Recognition." *EMNLP 2022.* — our entity-recognition task. Read from
+    [the CoNLL files in the masakhane-ner repository](https://github.com/masakhane-io/masakhane-ner),
+    **not** via `load_dataset` — the HuggingFace copy ships a custom loading script and that path
+    is no longer executed. [arXiv:2210.12391](https://arxiv.org/abs/2210.12391)
+17. **FineWeb-2** — [`HuggingFaceFW/fineweb-2`](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2),
+    the source of every corpus in the language gradient, including all 69.1M tokens of Yoruba that
+    exist there. English rungs come from `fineweb-edu` and `fineweb`.
+
+### Method
+
+18. **Smith, L. N.** (2018). "A disciplined approach to neural network hyper-parameters." — the
+    one-cycle schedule every run here anneals under, which is why a run cannot be truncated and
+    still compared. [arXiv:1803.09820](https://arxiv.org/abs/1803.09820)
+
+**Check before printing.** Reference 11 is the one to verify — mmBERT is recent enough that the
+canonical citation may have changed since this was written, and a poster is a bad place to be
+wrong about somebody else's model.

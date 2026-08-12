@@ -189,11 +189,40 @@ def main():
             f'sd {s1:.4f} vs {s2:.4f}, F = {F:.1f} on ({n1-1}, {n2-1}) df, p = {p:.4f}')
 
     # --- 4. the floors, which is the explanation we RETRACTED -----------------------------
+    def floor_cell(task, steps):
+        """The best a model that never trained reaches on this task, over the swept rates.
+
+        Two selections, both spelled out, because this is the one file whose job is to notice a
+        selection that has gone wrong somewhere else. Patrick found both of these; the second one
+        is his own experiment contaminating my audit, and he reported it against himself.
+
+        model_slug, not `'yor_random_init' in r['model']`. That is a substring test against a
+        filesystem path -- the same match removed from section 5 below and from fig_headline, and
+        the field differs between machines.
+
+        n_train_requested is None, because a control trained on 701 or 2,000 labels is a different
+        experiment wearing the same model name; its score belongs to the label-quantity study.
+        Today the subsampled cells score 0.3519 and 0.4650 against a full-split best of 0.6261, so
+        max() steps over them and this section is right by luck rather than by construction. Run
+        the subsample at a level where the control does well, or delete the twelve-rate sweep, and
+        the audit adopts a subsampled floor without saying anything. The drops are printed rather
+        than filtered silently, because a filter nobody sees is how the contamination got in.
+        """
+        cand = [r for r in down if r.get('task') == task and r.get('steps') == steps
+                and r.get('model_slug') == 'yor-random-init']
+        full = [r for r in cand if r.get('n_train_requested') is None]
+        for r in sorted(cand, key=lambda r: -r['mean']):
+            if r.get('n_train_requested') is not None:
+                print(f'   [floor] dropped {task} control at {r["n_train_requested"]} labels, '
+                      f'{r["mean"]:.4f} -- subsampled, belongs to the label-quantity study')
+        if not full:
+            raise SystemExit(f'no full-split random-init control for {task} at {steps} steps; '
+                             f'{len(cand)} cells matched but all were subsampled')
+        return max(full, key=lambda r: r['mean'])['mean']
+
     shares = []
     for task, steps in (('sib200', 1056), ('masakhaner', 2150)):
-        floor = max((r for r in down if r.get('task') == task and r.get('steps') == steps
-                     and 'yor_random_init' in r['model']), key=lambda r: r['mean'])['mean']
-        shares.append(floor / max(bands[task]))
+        shares.append(floor_cell(task, steps) / max(bands[task]))
     verdict('the floors explain the task divergence',
             'RETRACTED -- was in an email and a figure before it was checked',
             False,
@@ -244,12 +273,38 @@ def main():
                 f"the dev sweep used, so a residual selection channel remains.")
 
     # --- 6. the tokenizer penalty against the noise it must beat --------------------------
-    def arm(pat, corpus):
-        rr = [r for r in f.results(pat) if r.get('corpus') == corpus]
-        cpt = f.corpus_info(corpus)['chars_per_token']
-        return [r['val_loss'] / math.log(2) / cpt for r in rr]
+    # Selection comes from the study that pre-registered it, not from a glob written here. This
+    # file had `f.results('swap_yor_xlmr_*')`, which returns SEVEN runs for a six-seed arm: seed 3
+    # exists under two tags, because my swap experiment built a fourth seed for its own comparison
+    # and it collided with this one. Reported as n = 7 v 6, F = 14.9. The pre-registered arm is six
+    # a side, F = 15.1. A pre-registered sample size quietly growing is the single thing
+    # pre-registration exists to prevent, and this is the file that is supposed to catch it -- the
+    # same glob had already been removed from fig_tokenizer_lottery and from the notebook, and not
+    # from here, which is what happens when a fix is applied where the bug was noticed rather than
+    # everywhere it lives.
+    import study_tokenizer_seeds as tk
 
-    a, c = arm('swap_yor_xlmr_*', 'yor_xlmr'), arm('swap62k_*', 'yor')
+    def _downstream():
+        """The same sentence the figure caption carries, from the same function.
+
+        Imported here rather than at module scope so that the audit does not pull in matplotlib
+        to print text. The multiplication sign is folded to `x` on the way through: it is right in
+        a figure and wrong in a console, where this file's output gets captured into a notebook
+        and came out as a mojibake the first time. Every other ratio printed here already says x.
+        """
+        from poster_figures import _downstream_spread
+        return _downstream_spread().replace('×', 'x')
+
+    def arm(corpus):
+        spec = next(a for a in tk.ARMS if a['corpus'] == corpus)
+        recs, dups = tk.arm_records(spec)
+        for seed, cands, chosen in dups:
+            names = ', '.join(f'{t} ({v:.4f})' for t, v in cands)
+            print(f'   [tokenizer] seed {seed} of {corpus} has {len(cands)} records -- {names}; '
+                  f'took {chosen}')
+        return [tk.bpc(r, corpus) for r in recs.values()]
+
+    a, c = arm('yor_xlmr'), arm('yor')
     t, p = stats.ttest_ind(a, c, equal_var=False)
     pe, floor = exact_p(a, c)
     F = st.stdev(a) ** 2 / st.stdev(c) ** 2
@@ -277,10 +332,16 @@ def main():
             pF < ALPHA,
             f'F = {F:.1f} on ({len(a)-1}, {len(c)-1}) df, p = {pF:.4f}, '
             f'Levene p = {stats.levene(a, c)[1]:.4f}',
-            'Same shape downstream, where the arms are 4.0x wider on topic and 7.7x on entities. '
-            'A large\n                      vocabulary is not reliably more expensive per '
-            'character -- it is a lottery, landing both\n                      better and much '
-            'worse than the small one depending on the seed.')
+            # This note used to read "4.0x wider on topic and 7.7x on entities", typed once and
+            # never re-derived. Both numbers were three-seed values; the topic ratio was never
+            # significant at p = 0.115 and REVERSED at four seeds when our own arm drew a weak
+            # one. So the sentence asserting the shape held on both tasks was, by the time anybody
+            # read it here, contradicted by the records sitting two directories away -- in the
+            # file whose entire job is to catch exactly that. It is computed now, by the same
+            # function the figure caption uses, so the two cannot drift apart again.
+            f'{_downstream()}\n                      A large vocabulary is not reliably more '
+            f'expensive per character -- it is a lottery, landing\n                      both '
+            f'better and much worse than the small one depending on the seed.')
 
     # --- 7. does the best learning rate transfer? -----------------------------------------
     lr_rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'lr_transfer.json'),
