@@ -1241,6 +1241,9 @@ def fig_label_quantity():
                      fontweight='bold', linespacing=1.35)
     ax2.set_xticks(xs)
     ax2.set_xticklabels([f'{n:,}' for n, _ in levels], fontsize=13.5, color=INK)
+    # Explicit, because the reference line's label is right-aligned to the axis edge and the
+    # autoscaled limit from three bars leaves it a hair outside.
+    ax2.set_xlim(-0.6, len(levels) - 0.4)
     ax2.set_ylim(0, S.SIB_BETWEEN_SD * 1.32)
     ax2.set_ylabel('between-model sd')
     ax2.set_title('How far the labels take it\ntoward topic classification', pad=12, fontsize=15)
