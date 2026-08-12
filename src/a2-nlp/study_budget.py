@@ -128,8 +128,25 @@ def section_b(rows):
 
 
 def section_c(rows):
-    """Is the argmin distinguishable from the runner-up?"""
+    """Is the argmin distinguishable from the runner-up?
+
+    Two rules are in play across the repository and they disagree about Swahili. claims_audit.py
+    asks whether the gap beats the larger of the two compared cells' own seed gaps, which is local
+    and says Swahili separates (0.063 against 0.050). This asks whether it beats the sd estimated
+    across every surviving rate for that language, which is a steadier estimate off more data and
+    says it does not (0.063 against 0.070).
+
+    Neither is a significance test, and the honest resolution is that at two seeds a side there is
+    no test to run: the exact permutation floor at 2 v 2 is 2 / C(4,2) = 0.333, so no arrangement
+    of four numbers reaches 0.05. Both rules are heuristics standing in for a comparison the
+    sample size forbids, which is why this section reports "not identified" rather than "the same"
+    -- and why the disagreement about Swahili is a fact about the two rules rather than about
+    Swahili.
+    """
+    floor_2v2 = 2 / math.comb(4, 2)
     print('\nC. is the winning rate distinguishable from the runner-up')
+    print(f'   at two seeds a side the exact permutation floor is {floor_2v2:.3f}, so no cell here'
+          ' can reach 0.05 whatever it shows')
     out = {}
     for lang in sorted({r['lang'] for r in rows}):
         live = {lr: v for lr, v in by_rate(rows, lang).items() if len(v) == 2}

@@ -577,6 +577,14 @@ What the experiment *did* establish is real and worth having: which rates are fa
 where the usable band sits. What it did not establish is which rate inside that band is best.
 Those are different claims, and only the first one survives Week 6's bar.
 
+A footnote for whoever checks this against `claims_audit.py`, which flags Swahili as separated
+where the table above does not. The audit compares the gap against the larger of the two cells'
+own seed gaps (0.063 against 0.050); this compares it against the sd estimated over every
+surviving rate (0.063 against 0.070). Both are heuristics, and the reason they can disagree is
+that neither is a test: **at two seeds a side the exact permutation floor is 2 / C(4,2) = 0.333**,
+so nothing in this grid could have reached 0.05 whatever it showed. Week 6's arithmetic applies to
+our own sweep exactly as it applies to Patrick's, which is the point of having built it.
+
 **2. What identifying it would cost.** Apply the same arithmetic as Week 6 in reverse — how many
 seeds a side to resolve a gap that small against that much seed noise. Hausa needs 9 and Swahili
 10, which are affordable. Yoruba needs **164 seeds per rate** and Nyanja **413**. Across the five
