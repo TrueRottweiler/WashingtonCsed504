@@ -1200,8 +1200,16 @@ def fig_label_quantity():
     # The band itself, drawn once per level beside the cloud rather than inferred from it.
     for x, (_, stats) in zip(xs, levels):
         ax.plot([x + 0.19] * 2, [stats['lo'], stats['hi']], '-', color=INK2, lw=2.4, zorder=3)
-        ax.text(x + 0.25, (stats['lo'] + stats['hi']) / 2, f'{stats["range"]:.3f}',
-                va='center', ha='left', fontsize=11.5, color=INK, fontweight='bold')
+        # At the TOP of the rule, not its midpoint. The midpoint of the first two rules lands
+        # inside the descending cloud, and a bold number over sixteen thin lines is unreadable.
+        ax.text(x + 0.19, stats['hi'] + 0.0018, f'{stats["range"]:.3f}',
+                va='bottom', ha='center', fontsize=11.5, color=INK, fontweight='bold')
+
+    # Explicit, with headroom for those labels: autoscale fits the DATA, and matplotlib does not
+    # know a text annotation sits above the highest point.
+    seen_vals = [v for _, stats in levels for v in stats['models'].values()]
+    span = max(seen_vals) - min(seen_vals)
+    ax.set_ylim(min(seen_vals) - 0.07 * span, max(seen_vals) + 0.11 * span)
 
     ax.plot([], [], '-o', color=C2, lw=2.8, markersize=8, label='our 33.8M model')
     ax.plot([], [], '-o', color=C1, alpha=0.38, lw=1.3, markersize=4,
@@ -1232,13 +1240,15 @@ def fig_label_quantity():
 
     base_sd = levels[0][1]['between_sd']
     for x, (n, stats) in zip(xs, levels):
-        ax2.text(x, stats['between_sd'] + 0.0011, f'{stats["between_sd"]:.4f}', ha='center',
+        ax2.text(x, stats['between_sd'] + 0.0012, f'{stats["between_sd"]:.4f}', ha='center',
                  va='bottom', fontsize=13, color=INK, fontweight='bold')
-        if x:
-            ax2.text(x, stats['between_sd'] / 2,
-                     f'×{stats["between_sd"] / base_sd:.2f}\nvs full split',
-                     ha='center', va='center', fontsize=11.5, color=SURFACE,
-                     fontweight='bold', linespacing=1.35)
+        # Above the bar, in ink. Inside it these were SURFACE-on-C1, and "vs full split" is wider
+        # than a 0.56-wide bar at this size -- so both ends of the string ran off the bar and
+        # became near-white text on the near-white page, leaving a clipped fragment behind. A
+        # label that only fits inside its bar at some values does not fit inside its bar.
+        ax2.text(x, stats['between_sd'] + 0.0052,
+                 'baseline' if not x else f'×{stats["between_sd"] / base_sd:.2f}\nvs full split',
+                 ha='center', va='bottom', fontsize=11, color=INK2, linespacing=1.35)
     ax2.set_xticks(xs)
     ax2.set_xticklabels([f'{n:,}' for n, _ in levels], fontsize=13.5, color=INK)
     # Explicit, because the reference line's label is right-aligned to the axis edge and the
@@ -1267,7 +1277,7 @@ def fig_label_quantity():
              'mmBERT and the untrained floor ran at each label count as context and are not part '
              'of the band.']
     for i, line in enumerate(notes):
-        fig.text(0.5, 0.045 - i * 0.031, line, ha='center', color=INK2, fontsize=11.5)
+        fig.text(0.5, 0.072 - i * 0.031, line, ha='center', color=INK2, fontsize=11.5)
     fig.subplots_adjust(bottom=0.30, wspace=0.26)
     save(fig, '18-label-quantity')
 
