@@ -735,11 +735,28 @@ visible without needing a caption, and Leon's question — *"is there an interfa
 using?"* — printed underneath in his own words. It is an hour in a vector editor, not a script,
 and it is the only cell whose figure is typography rather than data.
 
-**Three figures are now free, and they should go upstairs.** Cutting the metric-validity and
-tokenizer cells releases `11-metric-validity.svg`, `12-floors.svg` and `17-tokenizer-lottery.svg`.
-Figure 17 in particular belongs on Patrick and Leon's board: the tokenizer lottery is their
-argument, and the same rule already applied to figures 01 and 02 — whoever owns the question owns
-the panel. Offer all three; the top board is short of figures and this board is not.
+**The three released figures: two taken, one still free.** Cutting the metric-validity and
+tokenizer cells released `11-metric-validity.svg`, `12-floors.svg` and `17-tokenizer-lottery.svg`.
+[Report 13](13-the-top-board.md) has since claimed **12** and **17**, which is the right home for
+both — the tokenizer lottery is their argument, and the same rule already applied to figures 01
+and 02. **`11-metric-validity.svg` is still unclaimed by either board**, as are
+`08-why-not-shorter.svg` and `09-scaling-with-cards.svg`, which no cell in either document
+currently carries.
+
+**One figure is claimed by both boards, and only a printer will notice.**
+`03-matched-steps-vs-compute.svg` is Week 7's figure here and it is also the figure under report
+13's matched-compute panel. Two posters hanging side by side showing the identical chart reads as
+a mistake even when it is not, and neither document can see the collision from the inside — it
+is the same shape as the index row that broke in the gap between two pull requests.
+
+The recommendation is that **the top board keeps it.** It is load-bearing for their thesis, their
+board is read first, and the same rule that sent figures 01, 02, 12 and 17 upstairs sends this one
+too. Week 7 then has three ways out, in order of preference: set `5.1×` as type against a two-line
+table of the two readings, which is stronger on a wall than a bar chart anyway; take
+`08-why-not-shorter.svg`, which is unclaimed and argues the neighbouring point that a run cannot
+be truncated and still compared; or draw a variant with the wall-clock axis foregrounded so the
+two panels are visibly answering different questions. Decide before either board goes to print,
+not after.
 
 **The retracted floor sentence goes with them, but keep it in mind.** The earlier draft claimed
 the difference between the two tasks' floors explained why one task's scores were predictable and
@@ -758,12 +775,14 @@ survived a reading, and rested on a coincidence.
 2. ~~Figure for week 3~~ — **done**, `15-what-a-run-is-made-of.svg`, from the pipeline benchmark.
 3. **Figure for week 5** (the interface) — the hand-set signature column described in Gaps. An
    hour in a vector editor. Nothing blocks it, and cell 4 keeps the dashboard.
-4. **Offer figures 11, 12 and 17 to Patrick and Leon.** They are no longer used down here, and
-   figure 17 answers a question their board is already asking.
-5. **Figure for week 1** (hardware). Blocked on the measurements in the Appendix — the only item
+4. ~~Offer figures 11, 12 and 17 to Patrick and Leon~~ — **done**; report 13 took 12 and 17.
+5. **Settle figure 03**, which both boards currently claim. See Gaps — the recommendation is that
+   the top board keeps it and Week 7 sets its number as type.
+6. **Figure for week 1** (hardware). Blocked on the measurements in the Appendix — the only item
    on the board that cannot be produced from this machine.
-6. **Regenerate everything and run the staleness check.** Do this *last*, once no study is still
-   writing, and do it once.
+7. **Regenerate everything and run the staleness check.** Do this *last*, once no study is still
+   writing, and do it once. `check_links.py` belongs in the same pass, and so does the
+   figure-collision check above: neither board can see either problem from the inside.
 
 ---
 
