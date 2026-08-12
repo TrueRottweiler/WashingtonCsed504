@@ -199,6 +199,17 @@ def fig_gradient():
     A dot plot rather than bars: the quantity is a ratio around 1.0, so a bar from zero wastes
     most of its length and exaggerates small differences. Color carries the one thing being
     tested -- whether XLM-R was trained on the language.
+
+    The caption is generated, and it was added on 12 August because there was none. The two means
+    panel 3 leads with -- 1.150 against 1.593 -- appeared nowhere on the figure, so the chart showed
+    a gradient and left the reader to eyeball the summary it is evidence for.
+
+    The title changed at the same time and that is a retraction rather than a rewording. It read
+    "A multilingual vocabulary costs nothing -- until the language is left out", which overclaims
+    twice: covered languages average 1.150x, which is not nothing, and Wolof is UNCOVERED at 1.31x
+    yet sits below covered Xhosa at 1.42x, so there is no clean split to be "until" the far side of.
+    Report 07 and CLAUDE.md both call this "a gradient with one exception"; the figure was the only
+    place asserting otherwise, and it is the place a poster reader looks first.
     """
     rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'gradient_table.json'),
                                      encoding='utf-8')) if r['corpus'] != 'eng_1b']
@@ -231,11 +242,47 @@ def fig_gradient():
     ax.set_xlim(0.83, 1.95)
     ax.set_ylim(-0.8, len(rows) - 0.2)
     ax.grid(axis='y', visible=False)
-    ax.set_title('A multilingual vocabulary costs nothing — until the language is left out',
-                 pad=14)
+    ax.set_title('The penalty tracks coverage — not script, and not region', pad=14)
     ax.plot([], [], 'o', color=C3, label='XLM-R was trained on this language')
     ax.plot([], [], 'o', color=C2, label='XLM-R was not')
     ax.legend(loc='lower right', fontsize=12)
+
+    # -- the caption, generated ---------------------------------------------------------------
+    # The African-only control is report 07 section 4's, and the set it needs is not on the
+    # records -- there is no region field -- so it is named here. The two sets must PARTITION the
+    # table: a language added later then fails this assertion instead of being silently counted as
+    # African, which is the failure this project keeps paying for in other forms.
+    AFRICAN = {'afr', 'swh', 'som', 'hau', 'amh', 'xho', 'wol', 'lug', 'nya', 'sna', 'kin',
+               'yor', 'ibo'}
+    ELSEWHERE = {'cmn', 'ind', 'eng', 'fra'}
+    seen = {r['corpus'] for r in rows}
+    assert seen == AFRICAN | ELSEWHERE, f'unclassified languages: {seen ^ (AFRICAN | ELSEWHERE)}'
+
+    cov = [r for r in rows if r['in_xlmr'] is True]
+    unc = [r for r in rows if r['in_xlmr'] is not True]
+    def mean(group):
+        return st.mean(r['penalty'] for r in group)
+
+    top_cov = max(cov, key=lambda r: r['penalty'])
+    above = [r for r in unc if r['penalty'] > top_cov['penalty']]
+    exc = [r for r in unc if r['penalty'] < top_cov['penalty']]
+    yor = next(r for r in rows if r['corpus'] == 'yor')
+    rank = sorted((r['penalty'] for r in rows), reverse=True).index(yor['penalty']) + 1
+
+    notes = [f"XLM-R's vocabulary costs the {len(cov)} languages it covers {mean(cov):.3f}× on "
+             f'average, and the {len(unc)} it does not {mean(unc):.3f}×.',
+             f'Restricted to African languages on both sides — which rules out script and region '
+             f'as the explanation — {mean([r for r in cov if r["corpus"] in AFRICAN]):.3f}× '
+             f'against {mean([r for r in unc if r["corpus"] in AFRICAN]):.3f}×.',
+             f'{len(above)} of the {len(unc)} uncovered languages sit above every covered one. '
+             + ('The exception is not smoothed: '
+                + ', '.join(f'{NAME[r["corpus"]]} at {r["penalty"]:.2f}×' for r in exc)
+                + f' is uncovered and below {NAME[top_cov["corpus"]]} at '
+                  f'{top_cov["penalty"]:.2f}×.' if exc else 'The separation is clean.'),
+             f'Yoruba, the target language, ranks {rank} of {len(rows)} at {yor["penalty"]:.2f}× — '
+             f'so the original figure was not a quirk of one language.']
+    for i, line in enumerate(notes):
+        fig.text(0.5, -0.015 - i * 0.027, line, ha='center', color=INK2, fontsize=11.5)
     save(fig, '02-tokenizer-gradient')
 
 
