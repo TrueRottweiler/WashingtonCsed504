@@ -381,11 +381,8 @@ are independent, and the fact that they disagree on topic is the most interestin
 
 > **The vocabulary decides how good the topic model is, and how reliable the entity model is.**
 
-Two notes that have to travel with the table.
-
-**The 0.029 is the floor of the exact test, not a measure of separation.** At four seeds a side a
-two-sided permutation test cannot return anything below 2/70 = 0.029 however cleanly the arms
-split, and both tasks sit exactly there. The multiples are what carry the size of the effect.
+Two notes that have to travel with the table. (The repeated 0.029 in the top row is the exact test's
+floor at four seeds a side, not a coincidence — panel 10 says why.)
 
 **The two rows deliberately use different tests, and using one for both is a trap we walked into
 while checking this.** A permutation test is right for the top row and wrong for the bottom one:
