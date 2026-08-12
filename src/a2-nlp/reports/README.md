@@ -158,7 +158,7 @@ best-on-test at three seeds.
 | **from-scratch, ours** | **0.688** | mmBERT | 0.863 |
 | mmBERT | 0.582 | XLM-R | 0.851 |
 | our arch, untrained | 0.429 | **from-scratch, ours** | **0.837** |
-| XLM-R arch, untrained | 0.382 | our arch, untrained | 0.414 |
+| XLM-R arch, untrained | 0.382 | our arch, untrained | 0.626 |
 | XLM-R | 0.358 | | |
 
 A 33.8M model pretrained on 64M tokens of Yoruba is **ahead of mmBERT on topic classification by
@@ -176,9 +176,13 @@ once. Symmetric selection reverses the sign.)
 > achievable against SIB-200's 64%, and that this is why the two tasks disagree — was retracted on
 > 9 August. The percentages depend on which denominator is used, and the better-supported account
 > is that scores on NER barely move across from-scratch models (a band of 0.044) while SIB-200
-> scores vary three times as much (0.143). Note also that the NER control is still a single cell
-> at 3e-5 while its baselines are best-of-a-sweep, so any NER floor figure inherits exactly the
-> asymmetry report 11 removed from SIB-200.
+> scores vary three times as much (0.143).
+>
+> The asymmetry this paragraph used to warn about is closed. The NER control has been swept over
+> twelve learning rates and peaks at **0.626 at 3e-4**, so it is now selected the way its baselines
+> are. The **0.414** this table carried until 12 August was that sweep's 3e-5 cell — a rate one
+> tenth of the best, quoted for a fortnight only because nobody had swept it. Fixing it halves the
+> from-scratch model's gap to the floor, 0.423 → 0.211.
 
 ## The strongest form of the thesis
 

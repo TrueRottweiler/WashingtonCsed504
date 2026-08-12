@@ -246,6 +246,8 @@ on the board has no business being set in 90-point type.**
 
 ## Panel 9 — The decisive experiment: neither explanation, and it said so in advance
 
+*Figure 18 — the labelled-data axis*
+
 The two tasks differ in **kind** and in **label count** — 6,876 against 701 — and both differences
 predict what panel 8 shows. The original study design called separating them *"the decisive
 experiment"*: subsample the larger task's training set to match the smaller one, holding the step
@@ -271,7 +273,7 @@ compared against a constant from another set is measuring arithmetic:
 | *SIB-200 topic, for scale* | *0.1426* | *0.0457* | |
 
 **The rule returns BETWEEN THE TWO, and the honest panel says so.** At SIB-200's label count NER
-does discriminate more between models — and gets **42% of the way** there, on a statistic that does
+does discriminate more between models — and gets **43% of the way** there, on a statistic that does
 not grow with the set size. Task type is not the whole story and label quantity does not account
 for it either.
 
@@ -287,11 +289,14 @@ Context arms, not part of the band: mmBERT 0.6938 at 701 and 0.7856 at 2,000; th
 0.3519 and 0.4650.
 
 *A seventeenth from-scratch model has a 701 cell but no 2,000 cell, so the study's own report shows
-the 701 band over seventeen (0.0691, sd 0.0190 — the same to three decimals). The table above uses
-the sixteen that carry all three levels, because the dose-response compares the levels with each
-other and that only means anything on a matched set.*
+the 701 band over seventeen: the same range, 0.0691, and a between-model sd of 0.0190 against the
+matched sixteen's 0.0195. The table above uses the sixteen that carry all three levels, because the
+dose-response compares the levels with each other and that only means anything on a matched set.*
 
-*No figure exists for this panel yet — it is the one chart the board still needs.*
+*That is also why this panel reads 43% where the study's console output reads 42% — 0.0195 / 0.0457
+against 0.0190 / 0.0457, each correct over its own set. Do not reconcile them by changing one: the
+figure and this table are the matched sixteen throughout, and a percentage carried between two set
+sizes is the mistake panel 12 is about.*
 
 ---
 
@@ -309,9 +314,13 @@ nine learning rates on the dev split:
 | SIB-200 topic | .4597 .4794 .4826 .4891 → **0.478** | .5943 .6278 .6303 .6339 → **0.622** | **+0.144** | 0.029 |
 | MasakhaNER | .6818 .6888 .7506 .7667 → **0.722** | .7758 .7820 .7855 .7870 → **0.783** | **+0.061** | 0.029 |
 
-**Every seed of our vocabulary beats every seed of theirs, on both tasks.** Against the pooled seed
-spread the gaps are 9.1× on topic and 2.0× on entities, so topic is decisive where entities barely
-clears.
+**Every seed of our vocabulary beats every seed of theirs, on both tasks.** Divided by the pooled
+seed spread — **how far apart** the two vocabularies land — the gaps are **9.1× on topic** and
+**2.0× on entities**, so topic is decisive where entities barely clears.
+
+Panel 11 divides one arm's spread by the other's, which is a different question about the same
+eight runs. Its table sets the two side by side, because calling both "the spread ratio" is what
+made this read as hedging.
 
 Three things must travel with this table.
 
@@ -350,24 +359,48 @@ calculation, and written into the script before the runs started — say otherwi
 16k  vocabulary   0.871  0.910  0.929  0.937  0.955  0.979     mean 0.930   sd 0.037
 ```
 
-**The means do not separate.** The gap fell to 0.059, p = 0.37, and the arms *interleave*: three of
-the six large-vocabulary runs land below the small-vocabulary median. There is no direction left to
-report.
+**The means do not separate.** The gap fell to 0.059 — Welch *p* = 0.374, exact *p* = 0.335 — and
+the arms *interleave*: three of the six large-vocabulary runs land below the small-vocabulary
+median. There is no direction left to report.
 
 **The spreads separate decisively.** 0.145 against 0.037 — **F = 15.1, p = 0.0098**.
 
 > **A vocabulary that does not fit does not reliably cost you bits per character. It decides how
 > much of a gamble the run is.**
 
-It reproduces downstream on entities, where the large-vocabulary arm's seed spread is **8.6× wider
-(p = 0.005)** — and **not** on topic (0.7×, p = 0.55). So the claim is two measurements, not three,
-and that is narrower than we first wrote.
+### The two questions, and why they point opposite ways
 
-**These ratios are not panel 10's.** Panel 10's 9.1× and 2.0× are each arm's *gap* divided by the
-pooled seed spread — how far apart the two vocabularies land. The 8.6× and 0.7× here are the two
-arms' *spreads divided by each other* — how much less predictable one of them is. Same four seeds,
-two different questions, and topic answers them oppositely: the vocabularies separate most cleanly
-there, and their run-to-run variability does not differ there at all.
+Panel 10 and this panel measure different things on the same eight runs, and the temptation is to
+reconcile them. They do not need reconciling. A difference in means and a difference in variances
+are independent, and the fact that they disagree on topic is the most interesting thing here:
+
+| | topic | entities |
+|---|---|---|
+| **how far apart** — gap ÷ pooled seed spread | **9.1×**, exact *p* = 0.029 | **2.0×**, exact *p* = 0.029 |
+| **how consistent** — one arm's spread ÷ the other's | **0.7×**, *F*-test *p* = 0.553 | **8.6×**, *F*-test *p* = 0.005 |
+
+> **The vocabulary decides how good the topic model is, and how reliable the entity model is.**
+
+Two notes that have to travel with the table.
+
+**The 0.029 is the floor of the exact test, not a measure of separation.** At four seeds a side a
+two-sided permutation test cannot return anything below 2/70 = 0.029 however cleanly the arms
+split, and both tasks sit exactly there. The multiples are what carry the size of the effect.
+
+**The two rows deliberately use different tests, and using one for both is a trap we walked into
+while checking this.** A permutation test is right for the top row and wrong for the bottom one:
+permuting labels between two arms whose *means* differ inflates the spread of every reshuffled
+group, so the observed grouping looks unusually tight and a location difference is reported as a
+variance finding. On topic it returns *p* = 0.057, against the *F*-test's 0.553 — a significant
+variance difference conjured out of the 0.144 gap. The *F*-test subtracts each arm's own mean
+first, which is exactly the property needed here.
+
+**The same mean-to-variance shift appears upstream, on pretraining loss.** In bits per character
+the gap is 0.059 and does not clear (exact *p* = 0.335, Welch *p* = 0.374) while the spreads do
+(*F* = 15.1, *p* = 0.0098) — the numbers at the top of this panel. So the pattern holds on
+pretraining loss and on entity recognition, and **topic classification is the one place it
+reverses**: there the vocabularies separate cleanly and their variability does not differ at all.
+A pattern with an exception is worth more than a pattern.
 
 **Note this reads in bits per character, not nats per token.** Per-token loss cannot compare two
 vocabularies at all, and the two factors pull opposite ways: a vocabulary that fits badly makes
