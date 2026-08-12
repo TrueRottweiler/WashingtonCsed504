@@ -25,16 +25,18 @@ arms of different architectures cannot show whether the from-scratch band widene
 not the thing the band is measured over. mmBERT and the untrained floor run as CONTEXT, off to one
 side, and are excluded from the band by name.
 
-THREE CORRECTNESS TRAPS, and this project has paid for the shape of all three already.
+FOUR CORRECTNESS TRAPS, and this project has paid for the shape of all four already.
 
 1. A RANGE GROWS WITH THE NUMBER OF MODELS IN IT. The published 0.044 is a range over sixteen
    models. Running six at 701 labels and comparing their range against 0.044 would compare a
    range-over-six with a range-over-sixteen and read the difference as a finding. Verified on the
    real records: the same full-split data gives 0.307 over nineteen models, 0.044 over sixteen and
    0.022 over an arbitrary six. So the full-data band is recomputed here over EXACTLY the models
-   that ran at 701, and the script refuses to print a comparison across unequal sets. The
-   between-model standard deviation is reported beside every range because it does not grow with
-   the set size, which makes it the statistic to quote when the sets cannot be matched.
+   that ran at each label count -- per level, not once over the union of the levels, which is a
+   distinction that cost a printed verdict; see trap 4 -- and the script refuses to print a
+   comparison across unequal sets. The between-model standard deviation is reported beside every
+   range because it does not grow with the set size, which makes it the statistic to quote when
+   the sets cannot be matched, and it is what `reading()` decides on.
 
 2. THE EXCLUSION IS LOAD-BEARING. The 0.044 is a band over the sixteen models that trained,
    defined as pretraining val_loss < 3.1 -- the same cut figures 11 and 12 use. It leaves out two
@@ -42,6 +44,16 @@ THREE CORRECTNESS TRAPS, and this project has paid for the shape of all three al
    and the band is 0.307 and the finding evaporates. That is a large consequence for a threshold
    nobody derived, so the report prints the band BOTH ways at every label count. If the reading
    depends on the cut, the reader gets to see that rather than inherit it.
+
+2b. AND THE CUT ONLY MEANS ANYTHING WITHIN ONE VOCABULARY. `val_loss` is nats per token, so it
+   compares two models only when they score over the same vocabulary -- the project's oldest
+   gotcha, and the reason `vocab_fingerprint` is on every pretraining record. The four
+   swap_yor_xlmr_* models are the deliberately-crippled arm of the tokenizer-swap experiment,
+   trained on XLM-R's 250k vocabulary, and they sail through `val_loss < 3.1` at 1.24-1.70 for a
+   reason that has nothing to do with training quality: fewer nats per token because there are
+   more tokens. They are also 153.8M parameters against 33.8M. So the band is restricted to one
+   vocabulary fingerprint, and the models dropped are printed by name. See trap 4 for what this
+   cost before it was guarded.
 
 3. THE FIXED LEARNING RATE. Every band cell runs at 3e-5, the rate the 0.044 was measured at. It is
    held fixed on purpose -- the comparison is within-model across label count, so sweeping would
@@ -57,6 +69,26 @@ THREE CORRECTNESS TRAPS, and this project has paid for the shape of all three al
    for a fortnight -- which turns out to be its 3e-5 cell, a rate one tenth of its best. So the
    floor runs at 3e-4 here, and quoting it at the band's rate would reproduce the error that sweep
    just corrected.
+
+4. THE MODEL SET IS NOT A CONSTANT, AND THIS ONE ACTUALLY FIRED. `band_models()` reads the set out
+   of the records rather than listing it, so that it cannot drift from what the 0.044 was computed
+   over. That is the right instinct and it was not sufficient: the set is "every from-scratch model
+   with a full-split NER row at 3e-5", which is a property of what ANYONE has run. Between the run
+   that produced these results and the merge of the records that justify them, a downstream sweep
+   elsewhere in the project gave the four XLM-R-vocabulary swap models their missing full-split
+   rows. The set went 16 -> 21 with no change to this file, the band went 0.069 -> 0.182, and the
+   verdict printed LABEL QUANTITY where the run had said BETWEEN THE TWO -- a reversed conclusion,
+   from records landing.
+
+   Two things were wrong and both are fixed above. The four models did not belong in the band at
+   all (trap 2b). And `reading()` compared an absolute range against SIB-200's 0.143, a range over
+   sixteen -- so the moment the set was not sixteen, the decision rule was itself committing trap 1.
+   It decides on between-model sd now, which does not grow with the set size.
+
+   The lesson is the project's own, one noun further out: it is not enough for a derived set to be
+   computed rather than hardcoded. A set computed from a shared directory is a query against other
+   people's work, and it has to be pinned by the property that defines it -- here one vocabulary
+   and one architecture -- or it will answer a different question next week.
 
 WHAT HOLDING THE STEP BUDGET FIXED MEANS HERE. At 701 sentences and 2,150 updates at batch 16 a
 model sees each example about 49 times, against 5 times on the full split. That is intended: ft_api
@@ -102,9 +134,15 @@ LEVELS = (701, 2000)
 # Trap 2. The cut that defines "the models that trained", and the same one figures 11 and 12 use.
 TRAINED_MAX_LOSS = 3.1
 
-# SIB-200's own band at 701 labels: what the label-quantity explanation predicts NER should
-# approach. The only external number in the report.
-SIB_BAND = 0.143
+# SIB-200's own spread across the SAME sixteen models: what the label-quantity explanation predicts
+# NER should approach. The only external numbers in the report.
+#
+# Both are quoted because both get printed, but the RULE decides on the sd. A range is only
+# comparable against another range over the same number of models (trap 1), and this one is over
+# sixteen while the band being judged is over whatever ran -- which is exactly how the rule came to
+# contradict its own docstring. The sd does not grow with the set size, so it can be a constant.
+SIB_BAND = 0.1426           # range over the sixteen, for printing
+SIB_BETWEEN_SD = 0.0457     # between-model sd over the same sixteen -- what reading() tests
 
 # Excluded from the band by name, not by a substring test on the path. Matching arms with
 # `frag in record['model']` is how fig_headline and claims_audit both went wrong: 'yor_64M' catches
@@ -118,19 +156,29 @@ CONTEXT = [('mmBERT base', 'jhu-clsp/mmBERT-base', BAND_LR),
            ('our architecture, untrained (floor)', 'runs/yor_random_init', FLOOR_LR)]
 
 
-def val_losses() -> dict[str, float]:
-    """Pretraining val_loss per run tag, for the trap-2 cut. Through mlm_api, not the files."""
-    return {r['tag']: r['val_loss'] for r in factory.results() if r.get('val_loss') is not None}
+def pretrain_index() -> dict[str, dict]:
+    """Pretraining record per run tag, for the trap-2 cut and the trap-2b vocabulary guard.
+    Through mlm_api, not the files."""
+    return {r['tag']: r for r in factory.results() if r.get('val_loss') is not None}
 
 
-def band_models() -> list[tuple[str, str, bool]]:
+def band_models() -> tuple[list[tuple[str, str, bool]], list[tuple[str, str]]]:
     """The from-scratch models with a full-data NER row at the band's rate.
 
     Read out of the records rather than listed here, so the set cannot drift from what the 0.044
     was computed over. Keyed on model_slug, which is the basename normalised -- the model field is
     a path and differs between the workstation and a Colab runtime.
 
-    Returns (slug, path-in-this-checkout, trained) where `trained` is the trap-2 cut.
+    Reading it out of the records is necessary and not sufficient (trap 4): the query is against a
+    shared directory, so it grows whenever anyone adds a full-split row. It is therefore pinned to
+    ONE VOCABULARY -- the band is a spread over models that differ in pretraining, and a model
+    scored over a different vocabulary is not another point on that axis, it is a different
+    experiment. The majority fingerprint defines the family rather than a hardcoded hash, so this
+    keeps working if the shared BPE is ever retrained.
+
+    Returns (band, dropped): band is (slug, path-in-this-checkout, trained) where `trained` is the
+    trap-2 cut; dropped is (slug, reason) for everything the vocabulary guard removed, so it can be
+    printed by name instead of vanishing.
     """
     seen: dict[str, str] = {}
     for r in ft_api.results('*', task=TASK, lang=LANG):
@@ -139,14 +187,30 @@ def band_models() -> list[tuple[str, str, bool]]:
         if r['model_slug'] in NOT_FROM_SCRATCH:
             continue
         seen.setdefault(r['model_slug'], r['model'])
-    loss = val_losses()
-    out = []
-    for slug, p in sorted(seen.items()):
-        tag = os.path.basename(p.rstrip('/\\'))
+
+    index = pretrain_index()
+    tags = {slug: os.path.basename(p.rstrip('/\\')) for slug, p in seen.items()}
+
+    # The vocabulary the band is measured over: the one most of these models share. Taking the
+    # majority rather than naming a hash means a retrained shared BPE does not empty the band.
+    counts: dict[str, int] = {}
+    for tag in tags.values():
+        fp = (index.get(tag) or {}).get('vocab_fingerprint')
+        if fp:
+            counts[fp] = counts.get(fp, 0) + 1
+    home = max(counts, key=counts.get) if counts else None
+
+    band, dropped = [], []
+    for slug, tag in sorted(tags.items()):
+        rec = index.get(tag) or {}
+        fp = rec.get('vocab_fingerprint')
+        if home and fp and fp != home:
+            dropped.append((slug, f'vocabulary {fp}, not the band\'s {home}'))
+            continue
         # The record's path is the launching machine's; resolve against this checkout instead.
-        out.append((slug, os.path.join('runs', tag),
-                    loss.get(tag, float('inf')) < TRAINED_MAX_LOSS))
-    return out
+        band.append((slug, os.path.join('runs', tag),
+                     rec.get('val_loss', float('inf')) < TRAINED_MAX_LOSS))
+    return band, dropped
 
 
 def present(path: str) -> bool:
@@ -211,10 +275,18 @@ def main():
     a = ap.parse_args()
 
     levels = [int(x) for x in a.levels.split(',') if x.strip()]
-    band = [(s, p, t) for s, p, t in band_models() if t or a.all_models]
+    all_band, dropped = band_models()
+    band = [(s, p, t) for s, p, t in all_band if t or a.all_models]
     have = [(s, p) for s, p, _ in band if present(p)]
     missing = [(s, p) for s, p, _ in band if not present(p)]
-    skipped = [s for s, _, t in band_models() if not t]
+    skipped = [s for s, _, t in all_band if not t]
+
+    if dropped:
+        # Trap 2b/4: printed by name, because these are the models whose silent inclusion reversed
+        # the verdict once already.
+        print(f'  not on the band\'s vocabulary, excluded: {len(dropped)}')
+        for s, why in dropped:
+            print(f'    {s:<32} ({why})')
 
     print(f'from-scratch models with a full-data NER row at lr {BAND_LR:g}: {len(band)}')
     print(f'  on this disk: {len(have)}')
@@ -337,33 +409,46 @@ def reading(at: dict, base: dict) -> list[str]:
     """The decision rule, written before the runs and applied to whatever came back.
 
     Order matters and it is not the order it was first written in. "Did the band widen at all"
-    is tested BEFORE "is it as wide as SIB-200", because a set whose baseline range is already
+    is tested BEFORE "is it as wide as SIB-200", because a set whose baseline spread is already
     large would otherwise satisfy the second test while showing no change -- which is exactly what
     happened on the first synthetic pass, where an unchanged band read as LABEL QUANTITY.
+
+    It decides on BETWEEN-MODEL SD, not on the range, and that is a correction rather than a
+    preference. `at` and `base` are always over the same models, so comparing their ranges is fair;
+    but the second test compares against SIB-200, whose figure is over sixteen. The moment this
+    experiment ran over some other number, testing `range >= 0.75 * SIB_BAND` was committing the
+    very trap the file's docstring opens with. The sd does not grow with the set size, so it is the
+    statistic that can be held against an outside constant. Trap 4.
     """
     n = at['n_models']
-    if at['range'] <= base['range'] + at['within_sd']:
+    if at['between_sd'] <= base['between_sd'] + at['within_sd']:
         return [f'-> TASK TYPE. Cutting the labels to SIB-200s count did not make NER '
                 f'discriminate:',
-                f'   {at["range"]:.3f} against {base["range"]:.3f} on the full split, inside the '
-                f'within-cell spread',
-                f'   of {at["within_sd"]:.3f}. The divergence is about what the task needs, not '
-                f'about how many',
-                f'   labels it has. Report 08 section 3.6c stands, and the decisive experiment '
-                f'says so.']
-    if at['range'] >= 0.75 * SIB_BAND:
+                f'   between-model sd {at["between_sd"]:.4f} against {base["between_sd"]:.4f} on '
+                f'the full split, inside',
+                f'   the within-cell spread of {at["within_sd"]:.4f}. The divergence is about what '
+                f'the task needs,',
+                f'   not about how many labels it has. Report 08 section 3.6c stands, and the '
+                f'decisive',
+                f'   experiment says so.']
+    if at['between_sd'] >= 0.75 * SIB_BETWEEN_SD:
         return [f'-> LABEL QUANTITY. At this label count NER spreads models nearly as widely as '
                 f'topic',
-                f'   classification does ({at["range"]:.3f} against {SIB_BAND:.3f}). NERs flatness '
-                f'on the full split is',
-                f'   about having 6,876 labels, not about being a surface task. Report 08 section '
-                f'3.6c needs',
-                f'   rewriting and so does the poster panel.']
-    return [f'-> BETWEEN THE TWO. {at["range"]:.3f} is above the full-split {base["range"]:.3f} '
-            f'but short of topic',
-            f'   classifications {SIB_BAND:.3f}. Three seeds and {n} models cannot split these; '
-            f'say so rather than',
-            f'   rounding it to whichever explanation the panel prefers.']
+                f'   classification does (between-model sd {at["between_sd"]:.4f} against '
+                f'{SIB_BETWEEN_SD:.4f}). NERs',
+                f'   flatness on the full split is about having 6,876 labels, not about being a '
+                f'surface',
+                f'   task. Report 08 section 3.6c needs rewriting and so does the poster panel.']
+    return [f'-> BETWEEN THE TWO. Between-model sd {at["between_sd"]:.4f} is above the full-split '
+            f'{base["between_sd"]:.4f}',
+            f'   but short of topic classifications {SIB_BETWEEN_SD:.4f} -- '
+            f'{at["between_sd"]/SIB_BETWEEN_SD:.0%} of the way, on a',
+            f'   statistic that does not grow with the set size. Three seeds and {n} models cannot '
+            f'split',
+            f'   these; say so rather than rounding it to whichever explanation the panel prefers.',
+            f'   (Ranges, over these same {n}: {at["range"]:.4f} at this level against '
+            f'{base["range"]:.4f} on the full',
+            f'   split, and {SIB_BAND:.4f} for topic.)']
 
 
 def report(rows=None):
@@ -381,39 +466,51 @@ def report(rows=None):
     print('IS NERs FLATNESS ABOUT THE TASK, OR ABOUT HAVING TEN TIMES THE LABELS')
     print('=' * 78)
 
-    trained = {s for s, _, t in band_models() if t}
+    all_band, dropped = band_models()
+    trained = {s for s, _, t in all_band if t}
+    on_band = {s for s, _, _ in all_band}
     band_rows = [r for r in rows if r.get('kind') == 'band']
+
+    # Trap 2b/4. Results written before the vocabulary guard existed can contain cells for models
+    # the band no longer includes, so say what is being left out rather than quietly dropping it.
+    extra = {r['model_slug'] for r in band_rows} - on_band
+    if extra:
+        print(f'\n  Excluded from the band, not on its vocabulary: {", ".join(sorted(extra))}')
+        print('  They are a different experiment (the tokenizer swap), not another point on this')
+        print('  axis. Including them takes the 701-label band from 0.069 to 0.182 and reverses')
+        print('  the verdict -- see trap 4.')
 
     # Trap 2: print it both ways rather than inheriting the cut.
     for cut_label, keep in (('the models that trained (val_loss < %g)' % TRAINED_MAX_LOSS, trained),
-                            ('every from-scratch model', None)):
-        sel = [r for r in band_rows if keep is None or r['model_slug'] in keep]
+                            ('every from-scratch model', on_band)):
+        sel = [r for r in band_rows if r['model_slug'] in keep]
         if len(sel) < 2:
             continue
-        slugs = {r['model_slug'] for r in sel}
-        base = full_data_band(slugs)
         print(f'\n\n--- {cut_label} ---')
-        if base is None:
-            print('  No full-split rows for these models at the band rate; nothing to compare.')
-            continue
-        print(f'\n  Full split (6,876 labels), {base["n_models"]} models, lr {BAND_LR:g}:')
-        print(f'    range {base["range"]:.4f}   between-model sd {base["between_sd"]:.4f}   '
-              f'within-cell sd {base["within_sd"]:.4f}')
-        print(f'    {base["lo"]:.4f} - {base["hi"]:.4f}')
-        if base['n_models'] != 16:
-            print(f'    NB: a range over {base["n_models"]}, not the published 0.044 over 16. '
-                  f'Compare only with the\n        lines below, which are over the same '
-                  f'{base["n_models"]}.')
 
         for n in sorted({r['n_train_requested'] for r in sel}):
             at = spread([r for r in sel if r['n_train_requested'] == n])
             if at['n_models'] < 2:
                 print(f'\n  {n} labels: {at["n_models"]} model(s) -- a band needs more than one.')
                 continue
+
+            # Trap 1, and the part of it that was got wrong: the baseline is recomputed over the
+            # models at THIS level, not once over the union of every level. Computing it over the
+            # union and then comparing a 16-model level against it is the very comparison across
+            # unequal sets the trap forbids -- and it silently suppressed the 2,000-label reading,
+            # which is where the sharpest result turned out to be.
+            base = full_data_band(set(at['models']))
             print(f'\n  {n} labels, {at["n_models"]} models, lr {BAND_LR:g}:')
             print(f'    range {at["range"]:.4f}   between-model sd {at["between_sd"]:.4f}   '
                   f'within-cell sd {at["within_sd"]:.4f}')
             print(f'    {at["lo"]:.4f} - {at["hi"]:.4f}')
+            if base is None:
+                print('    No full-split rows for these models at the band rate; '
+                      'nothing to compare.')
+                continue
+            print(f'    full split over the same {base["n_models"]}: range {base["range"]:.4f}   '
+                  f'between-model sd {base["between_sd"]:.4f}   '
+                  f'[{base["lo"]:.4f} - {base["hi"]:.4f}]')
             for slug, m in sorted(at['models'].items(), key=lambda kv: -kv[1]):
                 was = base['models'].get(slug)
                 d = f'  ({m - was:+.4f} vs full split)' if was is not None else ''
@@ -421,9 +518,9 @@ def report(rows=None):
             if at['n_models'] != base['n_models']:
                 print('    Not comparable with the full-split line: different model sets. Trap 1.')
                 continue
-            print(f'\n    band x{at["between_sd"]/base["between_sd"]:.2f} on between-model sd, '
-                  f'x{at["range"]/base["range"]:.2f} on range'
-                  if base['between_sd'] and base['range'] else '')
+            if base['between_sd'] and base['range']:
+                print(f'\n    band x{at["between_sd"]/base["between_sd"]:.2f} on between-model sd, '
+                      f'x{at["range"]/base["range"]:.2f} on range')
             for line in reading(at, base):
                 print('    ' + line)
 
