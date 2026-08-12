@@ -94,7 +94,7 @@ the two cards over the weekend this poster was written.
 |---|---|---|
 | **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is 1.024B tokens ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>**Enables 2:** you cannot say a run got faster until you can say what a run is.<br>*figure — none yet* | **2 · Why optimize before anything needs it?**<br>25.2 → 12.2 minutes, **2.07×** — of which only **1.32×** is efficiency; the rest is a second card doing the same GPU-minutes in parallel. Had to learn that the hours saved are not the point: speed changes which experiments you are willing to **start**.<br>**Enables 4–9:** every result below rests on running one cell three to fifteen times.<br>*figure 14* | **3 · What makes a record survive you?**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint — `15abd33de5af` — and a dashboard showing an empty queue while both cards sit at 85% is worse than none.<br>**Enables 4:** two numbers only differ if they came from two experiments.<br>*figure 07* |
 | **4 · Is this difference real?**<br>Spread is a property of the **cell**, not a constant. And our rule, *"bigger than the spread"*, is half a rule: at three seeds a difference must be **2.27×** the spread, and the exact test cannot return a p below **0.10** at three a side however far apart the arms land. Two of our own claims were sitting in that gap.<br>**Enables 5–9:** this is the instrument the rest of the board is read through.<br>*figures 04, 13* | **5 · Is your metric the right metric — and why does one task refuse to be predicted?**<br>We minimized validation loss for a term without checking it predicts anything. Across the 16 models that trained: **−0.888** on topic classification, **+0.303** on entities. The aggregate −0.935 was three under-trained models holding up a line. Entities hand every working model a band **0.044** wide; topics spread them over **0.143**. A benefit everyone receives equally cannot be predicted by anything.<br>**Enables 6:** if the metric can be wrong, so can the unit under it.<br>*figures 11, 12* | **6 · Which of your units are not units?**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to bits per character — and that a 250k output head is **5.1×** the compute per step, so matched *steps* handed one arm five times the budget and reversed the conclusion.<br>**Enables 7:** only now can the tokenizer question be asked in a unit that can answer it.<br>*figure 03* |
-| **7 · Is the tokenizer a cost, or a coin flip?**<br>Report 08's headline was a 0.144 bits/char penalty at three seeds. At **six** — fixed in advance from the power calculation — it *shrank* to 0.059, p = 0.37, and the arms interleave. What survives is the **spread**: 0.145 against 0.037, **p = 0.0098**, and 4.0× / 7.7× wider downstream. It is not a tax, it is a lottery.<br>**Enables 8:** a setting whose effect is on variance is exactly the kind that will not transfer.<br>*figure — none yet* | **8 · Does a tuned setting transfer?**<br>We claimed adding a language was one function call — true only if the settings come too. Five languages, six rates, 60 runs: Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo collapses at 7e-4 and at every rate above it. The risk is not a slightly worse model, it is a wasted night that looks like a result.<br>**Enables 9:** if runs fail this way, catch them early.<br>*figure 16* | **9 · Detect the failure, or prevent it?**<br>35 of 195 runs never learned — **17.9%**, wasting 25.5 GPU-hours. Scored against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all eleven**: the best doomed run always looks better than the worst healthy one. One rule in the grid ever fires, and it kills two healthy runs and zero dead ones. Do not build the detector — and clipping, at fifteen seeds a side, does **not** prevent divergence either (Fisher p = 1.00).<br>*figure 10* |
+| **7 · Is the tokenizer a cost, or a coin flip?**<br>Report 08's headline was a 0.144 bits/char penalty at three seeds. At **six** — fixed in advance from the power calculation — it *shrank* to 0.059, p = 0.37, and the arms interleave. What survives is the **spread**: 0.145 against 0.037, **p = 0.0098** — and 8.6× wider downstream on entities (p = 0.005), though not on topic, where our own fourth seed reversed it. It is not a tax, it is a lottery.<br>**Enables 8:** a setting whose effect is on variance is exactly the kind that will not transfer.<br>*figure 17* | **8 · Does a tuned setting transfer?**<br>We claimed adding a language was one function call — true only if the settings come too. Five languages, six rates, 60 runs: Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo collapses at 7e-4 and at every rate above it. The risk is not a slightly worse model, it is a wasted night that looks like a result.<br>**Enables 9:** if runs fail this way, catch them early.<br>*figure 16* | **9 · Detect the failure, or prevent it?**<br>35 of 195 runs never learned — **17.9%**, wasting 25.5 GPU-hours. Scored against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all eleven**: the best doomed run always looks better than the worst healthy one. One rule in the grid ever fires, and it kills two healthy runs and zero dead ones. Do not build the detector — and clipping, at fifteen seeds a side, does **not** prevent divergence either (Fisher p = 1.00).<br>*figure 10* |
 
 **10 · Writing it down so it stays true** — *the strip along the bottom.* What it cost, what we
 got wrong, and the machinery that keeps a report honest after the run that produced it is
@@ -340,7 +340,7 @@ and actually use the second card. Measured on the same work: **25.2 minutes → 
 2.07× speedup**, with utilization going to 91% and 93%. The batch change alone was 1.31× measured
 against 1.33× predicted.
 
-**What that bought in hours.** The project spent **83.3 GPU-hours**. Without the 2.07× it would
+**What that bought in hours.** The project spent **143.3 GPU-hours**. Without the 2.07× it would
 have been about 172, which on two cards and realistic evenings is ten or eleven nights instead of
 five. Real, but not the interesting part.
 
@@ -595,7 +595,7 @@ This is the part we would put in the largest type on the board, because the $24,
 cards is the number that makes a reader decide this work is not available to them.
 
 **It is available to them.** The entire project — 105 pretrained models, 172 fine-tuning runs,
-83.3 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
+143.3 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
 Colab's published compute-unit rates:
 
 | where | the whole project | inside a $500 budget? |
@@ -619,7 +619,7 @@ There is an option between "buy a workstation" and "pay for cloud" that almost n
 students: **plug your laptop in and let it train while you sleep.**
 
 Eight hours a night, five nights a week, is **40 GPU-hours a month for free** — on hardware you
-already own and are not using between midnight and eight. Our entire project was 83.3 GPU-hours.
+already own and are not using between midnight and eight. Our entire project was 143.3 GPU-hours.
 Even at four or five times a laptop's disadvantage, the small-model half of this study is a
 month of nights. Drop the 98M model, which will not fit in 8 GB anyway, and it is comfortably
 less.
@@ -932,7 +932,7 @@ models with two different scores. Until you know how far apart *those* are, you 
 the gap between any two experiments.
 
 We measured that spread on 20 cells that were run more than once. **It is not a constant.** The
-median is 0.112, the smallest 0.003, the largest **2.156** — a range of nearly a thousandfold
+median is 0.071, the smallest 0.003, the largest **2.156** — a range of nearly a thousandfold
 across cells of the same study. For most of the term we used a single number, 0.049, measured once
 on one model on one language, and applied it everywhere. That was the first of the five constants
 in the table below, and it is why every early claim was judged too generously.
@@ -1046,16 +1046,16 @@ Everything below is measured from the run records, not estimated.
 
 | | |
 |---|---|
-| Models pretrained | 105 |
-| Fine-tuning experiments | 46, made of 172 individual runs |
-| Total graphics-card time | **83.3 GPU-hours** |
-| Electricity for that (cards only) | ~27 kWh |
-| Electricity at the wall, with cooling and the rest of the machine | ~43 kWh |
-| Storage: prepared text | 5.5 GB |
-| Storage: model checkpoints and logs | 95.7 GB |
+| Models pretrained | 197 |
+| Fine-tuning experiments | 161, made of 541 individual runs |
+| Total graphics-card time | **143.3 GPU-hours** |
+| Electricity for that (cards only) | ~43 kWh |
+| Electricity at the wall, with cooling and the rest of the machine | ~69 kWh |
+| Storage: prepared text | 5.1 GB |
+| Storage: model checkpoints and logs | 166 GB |
 
-Forty-three kilowatt-hours is about what a domestic fridge uses in a month. **The entire
-computational output of this project cost roughly four dollars of electricity.** That is worth
+69 kilowatt-hours is roughly two months of a domestic fridge. **The entire
+computational output of this project cost about $7 of electricity.** That is worth
 sitting with, because it contradicts the impression most people have of what machine learning
 costs — and the reason is that these are small models. The same tooling pointed at a
 billion-parameter model would multiply everything below by a hundred or more.
@@ -1183,7 +1183,7 @@ figures; every number in the table above is measured from our own records.
 
 **What renting would have cost (operating expenditure).** Cloud providers charge by the
 graphics-card-hour. A card in this class rents for roughly $2–4 per hour depending on provider and
-commitment. At 83.3 GPU-hours:
+commitment. At 143.3 GPU-hours:
 
 | | cost |
 |---|---|
@@ -1361,11 +1361,11 @@ can work at any step.
 
 **The rule that does discriminate still loses money.** What actually separates the two groups is
 whether the run has *left its plateau* — the cliff from panel 11a. A rule that waits and then
-abandons anything still flat catches **all thirteen** doomed runs. It also kills between 35 and 92
-good ones, because the cliff arrives anywhere from 15% to 90% of the way through a run. The best
-operating point available nets **−24.2 GPU-hours**.
+abandons anything still flat catches **every one** of the doomed runs. It also kills a large
+number of good ones, because the cliff arrives anywhere from 15% to 90% of the way through a
+run. The best operating point available nets **−36.1 GPU-hours**.
 
-**Why it is structural rather than a tuning failure.** Only 12% of runs are doomed. A doomed run
+**Why it is structural rather than a tuning failure.** Only 18% of runs are doomed. A doomed run
 wastes at most its *remaining* time; a false kill wastes a *whole* run and you have to do it
 again. With that base rate and that asymmetry, the arithmetic cannot close no matter how good the
 classifier is. That is worth knowing before building the feature, and it took no compute to find
