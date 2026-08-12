@@ -385,12 +385,20 @@ Two notes that have to travel with the table. (The repeated 0.029 in the top row
 floor at four seeds a side, not a coincidence — panel 10 says why.)
 
 **The two rows deliberately use different tests, and using one for both is a trap we walked into
-while checking this.** A permutation test is right for the top row and wrong for the bottom one:
-permuting labels between two arms whose *means* differ inflates the spread of every reshuffled
-group, so the observed grouping looks unusually tight and a location difference is reported as a
-variance finding. On topic it returns *p* = 0.057, against the *F*-test's 0.553 — a significant
-variance difference conjured out of the 0.144 gap. The *F*-test subtracts each arm's own mean
-first, which is exactly the property needed here.
+while checking this.** Permuting *raw scores* between two arms whose means differ inflates the
+spread of every reshuffled group, so the observed grouping looks unusually tight and a location
+difference comes back as a variance finding. On topic it returns *p* = 0.057 against the
+*F*-test's 0.553 — a significant variance difference conjured entirely out of the 0.144 gap, on
+the one task where the whole point is that consistency does *not* differ.
+
+The fix is not to abandon permutation testing; it is to remove the means first. Permuting each
+arm's *residuals* — every score minus its own arm's mean — is valid, distribution-free, and lands
+where the *F*-test does: **0.657 on topic and 0.014 on entities, against the *F*-test's 0.553 and
+0.005.** The two agree because subtracting each arm's mean is the property the bottom row needs,
+and the *F*-test has it built in. The board quotes the *F*-test because the rest of the project
+already does. This is worth stating precisely rather than as "permutation tests are wrong for
+variance", because the true version is the more useful one and it is panel 12's shape exactly: a
+tool that is correct one question over, used one question too far.
 
 **The same mean-to-variance shift appears upstream, on pretraining loss.** In bits per character
 the gap is 0.059 and does not clear (exact *p* = 0.335, Welch *p* = 0.374) while the spreads do
@@ -426,6 +434,35 @@ clearest instances:
 **`FT_STEPS = 352` is the best of them, because keeping it was correct.** A bug is something you fix
 and forget; a constant held for a good reason that turns out to be load-bearing is a harder lesson.
 Reproducibility and correctness are not the same property.
+
+**Two additions from 12 August, both a different shape from the table above.** Each is an input
+nobody wrote down as an input at all.
+
+*Prose about code goes stale like any other prose.* `fig_tokenizer_lottery`'s caption is computed
+— that was fixed once already — but its **docstring** still asserted "4.0× wider on topic, 7.7× on
+entities": three-seed values, the topic one never significant at *p* = 0.115 and reversed outright
+at four seeds. The caption learned and the paragraph above it did not. We had been treating
+"computed rather than hardcoded" as a property of the *output*, and a docstring is the thing the
+next person reads before deciding whether to trust the function.
+
+*"Generated from the records so it cannot drift" assumes a fixed renderer, and never said so.*
+Figure 18 was rendered on a cloud runtime rather than the workstation — the first figure in this
+project not drawn on one machine. `save()` already pins the SVG hash salt and strips the date so an
+unchanged figure re-renders byte-identically; the matplotlib version was the one input left to
+whichever machine you happened to be on. The runtime ships 3.10.0 and the other sixteen figures are
+3.11.0, so the first commit of it would have regenerated differently on the workstation at every
+staleness pass, forever — "all 16 figures byte-identical" quietly becoming 17 of 18, with nothing
+wrong and nothing to find. Pinning `matplotlib==3.11.0` and re-rendering fixed it, and all
+seventeen SVGs now report one renderer.
+
+**And it goes one level below where we found it.** With matplotlib pinned, the SVGs are byte-
+identical across both machines and **the PNGs still are not** — 406,856 bytes against 372,398 for
+the same figure. The images are *pixel*-identical, all 9.2 million of them, to a channel delta of
+zero; what differs is the zlib stream compressing them, which belongs to the Python build rather
+than to matplotlib. So the version pin fixed the format that carries a version stamp and left the
+one that does not, and the check that would eventually have caught it — `git status` after a
+regeneration — is the same check the pin was protecting. **An undeclared input usually has a
+second one underneath it, and pinning the visible one is what hides the rest.**
 
 **End the panel on the catches, not the misses** — predicting the pattern is a better ending than
 surviving it:
