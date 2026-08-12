@@ -485,8 +485,30 @@ the board above this one. Without this they are anecdotes with decimal points.
 
 ## Week 7 — Which of your units are not units?
 
-**Big number:** `5.1× the compute, at "matched" steps` · **Figure:**
-`03-matched-steps-vs-compute.svg`
+**Big number:** `5.1× the compute, at "matched" steps` · **Figure:** *none — set the table below
+as type.* The matched-steps chart went to the top board, which needs it for its own
+matched-compute panel and reads first; see Gaps for which figure that is and why.
+
+Losing the chart is a gain rather than a concession, and it is worth saying why: the finding is
+that **one experiment read two ways gives opposite answers**, and a bar chart has to work against
+itself to show that — it draws one set of heights and then annotates its way to the second
+reading. Two rows of type do it directly, at a size legible from three metres, which a five-bar
+chart never is:
+
+| 12,000 steps each, read two ways | 16k vocabulary | 250k vocabulary |
+|---|---|---|
+| **what it scored** — bits per character | 1.131 | **0.989** *(looks better)* |
+| **what it cost** — minutes per seed | 8 | **42** |
+
+The cell's whole argument is that the second row is missing from the first reading. Set the `5.1×`
+at 90–110 pt, the table beneath it, and nothing else.
+
+*Recomputed 12 August: n = 4 and n = 6, the 250k arm taken through `arm_records()` rather than the
+glob. The wall-clock ratio is 5.24× on these cells; **5.1×** is the throughput measurement — 408k
+tokens/sec against 80k — and is the number to print, because it is the property of the two
+architectures rather than of one night's scheduling. An earlier draft of this table quoted 1.135
+and 1.056 at 8 and 41 minutes, which was the three-seed version from the README. Same conclusion,
+and it should still have been rederived rather than copied.*
 
 **Problem.** Two vocabularies produce two validation losses that are not on the same scale,
 because a loss per token means something different when the tokens are different sizes. Comparing
@@ -505,7 +527,7 @@ against 408k. So "12,000 steps each" handed one arm **5.1× the compute** of the
 **Results.** Read as matched steps the two vocabularies looked indistinguishable, and the study's
 central argument was in trouble. Read as matched compute — the question anyone actually has,
 because nobody chooses a vocabulary and then buys whatever hardware it needs — the answer
-reversed. Both readings come from the same three runs.
+reversed. Both readings come from the same runs; only the axis held fixed changed.
 
 **Learning.** Fairness is a property of the unit, not of the intention behind it. Any time two
 arms differ in something that changes cost per step, "same steps" is a budget transfer rather than
@@ -743,20 +765,18 @@ and 02. **`11-metric-validity.svg` is still unclaimed by either board**, as are
 `08-why-not-shorter.svg` and `09-scaling-with-cards.svg`, which no cell in either document
 currently carries.
 
-**One figure is claimed by both boards, and only a printer will notice.**
-`03-matched-steps-vs-compute.svg` is Week 7's figure here and it is also the figure under report
-13's matched-compute panel. Two posters hanging side by side showing the identical chart reads as
-a mistake even when it is not, and neither document can see the collision from the inside — it
-is the same shape as the index row that broke in the gap between two pull requests.
+**Figure 03 was claimed by both boards. Settled — it is the top board's.**
+`03-matched-steps-vs-compute.svg` was Week 7's figure here and is also the figure under report
+13's matched-compute panel. Two posters side by side carrying the identical chart reads as a
+mistake even when it is not, and neither document could see the collision from the inside — the
+same shape as the index row that broke in the gap between two pull requests.
 
-The recommendation is that **the top board keeps it.** It is load-bearing for their thesis, their
-board is read first, and the same rule that sent figures 01, 02, 12 and 17 upstairs sends this one
-too. Week 7 then has three ways out, in order of preference: set `5.1×` as type against a two-line
-table of the two readings, which is stronger on a wall than a bar chart anyway; take
-`08-why-not-shorter.svg`, which is unclaimed and argues the neighbouring point that a run cannot
-be truncated and still compared; or draw a variant with the wall-clock axis foregrounded so the
-two panels are visibly answering different questions. Decide before either board goes to print,
-not after.
+It goes upstairs, where it is load-bearing for their thesis and their board is read first: the
+same rule that sent 01, 02, 12 and 17. **Week 7 carries no figure and sets its table as type
+instead**, which is the better outcome and not a consolation — the finding is that one experiment
+read two ways gives opposite answers, and a bar chart has to fight itself to show that. Two rows
+of type at a size legible from three metres do it directly. `check_boards.py` exits 0 once this
+lands.
 
 **The retracted floor sentence goes with them, but keep it in mind.** The earlier draft claimed
 the difference between the two tasks' floors explained why one task's scores were predictable and
@@ -776,8 +796,7 @@ survived a reading, and rested on a coincidence.
 3. **Figure for week 5** (the interface) — the hand-set signature column described in Gaps. An
    hour in a vector editor. Nothing blocks it, and cell 4 keeps the dashboard.
 4. ~~Offer figures 11, 12 and 17 to Patrick and Leon~~ — **done**; report 13 took 12 and 17.
-5. **Settle figure 03**, which both boards currently claim. See Gaps — the recommendation is that
-   the top board keeps it and Week 7 sets its number as type.
+5. ~~Settle figure 03~~ — **done**; it is the top board's, and Week 7 sets its table as type.
 6. **Figure for week 1** (hardware). Blocked on the measurements in the Appendix — the only item
    on the board that cannot be produced from this machine.
 7. **Regenerate everything and run the staleness check.** Do this *last*, once no study is still

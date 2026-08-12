@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 
 import ft_api
 import mlm_api as f
+import study_label_quantity as label_quantity
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'reports', 'figures')
@@ -198,6 +199,17 @@ def fig_gradient():
     A dot plot rather than bars: the quantity is a ratio around 1.0, so a bar from zero wastes
     most of its length and exaggerates small differences. Color carries the one thing being
     tested -- whether XLM-R was trained on the language.
+
+    The caption is generated, and it was added on 12 August because there was none. The two means
+    panel 3 leads with -- 1.150 against 1.593 -- appeared nowhere on the figure, so the chart showed
+    a gradient and left the reader to eyeball the summary it is evidence for.
+
+    The title changed at the same time and that is a retraction rather than a rewording. It read
+    "A multilingual vocabulary costs nothing -- until the language is left out", which overclaims
+    twice: covered languages average 1.150x, which is not nothing, and Wolof is UNCOVERED at 1.31x
+    yet sits below covered Xhosa at 1.42x, so there is no clean split to be "until" the far side of.
+    Report 07 and CLAUDE.md both call this "a gradient with one exception"; the figure was the only
+    place asserting otherwise, and it is the place a poster reader looks first.
     """
     rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'gradient_table.json'),
                                      encoding='utf-8')) if r['corpus'] != 'eng_1b']
@@ -230,11 +242,47 @@ def fig_gradient():
     ax.set_xlim(0.83, 1.95)
     ax.set_ylim(-0.8, len(rows) - 0.2)
     ax.grid(axis='y', visible=False)
-    ax.set_title('A multilingual vocabulary costs nothing — until the language is left out',
-                 pad=14)
+    ax.set_title('The penalty tracks coverage — not script, and not region', pad=14)
     ax.plot([], [], 'o', color=C3, label='XLM-R was trained on this language')
     ax.plot([], [], 'o', color=C2, label='XLM-R was not')
     ax.legend(loc='lower right', fontsize=12)
+
+    # -- the caption, generated ---------------------------------------------------------------
+    # The African-only control is report 07 section 4's, and the set it needs is not on the
+    # records -- there is no region field -- so it is named here. The two sets must PARTITION the
+    # table: a language added later then fails this assertion instead of being silently counted as
+    # African, which is the failure this project keeps paying for in other forms.
+    AFRICAN = {'afr', 'swh', 'som', 'hau', 'amh', 'xho', 'wol', 'lug', 'nya', 'sna', 'kin',
+               'yor', 'ibo'}
+    ELSEWHERE = {'cmn', 'ind', 'eng', 'fra'}
+    seen = {r['corpus'] for r in rows}
+    assert seen == AFRICAN | ELSEWHERE, f'unclassified languages: {seen ^ (AFRICAN | ELSEWHERE)}'
+
+    cov = [r for r in rows if r['in_xlmr'] is True]
+    unc = [r for r in rows if r['in_xlmr'] is not True]
+    def mean(group):
+        return st.mean(r['penalty'] for r in group)
+
+    top_cov = max(cov, key=lambda r: r['penalty'])
+    above = [r for r in unc if r['penalty'] > top_cov['penalty']]
+    exc = [r for r in unc if r['penalty'] < top_cov['penalty']]
+    yor = next(r for r in rows if r['corpus'] == 'yor')
+    rank = sorted((r['penalty'] for r in rows), reverse=True).index(yor['penalty']) + 1
+
+    notes = [f"XLM-R's vocabulary costs the {len(cov)} languages it covers {mean(cov):.3f}× on "
+             f'average, and the {len(unc)} it does not {mean(unc):.3f}×.',
+             f'Restricted to African languages on both sides — which rules out script and region '
+             f'as the explanation — {mean([r for r in cov if r["corpus"] in AFRICAN]):.3f}× '
+             f'against {mean([r for r in unc if r["corpus"] in AFRICAN]):.3f}×.',
+             f'{len(above)} of the {len(unc)} uncovered languages sit above every covered one. '
+             + ('The exception is not smoothed: '
+                + ', '.join(f'{NAME[r["corpus"]]} at {r["penalty"]:.2f}×' for r in exc)
+                + f' is uncovered and below {NAME[top_cov["corpus"]]} at '
+                  f'{top_cov["penalty"]:.2f}×.' if exc else 'The separation is clean.'),
+             f'Yoruba, the target language, ranks {rank} of {len(rows)} at {yor["penalty"]:.2f}× — '
+             f'so the original figure was not a quirk of one language.']
+    for i, line in enumerate(notes):
+        fig.text(0.5, -0.015 - i * 0.027, line, ha='center', color=INK2, fontsize=11.5)
     save(fig, '02-tokenizer-gradient')
 
 
@@ -915,8 +963,12 @@ def fig_tokenizer_lottery():
     thing that is actually true: choosing the large vocabulary does not cost you a fixed amount,
     it decides how much of a gamble the run is.
 
-    The same shape holds downstream, which is noted on the figure rather than drawn: 4.0x wider
-    on topic classification, 7.7x on entities.
+    The same shape holds downstream on ENTITIES and not on topic, which is noted on the figure
+    rather than drawn, and computed by _downstream_spread() rather than stated here. This docstring
+    used to assert "4.0x wider on topic classification, 7.7x on entities": both were three-seed
+    values, the topic one was never significant (p = 0.115) and it reversed outright at four seeds.
+    The caption was fixed to compute them and this paragraph was not, which is the same defect one
+    layer out -- a figure whose prose remembers what its code has stopped believing.
     """
     # Selection comes from the study that pre-registered it, not from a glob written here. A glob
     # over `swap_yor_xlmr_*` picks up seven runs for a six-seed arm, because two studies named the
@@ -1123,13 +1175,167 @@ def fig_lr_transfer():
     save(fig, '16-lr-transfer')
 
 
+# --------------------------------------------------------------------------------------------
+def fig_label_quantity():
+    """The decisive experiment: is NER flat because of the task, or because it has ten times
+    the labels? Panel 9 of the top board, and the one panel that had no figure.
+
+    A slope chart, because the question is not what any model scores -- it is whether the models
+    move APART as labels are removed. Sixteen lines, three label counts, and the eye reads the
+    fanning directly. It also makes the study's central trap structural rather than a caveat: a
+    slope chart cannot be drawn over a model that is missing a level, so the matched set is forced
+    by the form of the chart. A range grows with the number of models in it, and the printed
+    verdict of this experiment once reversed because five models joined the set.
+
+    Neither the band membership nor the verdict is re-derived here. Both come from
+    study_label_quantity -- band_models() for the set, spread() for the statistics, reading() for
+    the decision -- so this figure cannot claim something the study's own rule does not. A figure
+    holding its own copy of a model set is exactly the defect that reversed the verdict once.
+
+    The right panel plots between-model sd rather than the range, for the reason the study's
+    docstring opens with: SIB-200's figure is over sixteen models, and only a statistic that does
+    not grow with set size may be held against an outside constant.
+    """
+    S = label_quantity
+    with open(os.path.join(HERE, 'runs', 'label_quantity.json'), encoding='utf-8') as fh:
+        rows = [r for r in json.load(fh) if 'mean' in r]
+
+    band_all, _dropped = S.band_models()
+    trained = {slug for slug, _, ok in band_all if ok}
+
+    # Band cells only. mmBERT and the untrained floor are context arms, not points on this axis.
+    by_level = {}
+    for r in rows:
+        if r.get('kind') == 'band' and r['model_slug'] in trained:
+            by_level.setdefault(r['n_train_requested'], {})[r['model_slug']] = r
+    if not by_level:
+        raise SystemExit('no band cells in runs/label_quantity.json')
+
+    # The models carrying EVERY level. A seventeenth has a 701 cell and no 2,000 cell, so the
+    # dose-response -- which compares the levels with each other -- only means anything here.
+    matched = set.intersection(*(set(v) for v in by_level.values()))
+    full = S.full_data_band(matched)
+
+    # The full split's label count, read off the records rather than typed. It is the one number
+    # on this chart that is a property of the dataset rather than of the experiment.
+    n_full = max(r['n_train'] for r in ft_api.results('*', task=S.TASK, lang=S.LANG)
+                 if r.get('steps') == S.STEPS and r.get('lr') == S.BAND_LR
+                 and not r.get('n_train_requested') and r['model_slug'] in matched)
+
+    levels = [(n_full, full)]
+    for n in sorted(by_level, reverse=True):
+        levels.append((n, S.spread([by_level[n][slug] for slug in matched])))
+
+    xs = list(range(len(levels)))
+    # The board's own model, so a reader can find it inside the band. Identity, not rank -- the
+    # highlight does not move if some other checkpoint happens to come top.
+    HERO = 'yor-64M-62.5k-s0'
+
+    fig, axes = plt.subplots(1, 2, figsize=(14.0, 6.4),
+                             gridspec_kw={'width_ratios': [1.5, 1.0]})
+    ax = axes[0]
+    for slug in sorted(matched):
+        ys = [stats['models'][slug] for _, stats in levels]
+        hero = slug == HERO
+        ax.plot(xs, ys, '-o',
+                color=C2 if hero else C1,
+                alpha=1.0 if hero else 0.38,
+                lw=2.8 if hero else 1.3,
+                markersize=8 if hero else 4,
+                zorder=4 if hero else 2)
+
+    # The band itself, drawn once per level beside the cloud rather than inferred from it.
+    for x, (_, stats) in zip(xs, levels):
+        ax.plot([x + 0.19] * 2, [stats['lo'], stats['hi']], '-', color=INK2, lw=2.4, zorder=3)
+        # At the TOP of the rule, not its midpoint. The midpoint of the first two rules lands
+        # inside the descending cloud, and a bold number over sixteen thin lines is unreadable.
+        ax.text(x + 0.19, stats['hi'] + 0.0018, f'{stats["range"]:.3f}',
+                va='bottom', ha='center', fontsize=11.5, color=INK, fontweight='bold')
+
+    # Explicit, with headroom for those labels: autoscale fits the DATA, and matplotlib does not
+    # know a text annotation sits above the highest point.
+    seen_vals = [v for _, stats in levels for v in stats['models'].values()]
+    span = max(seen_vals) - min(seen_vals)
+    ax.set_ylim(min(seen_vals) - 0.07 * span, max(seen_vals) + 0.11 * span)
+
+    ax.plot([], [], '-o', color=C2, lw=2.8, markersize=8, label='our 33.8M model')
+    ax.plot([], [], '-o', color=C1, alpha=0.38, lw=1.3, markersize=4,
+            label=f'the other {len(matched) - 1} from-scratch models')
+    ax.plot([], [], '-', color=INK2, lw=2.4, label='the band at that label count')
+    ax.legend(loc='lower left', fontsize=11)
+
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f'{n:,}' for n, _ in levels], fontsize=13.5, color=INK)
+    for x, (n, _) in zip(xs, levels):
+        sub = 'full split' if n == n_full else ('= SIB-200\'s count' if n == min(
+            lv[0] for lv in levels) else 'one rung between')
+        ax.text(x, -0.075, sub, ha='center', va='top', fontsize=11, color=MUTED,
+                transform=ax.get_xaxis_transform())
+    ax.set_xlim(-0.35, len(levels) - 0.5)
+    ax.set_xlabel('MasakhaNER training sentences', labelpad=26)
+    ax.set_ylabel('entity F1  (higher is better)')
+    ax.set_title('Every model loses ground. Only at 701 do they separate.', pad=12, fontsize=15)
+
+    # -- the statistic the rule actually decides on ------------------------------------------
+    ax2 = axes[1]
+    sds = [stats['between_sd'] for _, stats in levels]
+    ax2.bar(xs, sds, color=C1, width=0.56)
+    ax2.axhline(S.SIB_BETWEEN_SD, ls=(0, (5, 4)), lw=1.9, color=C2, zorder=3)
+    ax2.text(len(levels) - 0.5, S.SIB_BETWEEN_SD - 0.0016,
+             f'topic classification: {S.SIB_BETWEEN_SD:.4f}',
+             ha='right', va='top', fontsize=11.5, color=C2, fontweight='bold')
+
+    base_sd = levels[0][1]['between_sd']
+    for x, (n, stats) in zip(xs, levels):
+        ax2.text(x, stats['between_sd'] + 0.0012, f'{stats["between_sd"]:.4f}', ha='center',
+                 va='bottom', fontsize=13, color=INK, fontweight='bold')
+        # Above the bar, in ink. Inside it these were SURFACE-on-C1, and "vs full split" is wider
+        # than a 0.56-wide bar at this size -- so both ends of the string ran off the bar and
+        # became near-white text on the near-white page, leaving a clipped fragment behind. A
+        # label that only fits inside its bar at some values does not fit inside its bar.
+        ax2.text(x, stats['between_sd'] + 0.0052,
+                 'baseline' if not x else f'×{stats["between_sd"] / base_sd:.2f}\nvs full split',
+                 ha='center', va='bottom', fontsize=11, color=INK2, linespacing=1.35)
+    ax2.set_xticks(xs)
+    ax2.set_xticklabels([f'{n:,}' for n, _ in levels], fontsize=13.5, color=INK)
+    # Explicit, because the reference line's label is right-aligned to the axis edge and the
+    # autoscaled limit from three bars leaves it a hair outside.
+    ax2.set_xlim(-0.6, len(levels) - 0.4)
+    ax2.set_ylim(0, S.SIB_BETWEEN_SD * 1.32)
+    ax2.set_ylabel('between-model sd')
+    ax2.set_title('How far the labels take it\ntoward topic classification', pad=12, fontsize=15)
+
+    # -- the reading, from the study's own decision function ---------------------------------
+    smallest, at = levels[-1]
+    verdict = S.reading(at, levels[0][1])[0].split('->')[1].split('.')[0].strip()
+    fig.suptitle(f'Cutting the labels threefold changes nothing. Cutting them tenfold spreads the '
+                 f'models {at["between_sd"] / base_sd:.1f}× further apart.',
+                 fontsize=17, fontweight='bold', color=INK, y=1.02)
+
+    notes = [f'{len(matched)} from-scratch models — the ones carrying every label count. A range '
+             f'grows with the number of models in it, so a slope chart is the honest form: it '
+             f'cannot be drawn over a model missing a level.',
+             f'Every cell at lr {S.BAND_LR:g} with the step budget fixed at {S.STEPS:,} updates, '
+             f'so a subsample does not silently become a compute cut.',
+             f'The rule, written before the runs: {verdict} — between-model sd '
+             f'{at["between_sd"]:.4f} at {smallest} labels against {base_sd:.4f} on the full '
+             f'split, {at["between_sd"] / S.SIB_BETWEEN_SD:.0%} of the way to topic '
+             f'classification.',
+             'mmBERT and the untrained floor ran at each label count as context and are not part '
+             'of the band.']
+    for i, line in enumerate(notes):
+        fig.text(0.5, 0.072 - i * 0.031, line, ha='center', color=INK2, fontsize=11.5)
+    fig.subplots_adjust(bottom=0.30, wspace=0.26)
+    save(fig, '18-label-quantity')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
            fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
-           fig_tokenizer_lottery)
+           fig_tokenizer_lottery, fig_label_quantity)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
