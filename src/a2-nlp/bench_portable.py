@@ -65,10 +65,24 @@ def amp_dtype(device):
     MPS and CPU are left in fp32 on purpose: autocast on those paths is either unsupported or
     slower, and a benchmark that silently changes precision between machines is comparing two
     different computations.
+
+    THE CHECK IS THE COMPUTE CAPABILITY, NOT is_bf16_supported(). This function used to ask
+    `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation: bool = True)` --
+    so on a Turing card it falls through to `_check_bf16_tensor_supported()`, finds that a
+    bfloat16 tensor can be created, and returns True. bf16 then runs in software.
+
+    A Colab T4 measured **11,566 tok/s that way, against 381,817 on the workstation -- 33x**, and
+    reported the whole project as 114 days. The real gap is nearer 8x. Nothing errored and nothing
+    warned; the benchmark simply produced a number that was wrong by 4x in the direction that
+    would have killed the board's central claim, which is that you do not need the workstation.
+
+    bf16 tensor cores arrive with Ampere (sm_80). Asking the hardware directly is both the honest
+    question and one fewer library behaviour to track.
     """
     if device.type != 'cuda':
         return None
-    return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    major, _ = torch.cuda.get_device_capability(device)
+    return torch.bfloat16 if major >= 8 else torch.float16
 
 
 def build(preset, device):
@@ -78,7 +92,7 @@ def build(preset, device):
     return AutoModelForMaskedLM.from_config(cfg).to(device)
 
 
-def bench(preset, device, dev_name, steps, warmup):
+def bench(preset, device, dev_name, steps, warmup, batch=BATCH):
     model = build(preset, device)
     n_params = sum(p.numel() for p in model.parameters())
     n_backbone = n_params - model.get_input_embeddings().weight.numel()
@@ -87,7 +101,7 @@ def bench(preset, device, dev_name, steps, warmup):
 
     # One fixed batch, reused. Generating fresh ids each step would time the RNG as well as the
     # model, and the model is the thing under test.
-    ids = torch.randint(0, VOCAB, (BATCH, SEQ), device=device)
+    ids = torch.randint(0, VOCAB, (batch, SEQ), device=device)
     labels = ids.clone()
 
     def one_step():
@@ -113,7 +127,7 @@ def bench(preset, device, dev_name, steps, warmup):
         torch.cuda.synchronize()
     dt_s = time.perf_counter() - t0
 
-    tok_s = steps * BATCH * SEQ / dt_s
+    tok_s = steps * batch * SEQ / dt_s
     peak = (torch.cuda.max_memory_allocated() / 1024 ** 3) if device.type == 'cuda' else None
     # Compute capability and SM count identify the GENERATION, which is what actually predicts
     # whether bf16 exists and how the card will behave. A student reading "T4" has no way to know
@@ -126,7 +140,42 @@ def bench(preset, device, dev_name, steps, warmup):
             'dtype': str(dt or torch.float32),
             'params_m': round(n_params / 1e6, 1), 'backbone_m': round(n_backbone / 1e6, 1),
             'tokens_per_s': round(tok_s), 'peak_gb': round(peak, 2) if peak else None,
+            'batch': batch,
+            # The projection is over the TOKEN budget, not the step count, which is why a smaller
+            # batch does not invalidate it -- 62,500 steps at batch 128 is 1.024B tokens of
+            # updates, and the same budget at batch 32 is 250,000 steps of the same experiment.
+            # That is Panel 1's argument doing real work: because the compute axis is tokens
+            # rather than steps, a card that cannot hold batch 128 is slower here, not excluded.
             'full_run_hours': round(FULL_RUN_STEPS * BATCH * SEQ / tok_s / 3600, 2)}
+
+
+def bench_with_fallback(preset, device, dev_name, steps, warmup, floor=8):
+    """Measure at batch 128, and on an out-of-memory halve the batch and try again.
+
+    "DOES NOT FIT" is the wrong answer to the question this benchmark exists to ask. A Colab T4
+    reported exactly that for the 86M model, and it is misleading: the model fits in 15 GB
+    comfortably, what does not fit is 128 sequences of activations alongside it. A student reading
+    "does not fit" concludes they cannot do the study. They can -- at a smaller batch.
+
+    That is only true because of how this project defines compute. The budget is 1.024B TOKENS of
+    updates, so batch 32 for 250,000 steps is the same experiment as batch 128 for 62,500, and the
+    projected hours stay comparable. On a project that counted steps instead, halving the batch
+    would halve the work and the row would be a lie.
+
+    Reports the batch it succeeded at, because a throughput number without its batch is not
+    reproducible -- and small batches lose throughput to launch overhead, which the figure should
+    show rather than hide.
+    """
+    batch = BATCH
+    while True:
+        try:
+            return bench(preset, device, dev_name, steps, warmup, batch=batch)
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            if batch <= floor:
+                raise
+            batch //= 2
+            print(f'  {preset}: out of memory at batch {batch * 2}, retrying at {batch}')
 
 
 def main():
@@ -172,7 +221,7 @@ def main():
     rows = []
     for preset in ([a.preset] if a.preset else ['poc', 'afriberta']):
         try:
-            r = bench(preset, device, dev_name, a.steps, a.warmup)
+            r = bench_with_fallback(preset, device, dev_name, a.steps, a.warmup)
         except (torch.cuda.OutOfMemoryError if torch.cuda.is_available() else RuntimeError) as e:
             # Not a failure of the benchmark. "It does not fit" is one of the answers a student
             # needs, so it is recorded as a result rather than raised.
