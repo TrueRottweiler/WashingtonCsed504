@@ -36,6 +36,23 @@ It was opened as PR #43 and closed unmerged, because PR #44 was branched from a 
 contained all of it and swept it in. Nothing was lost; only the commit title is misleading. Left
 here because "grep the log for the sweep commit" would otherwise come up empty.
 
+## Where the poster generator came from
+
+Same shape as the note above, written down for the same reason.
+
+**Leon built the poster generator** — `poster/build_posters.py`, which renders either board into
+editable PowerPoint, a print PDF and a preview, and validates every text box for overflow. It is
+the only tool in the project that produces something a print shop can take, and he wrote it
+unprompted.
+
+It arrived as **PR #77**, which was closed unmerged and absorbed into **#78**. #77 also carried
+33 MB of fonts, macOS resource forks and eight posters generated at 36 × 48 in — the size our own
+build sheet wrongly asserted for a fortnight, so he implemented the spec we published. #78 takes
+the source, drops the binaries, and asserts the real 24 × 36 rather than assuming it.
+
+Left here because `git log` will show that file authored by Jeffrey with a `Co-Authored-By`
+trailer, and a closed PR is not somewhere anyone thinks to look.
+
 ## The short version
 
 - **Yoruba is scarce.** All of it on FineWeb-2 is 69.1M tokens — less than one English benchmark
