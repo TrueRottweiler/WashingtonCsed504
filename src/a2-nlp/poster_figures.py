@@ -12,6 +12,7 @@ colored mark beside a label carries the identity.
 """
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import os
@@ -1030,6 +1031,56 @@ def fig_tokenizer_lottery():
              f'F = {F:.1f}, p = {p_var:.4f}. {down}',
              ha='center', fontsize=11.5, color=INK2)
     save(fig, '17-tokenizer-lottery')
+
+
+def residual_permutation(a, b):
+    """Two-sided exact permutation test for a difference in SPREAD, on centered residuals.
+
+    Panel 11 of the top board needs this and it existed only in an email, which is the one rule
+    this project has about where numbers live. It is here so it regenerates and so a test can pin
+    it.
+
+    Two design points, both of which were got wrong once already and are the whole reason this is
+    a named function rather than four lines inline.
+
+    CENTER FIRST. Permuting raw scores between two arms whose MEANS differ inflates the spread of
+    every reshuffled group, so the real grouping looks unusually tight and a location difference
+    is reported as a variance finding. On topic that returns p = 0.057 against the F-test's 0.553
+    -- a significant variance difference conjured out of a 0.144 gap, on the one task where the
+    point is that consistency does not differ. Subtracting each arm's own mean removes it. The
+    F-test has that property built in; a permutation test has to be given it.
+
+    THE STATISTIC MUST BE SYMMETRIC UNDER SWAPPING THE ARMS. The first version here used
+    |sd(g1)/sd(g2) - 1|, which is not: a ratio of 0.7 scores 0.30 while its reciprocal 1.43 scores
+    0.43, so the test is quietly directional. It returned 1/70 on entities -- and 1/70 is
+    unreachable for any two-sided test at four a side, because every split is enumerated alongside
+    its complement and both always count, which floors a symmetric statistic at 2/70. Patrick
+    identified the sidedness from that number alone. |log(sd ratio)| is symmetric on the ratio
+    scale and is what a variance ratio deserves, being the scale the F distribution lives on.
+
+    Returns (p, hits, total, floor). The floor is 2/C(2n, n) and is worth printing beside p for
+    the same reason it is printed beside the top row's 0.029: at four seeds a side this test
+    cannot go below 0.029 however cleanly the spreads separate.
+    """
+    ra = [x - st.mean(a) for x in a]
+    rb = [x - st.mean(b) for x in b]
+    pool = ra + rb
+    n = len(ra)
+
+    def stat(g1, g2):
+        return abs(math.log(st.stdev(g1) / st.stdev(g2)))
+
+    obs = stat(ra, rb)
+    hits = total = 0
+    for idx in itertools.combinations(range(len(pool)), n):
+        g1 = [pool[i] for i in idx]
+        g2 = [pool[i] for i in range(len(pool)) if i not in idx]
+        total += 1
+        # The tolerance matters: the observed split and its complement are both enumerated and
+        # must both count, and in floating point they are equal only to within rounding.
+        if stat(g1, g2) >= obs - 1e-12:
+            hits += 1
+    return hits / total, hits, total, 2 / math.comb(len(pool), n)
 
 
 def _downstream_spread():

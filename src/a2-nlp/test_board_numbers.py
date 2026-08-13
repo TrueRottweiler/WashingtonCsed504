@@ -297,6 +297,70 @@ class LabelQuantity(unittest.TestCase):
         self.assertEqual(round(100 * seventeen / S.SIB_BETWEEN_SD), 42)
 
 
+class ResidualPermutation(unittest.TestCase):
+    """Panel 11's bottom row, which lived in email for two days and got two different wrong values.
+
+    Pinned here because prose was the only place it existed -- the rule this project keeps is that
+    the repository carries numbers and email carries reasoning, and this one broke it in the panel
+    whose own subject is naming your test.
+
+    Needs matplotlib, which `residual_permutation` sits beside but does not use; skipped rather
+    than failed where it is absent, so this file still runs on a laptop.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from poster_figures import residual_permutation
+        except ImportError as exc:                       # matplotlib, on a machine without it
+            raise unittest.SkipTest(f'poster_figures unavailable: {exc}')
+        cls.fn = staticmethod(residual_permutation)
+        path = os.path.join(HERE, 'runs', 'swap_downstream.json')
+        if not os.path.exists(path):
+            raise unittest.SkipTest('swap_downstream.json not on disk')
+        with open(path, encoding='utf-8') as fh:
+            rows = json.load(fh)
+        cls.arms = {}
+        for task, stage in (('topic', 'test'), ('entities', 'ner')):
+            cls.arms[task] = (
+                [r['mean'] for r in rows
+                 if r.get('stage') == stage and r['arm'] == "XLM-R's vocabulary"],
+                [r['mean'] for r in rows
+                 if r.get('stage') == stage and r['arm'] == 'our vocabulary'])
+
+    def test_both_tasks_match_the_panel(self):
+        for task, expected in (('topic', 0.5714), ('entities', 0.0286)):
+            with self.subTest(task=task):
+                p, _, total, _ = self.fn(*self.arms[task])
+                self.assertEqual(total, 70)
+                self.assertAlmostEqual(p, expected, places=4)
+
+    def test_entities_sits_on_the_floor_and_the_floor_is_the_top_rows(self):
+        """0.029 in both rows of the panel is one number, not two that happen to agree."""
+        p, hits, total, floor = self.fn(*self.arms['entities'])
+        self.assertEqual(hits, 2)
+        self.assertAlmostEqual(floor, 2 / 70, places=6)
+        self.assertAlmostEqual(p, floor, places=6)
+
+    def test_the_statistic_is_symmetric_under_swapping_the_arms(self):
+        """The defect in the second draft. `|ratio - 1|` is not symmetric, so it was quietly
+        one-sided and returned 1/70 -- a value no two-sided test at four a side can reach."""
+        for task in ('topic', 'entities'):
+            a, b = self.arms[task]
+            with self.subTest(task=task):
+                self.assertAlmostEqual(self.fn(a, b)[0], self.fn(b, a)[0], places=12)
+                self.assertGreaterEqual(self.fn(a, b)[1], 2)
+
+    def test_centering_is_what_makes_it_agree_with_the_f_test(self):
+        """Without centering, topic returns ~0.057 and reads as a variance finding conjured out of
+        the 0.144 mean gap. The panel's whole warning, as an assertion."""
+        a, b = self.arms['topic']
+        centered = self.fn(a, b)[0]
+        shifted = self.fn([x + 10.0 for x in a], b)[0]
+        self.assertAlmostEqual(centered, shifted, places=12)
+        self.assertGreater(centered, 0.5)
+
+
 if __name__ == '__main__':
     print(f'ft_api/mlm_api: {"stubbed (no torch)" if _records.STUBBED else "real"}')
     unittest.main(verbosity=2)

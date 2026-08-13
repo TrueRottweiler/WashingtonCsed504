@@ -391,14 +391,28 @@ difference comes back as a variance finding. On topic it returns *p* = 0.057 aga
 *F*-test's 0.553 — a significant variance difference conjured entirely out of the 0.144 gap, on
 the one task where the whole point is that consistency does *not* differ.
 
-The fix is not to abandon permutation testing; it is to remove the means first. Permuting each
-arm's *residuals* — every score minus its own arm's mean — is valid, distribution-free, and lands
-where the *F*-test does: **0.657 on topic and 0.014 on entities, against the *F*-test's 0.553 and
-0.005.** The two agree because subtracting each arm's mean is the property the bottom row needs,
-and the *F*-test has it built in. The board quotes the *F*-test because the rest of the project
-already does. This is worth stating precisely rather than as "permutation tests are wrong for
-variance", because the true version is the more useful one and it is panel 12's shape exactly: a
-tool that is correct one question over, used one question too far.
+The fix is not to abandon permutation testing; it is to remove the means first. A two-sided exact
+permutation test on each arm's *residuals* — every score minus its own arm's mean, with
+|log(sd ratio)| as the statistic — is valid, distribution-free, and lands where the *F*-test does:
+**0.571 on topic and 0.029 on entities, against the *F*-test's 0.553 and 0.005.** The two agree
+because subtracting each arm's mean is the property the bottom row needs, and the *F*-test has it
+built in. The board quotes the *F*-test because the rest of the project already does.
+
+**Entities' 0.029 is the floor, and it is the same 0.029 as the top row's** — `2/C(8,4)`, four
+seeds a side, both rows, for the same reason. Neither could have gone lower whatever the data
+showed. That the two rows floor identically and still disagree on topic is the cleanest evidence
+that they are measuring different things.
+
+This is worth stating precisely rather than as "permutation tests are wrong for variance", because
+the true version is the more useful one and it is panel 12's shape exactly: a tool that is correct
+one question over, used one question too far. Two drafts of this paragraph got it wrong in two
+different ways — the first said the permutation test was wrong for dispersion at all, and the
+second used `|ratio − 1|`, which is not symmetric under swapping the arms and so was quietly
+one-sided; it returned 1/70 on entities, a value no two-sided test at four a side can produce,
+because every split is enumerated alongside its complement and both always count. **The paragraph
+about naming your test went two drafts without naming its own.** It is
+`poster_figures.residual_permutation()` now, so it regenerates and `test_board_numbers.py` pins
+it.
 
 **The same mean-to-variance shift appears upstream, on pretraining loss.** In bits per character
 the gap is 0.059 and does not clear (exact *p* = 0.335, Welch *p* = 0.374) while the spreads do
