@@ -166,8 +166,15 @@ The 0.06 floor is doing a lot of work in this report and it is an estimate, not 
 204 test items is simply not many. Three of the five gaps here sit near it.
 
 The untrained control at 0.429 is now a dev-selected optimum rather than a default, which makes it
-usable as the SIB-200 floor. **The MasakhaNER floor is not yet in that state**: mmBERT, XLM-R and
-the from-scratch model are all best-of-a-sweep there, while the control is a single cell at 3e-5 —
-the same asymmetry this report just removed from SIB-200, still present on the other task. Any
-"clears the floor by" figure quoted for NER inherits it, and any floor-as-a-fraction-of-ceiling
-comparison *between* the two tasks currently compares a swept control against an unswept one.
+usable as the SIB-200 floor.
+
+> **Closed on 12 August, and this paragraph is kept because the fix is the interesting part.** When
+> this was written the MasakhaNER floor was *not* in that state: mmBERT, XLM-R and the from-scratch
+> model were all best-of-a-sweep there while the control was a single cell at 3e-5 — the same
+> asymmetry this report had just removed from SIB-200, still present on the other task. It has since
+> been swept over **twelve learning rates** (`study_ner_control_sweep.py`,
+> `runs/ner_control_sweep.json`) and peaks at **0.6261 at 3e-4**, so the control is now selected the
+> way its baselines are. The **0.4140** this report and the summary table carried for a fortnight was
+> that sweep's 3e-5 cell — a rate one tenth of the best, quoted only because nobody had swept it.
+> Fixing it **halves the from-scratch model's gap to the floor, 0.423 → 0.211**, which is the sort of
+> movement that should make anyone nervous about a number nobody has swept.

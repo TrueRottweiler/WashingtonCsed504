@@ -1508,13 +1508,141 @@ def fig_api():
     save(fig, '19-the-interface')
 
 
+def fig_board_layout():
+    """The bottom board drawn to scale on the real UW template, so what fits is visible.
+
+    Every dimension is read out of ResearchPoster_Template_Vertical_2023.pptx rather than assumed:
+    24 x 36 inches, three columns at x = 1.50 / 8.75 / 16.13 and 6.35 wide, a header band 8.5 deep,
+    body type 18 pt, section headers 40 pt, the title 115 pt.
+
+    The build sheet had the board at 36 x 48 with 24 pt body -- 2.25x the area -- so every number
+    downstream of that was sized for a board nobody is printing. This figure exists because the
+    error was invisible in prose and obvious the moment anything was drawn to scale.
+
+    Not generated from run records like the other nineteen, because its subject is a PowerPoint
+    template rather than an experiment. The dimensions are pinned as constants and the template is
+    the citation.
+    """
+    from matplotlib.patches import Rectangle
+    PURPLE = '#4b2e83'
+    W, H = 24.0, 36.0
+    COLX = [1.50, 8.75, 16.13]
+    COLW = 6.35
+    HEADER_H, BODY_TOP, BODY_BOT = 8.50, 9.25, 34.60
+
+    ROW_H, GUTTER = 6.70, 0.25
+    ROWY = [BODY_TOP + i * (ROW_H + GUTTER) for i in range(3)]
+    STRIP_Y = ROWY[2] + ROW_H + 0.30
+    STRIP_H = BODY_BOT - STRIP_Y
+
+    # number, title, big number, figure (None = type only), words of body
+    CELLS = [
+        ('1', 'What does a run cost,\nand in what unit?', '62,500 steps\n= 1.024B tokens',
+         'hardware — BLOCKED', 55),
+        ('2', 'Why optimize before\nanything needs it?', '2.07×\nonly 1.32× is efficiency',
+         'fig 14', 55),
+        ('3', 'Notebook,\nor queue?', '53 s vs 85 min\n96×', 'fig 15', 55),
+        ('4', 'What makes a record\nsurvive you?', 'fingerprint\n15abd33de5af', 'fig 07', 55),
+        ('5', 'What must someone\nelse be able to call?', '9\nfunctions', 'fig 19', 55),
+        ('6', 'Is this\ndifference real?', '2.27×\nnot 1.0×', 'fig 13', 55),
+        ('7', 'Which of your units\nare not units?', '5.1×\nat "matched" steps', None, 110),
+        ('8', 'Does a tuned\nsetting transfer?', '7e-4\nfatal to a fourth', 'fig 16', 55),
+        ('9', 'Detect the failure,\nor prevent it?', '0 of 11\ncheckpoints', 'fig 10', 55),
+    ]
+
+    # The three rubric items that have no cell: cost, ethics, next steps + sources + AI.
+    STRIP = [
+        ('WHAT IT COST', C3,
+         'fig 06 · $24k / $120 / free\n143 GPU-hours, 69 kWh, ~$7\nthe workstation bought\n'
+         'latency, not access'),
+        ('WHAT WE DO NOT CLAIM', C2,
+         'ETHICS — the methods half\n2 of 9 claims not supported\nand printed anyway; nobody\n'
+         'here reads Yoruba'),
+        ('NEXT · SOURCES · AI', C4,
+         'what is still unbuilt\n19 references, shortened\n120 of 144 commits carry\n'
+         'a Co-Authored-By trailer'),
+    ]
+
+    fig, ax = plt.subplots(figsize=(9.2, 13.4))
+    ax.set_xlim(-0.6, W + 4.1)
+    ax.set_ylim(H + 1.1, -1.1)                       # inverted: y grows downward, as in the template
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    ax.add_patch(Rectangle((0, 0), W, H, facecolor=SURFACE, edgecolor=INK, lw=1.6))
+    ax.add_patch(Rectangle((0, 0), W, HEADER_H, facecolor=PURPLE, edgecolor='none'))
+    ax.text(1.5, 3.1, 'CSED 505: BUILDING A MODEL FACTORY', color='white', fontsize=10.5,
+            fontweight='bold', va='center')
+    ax.text(1.5, 4.5, 'the course that would come after 504', color='#d9d0e8', fontsize=7,
+            style='italic', va='center')
+    ax.text(1.5, 7.3, 'Jeffrey Stall  ·  A2-NLP  ·  the upper board is the experiment this served',
+            color='#d9d0e8', fontsize=6.2, va='center')
+    ax.text(W - 1.5, 3.1, '115 pt', color='#b9a8d4', fontsize=6.4, ha='right', va='center')
+    ax.text(W - 1.5, 7.3, '24 pt', color='#b9a8d4', fontsize=6.4, ha='right', va='center')
+
+    for i, (num, title, big, figname, words) in enumerate(CELLS):
+        cx, cy = COLX[i % 3], ROWY[i // 3]
+        blocked = figname is not None and 'BLOCK' in figname
+        ax.add_patch(Rectangle((cx, cy), COLW, ROW_H, facecolor='white',
+                               edgecolor=C2 if blocked else GRID, lw=2.0 if blocked else 1.1))
+        ax.text(cx + 0.22, cy + 0.60, num, color=C1, fontsize=13, fontweight='bold', va='center')
+        ax.text(cx + 0.92, cy + 0.58, title, color=INK, fontsize=7.0, fontweight='bold',
+                va='center', linespacing=1.35)
+        ax.text(cx + COLW / 2, cy + 2.15, big, color=C1, fontsize=9.0, fontweight='bold',
+                ha='center', va='center', linespacing=1.3)
+
+        if figname:
+            fy, fh = cy + 2.95, 2.30
+            ax.add_patch(Rectangle((cx + 0.3, fy), COLW - 0.6, fh,
+                                   facecolor='#fbe3d8' if blocked else GRID, edgecolor='none'))
+            ax.text(cx + COLW / 2, fy + fh / 2, figname, color=C2 if blocked else MUTED,
+                    fontsize=7, ha='center', va='center',
+                    fontweight='bold' if blocked else 'normal')
+        else:
+            ax.text(cx + COLW / 2, cy + 4.1, 'the two readings,\nset as type — no figure',
+                    color=MUTED, fontsize=7, ha='center', va='center', linespacing=1.4)
+        ax.text(cx + COLW / 2, cy + ROW_H - 0.42, f'{words} words at 18 pt',
+                color=MUTED, fontsize=6.8, ha='center', va='center')
+
+    for i, (head, col, body) in enumerate(STRIP):
+        cx = COLX[i]
+        ax.add_patch(Rectangle((cx, STRIP_Y), COLW, STRIP_H, facecolor='white',
+                               edgecolor=col, lw=1.6))
+        ax.text(cx + 0.22, STRIP_Y + 0.42, head, color=col, fontsize=6.8, fontweight='bold',
+                va='center')
+        ax.text(cx + 0.22, STRIP_Y + 1.95, body, color=INK2, fontsize=6.3, va='center',
+                linespacing=1.55)
+        ax.text(cx + COLW - 0.22, STRIP_Y + STRIP_H - 0.28, '100 words',
+                color=MUTED, fontsize=6.2, ha='right', va='center')
+
+
+    def brace(y0, y1, label):
+        x = W + 0.5
+        ax.plot([x, x], [y0, y1], color=MUTED, lw=1.0)
+        for yy in (y0, y1):
+            ax.plot([x - 0.16, x], [yy, yy], color=MUTED, lw=1.0)
+        ax.text(x + 0.24, (y0 + y1) / 2, label, color=INK2, fontsize=6.6, va='center')
+
+
+    brace(0, HEADER_H, 'header\n8.5 in')
+    brace(ROWY[0], ROWY[0] + ROW_H, f'each row\n{ROW_H} in')
+    brace(STRIP_Y, BODY_BOT, f'strip\n{STRIP_H:.2f} in')
+    ax.annotate('', xy=(COLX[0], -0.45), xytext=(COLX[0] + COLW, -0.45),
+                arrowprops=dict(arrowstyle='<->', color=MUTED, lw=1.0))
+    ax.text(COLX[0] + COLW / 2, -0.95, 'column 6.35 in', color=INK2, fontsize=6.6, ha='center')
+    ax.text(W / 2, H + 0.75, '24 × 36 in — the UW vertical template, measured, not assumed',
+            color=INK, fontsize=8.5, ha='center', fontweight='bold')
+
+    save(fig, '20-board-layout')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
            fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
-           fig_tokenizer_lottery, fig_label_quantity, fig_api)
+           fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
