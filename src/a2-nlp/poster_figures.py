@@ -1636,6 +1636,24 @@ def fig_board_layout():
     save(fig, '20-board-layout')
 
 
+def _workstation_hours_by_preset():
+    """The project's card time split by model shape, because the two shapes are not interchangeable.
+
+    afriberta is 63% of the hours and runs at 48% of poc's rate, so projecting the whole project
+    onto another card using either preset's ratio alone is wrong by about 5% in opposite
+    directions. Fine-tuning is counted with poc, which is the shape those runs are.
+    """
+    hours = {}
+    for r in f.results('*'):
+        if r.get('seconds'):
+            key = r.get('preset') or 'poc'
+            hours[key] = hours.get(key, 0.0) + r['seconds'] / 3600
+    ft_h = sum((r.get('seconds_per_seed') or 0) * len(r.get('scores') or [])
+               for r in ft_api.results('*', eval_split=None)) / 3600
+    hours['poc'] = hours.get('poc', 0.0) + ft_h
+    return hours
+
+
 def fig_hardware():
     """What one run costs on each machine, and whether you need the workstation.
 
@@ -1653,6 +1671,7 @@ def fig_hardware():
     equally plausible on the page, which is why the row carries its dtype.
     """
     rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    WS_HOURS = _workstation_hours_by_preset()
     machines, order = {}, []
     for r in rows:
         key = r['device']
@@ -1664,12 +1683,14 @@ def fig_hardware():
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
 
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.6),
+    FULL_RUN_TOKENS = 62_500 * 128 * 128
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14.5, 6.0),
                                   gridspec_kw={'width_ratios': [1.25, 1.0]})
 
-    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120 · bf16',
-             'NVIDIA L4': 'Colab L4, Pro tier\nsm_89 · bf16',
-             'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16'}
+    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'the workstation\nsm_120 · bf16',
+             'NVIDIA A100-SXM4-80GB': 'Colab A100, Pro\nsm_80 · bf16',
+             'NVIDIA L4': 'Colab L4, Pro\nsm_89 · bf16',
+             'Tesla T4': 'Colab T4, free\nsm_75 · fp16'}
     xs = range(len(order))
     for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
                                     (1, 'afriberta', C2, '98M model')):
@@ -1692,35 +1713,60 @@ def fig_hardware():
     ax2.axis('off')
     ax2.set_xlim(0, 1)
     ax2.set_ylim(0, 1)
-    t4 = machines['Tesla T4']['poc']
-    ws = machines['NVIDIA RTX PRO 6000 Blackwell Max-Q']['poc']
+    # The cost table, and why it leads with a ratio rather than a price. Colab bills in compute
+    # units whose rate moves with tier pricing and demand, so the dollars are one reading on one
+    # day rather than a property of the machine -- Jeffrey flagged that before it bit us, which
+    # is the discipline pointing the right way for once. The DURABLE finding is the ratio: the
+    # A100 costs 4.40x the L4 per hour and returns 4.48x the throughput, so the same work lands
+    # within 5% of the same price on either tier. You buy latency, not access, which is the
+    # workstation argument arrived at from a completely different direction.
+    ws_rate = {'poc': 381_817, 'afriberta': 184_329}
+    tiers = [('Colab T4', 'free', {'poc': 64_644, 'afriberta': 26_050}, None, '$0'),
+             ('Colab L4', 'Pro', {'poc': 87_800, 'afriberta': 39_050}, 1.54, None),
+             ('Colab A100', 'Pro', {'poc': 393_405, 'afriberta': 184_726}, 6.77, None),
+             ('the workstation', 'owned', ws_rate, None, '$24,000')]
+    USD_PER_UNIT = 0.0999
+
     ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
              fontweight='bold', va='top')
-    ax2.text(0, 0.80, 'Yes.', color=C3, fontsize=44, fontweight='bold', va='top')
-    l4 = machines['NVIDIA L4']['poc']
-    lines = [
-        (f"{t4['vs_workstation']:.1f}×", 'slower on a free T4 — '
-                                         f"{l4['vs_workstation']:.1f}× on a paid L4"),
-        (f"{t4['full_run_hours']:.1f} h", f"for one run, or {l4['full_run_hours']:.1f} h on the L4"),
-        (f"{t4['project_hours_here']/24:.0f} days", 'of free card time for the whole project — '
-                                                    f"{l4['project_hours_here']/24:.0f} paid"),
-        (f"{t4['peak_gb']:.1f} GB", 'peak of 15 — the 98M model fits on both tiers'),
-    ]
-    for i, (big, rest) in enumerate(lines):
-        y = 0.60 - i * 0.118
-        ax2.text(0.0, y, big, color=INK, fontsize=17, fontweight='bold', va='center')
-        ax2.text(0.30, y, rest, color=INK2, fontsize=12, va='center')
-    ax2.text(0, 0.02,
-             'The workstation bought latency, not access. A student who runs one cell\n'
-             'a night for a month gets the same board — they wait longer for it.',
-             color=INK2, fontsize=11.5, va='bottom', linespacing=1.6)
+    ax2.text(0, 0.865, 'Yes — and the tier you pick changes', color=INK, fontsize=14.5, va='top')
+    ax2.text(0, 0.805, 'the wait, not the bill.', color=C3, fontsize=19, fontweight='bold',
+             va='top')
+
+    cols = (0.0, 0.40, 0.62, 0.86)
+    for lbl, x in (('one run', cols[1]), ('project', cols[2]), ('to rent', cols[3])):
+        ax2.text(x, 0.685, lbl, color=MUTED, fontsize=10.5, ha='right', fontweight='bold')
+    ax2.plot([0, 0.88], [0.655, 0.655], color=GRID, lw=1.2)
+
+    for n, (name, tier, rate, uph, fixed) in enumerate(tiers):
+        y = 0.580 - n * 0.108
+        hrs = sum(WS_HOURS[k] * ws_rate[k] / rate[k] for k in WS_HOURS)
+        cost = fixed if fixed else f'${hrs * uph * USD_PER_UNIT:,.0f}'
+        strong = name == 'Colab A100'
+        col = C3 if strong else INK
+        ax2.text(cols[0], y, name, color=col, fontsize=12.5,
+                 fontweight='bold' if strong else 'normal')
+        ax2.text(cols[0], y - 0.038, tier, color=MUTED, fontsize=9.5)
+        ax2.text(cols[1], y, f"{FULL_RUN_TOKENS / rate['poc'] / 3600:.1f} h", color=col,
+                 fontsize=12.5, ha='right')
+        ax2.text(cols[2], y, f'{hrs / 24:.0f} d', color=col, fontsize=12.5, ha='right')
+        ax2.text(cols[3], y, cost, color=col, fontsize=12.5, ha='right',
+                 fontweight='bold' if strong else 'normal')
+
+    ax2.text(0, 0.075,
+             'The A100 costs 4.4× the L4 per hour and returns 4.5× the throughput, so\n'
+             'the whole project lands within 5% of the same price on either tier.',
+             color=INK, fontsize=11.5, va='bottom', linespacing=1.6)
+    ax2.text(0, 0.0,
+             'Compute-unit rates move with pricing and demand — read 13 Aug 2026 at $9.99\n'
+             'per 100 units. One reading, not a constant. The ratio is the durable part.',
+             color=MUTED, fontsize=10, va='bottom', linespacing=1.6)
 
     fig.text(0.5, -0.06,
              "Measured by bench_portable.py on each machine. The T4's first reading was 33× and "
              "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True,\n"
              "so a card without bf16 tensor cores ran it in software. Every row carries its dtype "
-             "for that reason. Rows still wanted: a plugged-in laptop, and the same laptop on "
-             "battery.",
+             "for that reason. Rows still wanted: a plugged-in laptop, and the same laptop on battery.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 

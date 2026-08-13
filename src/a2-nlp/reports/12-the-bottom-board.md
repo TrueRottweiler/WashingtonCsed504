@@ -226,10 +226,10 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **148 GPU-hours. 71 kWh. About $7 of electricity.** Three routes to the same board, and two are
-> now measured rather than guessed: a $24,000 workstation, **27 days of a paid Colab L4 or 36 of
-> the free T4**, or a laptop over a month of nights. **The workstation bought latency, not
-> access.** Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
+> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab and it is **$104 on an
+> L4 or $99 on an A100** — the A100 costs 4.4× per hour and returns 4.5× the throughput, so the
+> tier changes the wait (28 days against 6) and not the bill. Free T4: 41 days, $0. **You buy
+> latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
 *63 words*
 
