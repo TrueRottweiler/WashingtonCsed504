@@ -261,7 +261,7 @@ def main():
               f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB")
         print(f"{'':>10}  one 62,500-step run: {r['full_run_hours']:.2f} h"
               f"   |  {ratio:.1f}x the workstation"
-              f"   |  the whole 83-GPU-hour project: "
+              f"   |  the whole {PROJECT_GPU_HOURS:.0f}-GPU-hour project: "
               f"{r['project_hours_here']:.0f} h ({r['project_hours_here']/24:.1f} days)")
 
     if a.out:

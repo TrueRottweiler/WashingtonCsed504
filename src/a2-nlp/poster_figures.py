@@ -1667,7 +1667,8 @@ def fig_hardware():
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.6),
                                   gridspec_kw={'width_ratios': [1.25, 1.0]})
 
-    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120',
+    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120 · bf16',
+             'NVIDIA L4': 'Colab L4, Pro tier\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16'}
     xs = range(len(order))
     for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
@@ -1696,11 +1697,14 @@ def fig_hardware():
     ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
              fontweight='bold', va='top')
     ax2.text(0, 0.80, 'Yes.', color=C3, fontsize=44, fontweight='bold', va='top')
+    l4 = machines['NVIDIA L4']['poc']
     lines = [
-        (f"{t4['vs_workstation']:.1f}×", 'slower than the workstation, on a free T4'),
-        (f"{t4['full_run_hours']:.1f} h", 'for one full run — an overnight job'),
-        (f"{t4['project_hours_here']/24:.0f} days", 'of card time for the whole project'),
-        (f"{t4['peak_gb']:.1f} GB", f"peak of 15 — the 98M fits too, at {machines['Tesla T4']['afriberta']['peak_gb']:.1f}"),
+        (f"{t4['vs_workstation']:.1f}×", 'slower on a free T4 — '
+                                         f"{l4['vs_workstation']:.1f}× on a paid L4"),
+        (f"{t4['full_run_hours']:.1f} h", f"for one run, or {l4['full_run_hours']:.1f} h on the L4"),
+        (f"{t4['project_hours_here']/24:.0f} days", 'of free card time for the whole project — '
+                                                    f"{l4['project_hours_here']/24:.0f} paid"),
+        (f"{t4['peak_gb']:.1f} GB", 'peak of 15 — the 98M model fits on both tiers'),
     ]
     for i, (big, rest) in enumerate(lines):
         y = 0.60 - i * 0.118
@@ -1715,7 +1719,8 @@ def fig_hardware():
              "Measured by bench_portable.py on each machine. The T4's first reading was 33× and "
              "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True,\n"
              "so a card without bf16 tensor cores ran it in software. Every row carries its dtype "
-             "for that reason. Rows still wanted: a laptop, a MacBook, Colab L4 and A100.",
+             "for that reason. Rows still wanted: a plugged-in laptop, and the same laptop on "
+             "battery.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 

@@ -611,7 +611,7 @@ This is the part we would put in the largest type on the board, because the $24,
 cards is the number that makes a reader decide this work is not available to them.
 
 **It is available to them.** The entire project — 105 pretrained models, 172 fine-tuning runs,
-143.3 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
+148.0 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
 Colab's published compute-unit rates:
 
 | where | the whole project | inside a $500 budget? |
@@ -635,7 +635,7 @@ There is an option between "buy a workstation" and "pay for cloud" that almost n
 students: **plug your laptop in and let it train while you sleep.**
 
 Eight hours a night, five nights a week, is **40 GPU-hours a month for free** — on hardware you
-already own and are not using between midnight and eight. Our entire project was 143.3 GPU-hours.
+already own and are not using between midnight and eight. Our entire project was 148.0 GPU-hours.
 Even at four or five times a laptop's disadvantage, the small-model half of this study is a
 month of nights. Drop the 98M model, which will not fit in 8 GB anyway, and it is comfortably
 less.
@@ -730,7 +730,7 @@ not in the model.
 
 **Results.** 25.2 minutes → 12.2 minutes on the same four cells, decomposed honestly: **1.32× is
 real efficiency** — less GPU-time for the same work — and the rest is a second card doing the same
-GPU-minutes in parallel. The project has since spent 143.3 GPU-hours; without the throughput work
+GPU-minutes in parallel. The project has since spent 148.0 GPU-hours; without the throughput work
 it would have been roughly double, which on realistic evenings is weeks rather than nights.
 
 **Learning.** The hours saved are not the point; the experiments you become willing to start are —
@@ -898,7 +898,7 @@ and actually use the second card. Measured on the same work: **25.2 minutes → 
 2.07× speedup**, with utilization going to 91% and 93%. The batch change alone was 1.31× measured
 against 1.33× predicted.
 
-**What that bought in hours.** The project spent **143.3 GPU-hours**. Without the 2.07× it would
+**What that bought in hours.** The project spent **148.0 GPU-hours**. Without the 2.07× it would
 have been about 172, which on two cards and realistic evenings is ten or eleven nights instead of
 five. Real, but not the interesting part.
 
@@ -2213,9 +2213,9 @@ Everything below is measured from the run records, not estimated.
 |---|---|
 | Models pretrained | 197 |
 | Fine-tuning experiments | 161, made of 541 individual runs |
-| Total graphics-card time | **143.3 GPU-hours** |
+| Total graphics-card time | **148.0 GPU-hours** |
 | Electricity for that (cards only) | ~43 kWh |
-| Electricity at the wall, with cooling and the rest of the machine | ~69 kWh |
+| Electricity at the wall, with cooling and the rest of the machine | ~71 kWh |
 | Storage: prepared text | 5.1 GB |
 | Storage: model checkpoints and logs | 166 GB |
 
@@ -2348,7 +2348,7 @@ figures; every number in the table above is measured from our own records.
 
 **What renting would have cost (operating expenditure).** Cloud providers charge by the
 graphics-card-hour. A card in this class rents for roughly $2–4 per hour depending on provider and
-commitment. At 143.3 GPU-hours:
+commitment. At 148.0 GPU-hours:
 
 | | cost |
 |---|---|
@@ -2512,7 +2512,7 @@ about three.
 ## Ethics, and what this work does not license
 
 *Required by the assignment and absent from thirteen reports until now, which is itself worth
-reporting: a project can run 143 GPU-hours, publish its own failed claims, and still never write
+reporting: a project can run 148 GPU-hours, publish its own failed claims, and still never write
 down who the work is for.*
 
 ### The limitation that outranks the rest: nobody here reads Yoruba
@@ -2776,7 +2776,7 @@ instead of citing it and carrying on.
     trailer** — 83%, and that figure is `git log` rather than a sentence about honesty, which is
     the only form of disclosure this board is entitled to make. What it did not do: no model ran
     unattended overnight, no result was analyzed without a person reading the records, and the
-    scheduler that spent every one of the 143.3 GPU-hours has no model in it. It was also
+    scheduler that spent every one of the 148.0 GPU-hours has no model in it. It was also
     confidently and completely wrong three times, in ways worth reading rather than summarizing.
     **The full account is [Panel 10 of this report](09-the-bottom-report.md), "How we used AI, honestly."**
 

@@ -226,10 +226,10 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **143 GPU-hours. 69 kWh. About $7 of electricity.** Three routes to the same board: a $24,000
-> workstation, $120 of Colab Pro, or a plugged-in laptop over a month of nights. **The workstation
-> bought latency, not access** — a student who runs one cell a night gets the same board and waits
-> longer for it. Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
+> **148 GPU-hours. 71 kWh. About $7 of electricity.** Three routes to the same board, and two are
+> now measured rather than guessed: a $24,000 workstation, **27 days of a paid Colab L4 or 36 of
+> the free T4**, or a laptop over a month of nights. **The workstation bought latency, not
+> access.** Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
 
 *63 words*
 
