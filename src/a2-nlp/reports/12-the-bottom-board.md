@@ -377,57 +377,110 @@ The script prints `NOTE: other processes hold part of this card` when it can det
 read past that line.** On 13 August three workstation readings were taken with an ollama process on
 the same card; the warning fired on all three and was dismissed each time as "Windows display
 memory". The numbers that came back — 448,571 then 377,576 tok/s for an identical configuration —
-were then used to build two different explanations, both wrong. Check with `nvidia-smi` before you
-start rather than trusting the notice to be about something harmless:
+were then used to build two different explanations, both wrong. Check first rather than trusting
+the notice to be about something harmless:
 
-```bash
+```
 nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv
 ```
 
-## A. The workstation — re-run to confirm
+If either card shows meaningful utilisation or memory, stop and clear it. This one command would
+have saved an afternoon.
 
-```bash
-cd /o/Sources/GitHub/TrueRottweiler/WashingtonCsed504/src/a2-nlp
-CUDA_VISIBLE_DEVICES=0 bash py.sh bench_portable.py --out runs/hardware.json --note "Toothless, RTX PRO 6000 Blackwell Max-Q, 1 card"
+**Three minutes per preset**, which is the `--seconds 180` default and is the point. The old
+version timed 40 steps — about 1.3 seconds of work on the workstation, taken while the card is
+cold, which is a boost clock rather than a rate anything can hold. Every row now reports
+**`throttle`**: the first third of the run against the last. A datacenter card should read ~1.0;
+anything well above means the machine cannot sustain its opening pace, and on a laptop that is the
+finding rather than an artefact.
+
+`--out` **appends** rather than overwrites, so re-running is safe and rows accumulate.
+
+---
+
+## A. Windows — Anaconda Prompt (Toothless and the Surface laptop)
+
+Both Windows machines run this from the **Anaconda Prompt**, which is `cmd.exe`. Not Git Bash, not
+PowerShell — the commands below are cmd syntax and will not work in a bash shell.
+
+```bat
+conda activate uw-csed504
 ```
 
-**Three minutes per preset**, which is the `--seconds 180` default and is the point: the old
-version timed 40 steps, or about 1.3 seconds of work on this box, taken while the card is cold.
-That is a boost clock rather than a rate anything can hold. Every row now reports `throttle` — the
-first third of the run against the last — so a machine that cannot sustain its opening pace says
-so in its own record.
+### A1. Toothless — the workstation
+
+```bat
+cd /d O:\Sources\GitHub\TrueRottweiler\WashingtonCsed504\src\a2-nlp
+nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv
+```
+
+**Read that output before continuing.** Then:
+
+```bat
+set CUDA_VISIBLE_DEVICES=0
+python bench_portable.py --seconds 180 --out runs\hardware.json --note "Toothless, RTX PRO 6000 Blackwell Max-Q, 1 card, idle"
+```
 
 One card deliberately: the figure compares *a card*, and a two-card number is not comparable to a
-MacBook.
+MacBook. `set CUDA_VISIBLE_DEVICES=0` lasts for that prompt session only.
 
-## B. Surface Studio Laptop (RTX 2000 Ada Mobile)
+### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB
 
-The interesting row, because it is the machine a student is most likely to own — **measured
-12 August, plugged in**: 75,583 tok/s on the 33.8M preset; 32,267 tok/s on the 98M via gradient
-accumulation (micro-batch 64 × 2 — it does not fit in 8 GB whole); 1,179 and 516 tok/s with
-`--cpu`. Still wanted from this machine: **the battery run**, same command with
-`--note "... on battery"`. Mobile GPUs throttle hard, and "can a student do this overnight" is a
-different question unplugged; if it differs by more than ~20%, the board says so (our a1-cv
-notes measured a 17% swing on this chassis).
+The most important row on the figure, because it is the machine a student is most likely to own.
+It does not need the repository — the script is self-contained.
 
-For anyone repeating it on their own laptop:
+```bat
+conda activate uw-csed504
+cd /d %USERPROFILE%\Desktop
+curl -o bench_portable.py https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
+```
 
-1. Copy `src/a2-nlp/bench_portable.py` — it needs `torch` and `transformers`, nothing else.
-2. `pip install torch --index-url https://download.pytorch.org/whl/cu124`, then
-   `pip install transformers`
-3. `python bench_portable.py --out hardware.json --note "<your machine>, plugged in"`
+Take a fresh copy every time. An older one still has the 40-step burst, and the two readings look
+equally plausible on the page.
 
-Two traps we hit so the next person does not. **Run it with the Python that actually has
-torch** — a bare `python` on Windows is often the Store alias or a different environment, and
-the resulting error names `transformers` even when the real problem is the interpreter. And
-**trust the spill note**: on Windows a model too big for VRAM does not error — it swaps over
-PCIe and reports a plausible number. The script detects the overflow, folds the batch until the
-measurement is honest, and records how. An out-of-memory that survives every fallback is still
-a result rather than a failure — record it.
+**Plugged in first:**
 
-## C. MacBook Pro (M4 Pro, MPS) — wanted, not optional
+```bat
+python bench_portable.py --seconds 180 --out hardware.json --note "Surface Studio Laptop, RTX 2000 Ada, plugged in"
+```
+
+**Then pull the mains out and immediately run:**
+
+```bat
+python bench_portable.py --seconds 180 --out hardware.json --note "Surface Studio Laptop, RTX 2000 Ada, on battery"
+```
+
+**Back-to-back matters.** The battery run should start on a warm card, because that is the honest
+comparison — letting it cool first hands the battery reading exactly the cold-start flattery the
+old burst was giving everything. About 13 minutes for the pair.
+
+Expect the 98M model to fall back to gradient accumulation: it wants ~10 GB and the card has 8.
+That is not a failure, and the row records the configuration it took.
+
+**If `python` is not the one with torch.** A bare `python` on Windows is often the Store alias or
+another environment, and the resulting error names `transformers` even when the real problem is
+the interpreter. Check with:
+
+```bat
+python -c "import torch, transformers; print(torch.__version__, transformers.__version__)"
+```
+
+If that fails inside the activated environment, install into it:
+
+```bat
+pip install torch --index-url https://download.pytorch.org/whl/cu124
+pip install transformers
+```
+
+---
+
+## B. MacBook Pro (M4 Pro, MPS) — wanted, not optional
+
+A Mac is **zsh**, not cmd. From Terminal:
 
 ```bash
+curl -o bench_portable.py https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
+pip install torch transformers
 python bench_portable.py --seconds 180 --out hardware.json --note "MacBook Pro M4 Pro, MPS"
 ```
 
@@ -438,39 +491,36 @@ answer rather than an omission.
 
 Two things to expect, both of which go *on* the figure rather than being reasons to leave it off.
 MPS does not support the same mixed-precision path — the run stays in fp32 on purpose, because a
-benchmark that silently changes precision between machines is comparing two different
-computations — so the row is **directional rather than exactly comparable**, and its dtype column
-says `float32` where every CUDA row says bf16 or fp16. And unified memory means the 98M preset may
-fit where a discrete card of nominally similar size would not, which is a genuine advantage worth
+benchmark that silently changes precision between machines is comparing two different computations
+— so the row is **directional rather than exactly comparable**, and its dtype column reads
+`float32` where every CUDA row reads bf16 or fp16. And unified memory means the 98M preset may fit
+where a discrete card of nominally similar size would not, which is a genuine advantage worth
 showing.
 
-`throttle` matters here as much as on the laptop: a fanless or lightly-cooled Mac will not hold
-its opening pace for three minutes, and that is exactly what a student needs to know before
-starting an overnight run.
+`throttle` matters here as much as on the laptop: a lightly-cooled chassis will not hold its
+opening pace for three minutes, and that is exactly what somebody needs to know before starting an
+overnight run.
 
-## D. Google Colab — the important set
+---
 
-This is the tier ladder, and it is now measured rather than remembered: **$104 on an L4, $99 on
-an A100** for the whole project, against a guessed "$120". Re-run them for the sustained numbers.
+## C. Google Colab — the tier ladder
+
+Now measured rather than remembered: **$104 on an L4, $99 on an A100** for the whole project,
+against a guessed "$120". Re-run all three for the sustained numbers.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
 !python bench_portable.py --seconds 180 --note "Colab T4"
 ```
 
-**Also read the compute-unit rate off the Colab usage page for each paid tier.** That is the half
-of the cost claim a benchmark cannot see, and the rates move with pricing and demand — the ones on
-the board were read on 13 August at $9.99 per 100 units.
-
 > **Do not `pip install torch` on Colab.** An earlier version of this appendix said
 > `!pip -q install torch --upgrade` and it is wrong in a way that silently ruins the measurement.
 > Colab ships torch already, pinned against the CUDA libraries in that image; upgrading it pulls a
 > newer torch over them and leaves `torchvision`, `cuda-python` and the RAPIDS stack mismatched.
 > The run may still complete, and its throughput number is then wrong in an unpredictable
-> direction — which is the worst failure mode a benchmark has, because it looks like data.
-> `bench_portable.py` imports nothing Colab does not already ship (`torch` and `transformers`).
-> If you have already run the upgrade: **Runtime → Disconnect and delete runtime**, reconnect,
-> and run the two lines above.*
+> direction — the worst failure a benchmark has, because it looks like data.
+> `bench_portable.py` imports nothing Colab does not already ship. If you have already run the
+> upgrade: **Runtime → Disconnect and delete runtime**, reconnect, and run the two lines above.
 
 | runtime | why it is on the list |
 |---|---|
@@ -479,16 +529,25 @@ the board were read on 13 August at $9.99 per 100 units.
 | **A100** | the fast tier — ours read as an A100-SXM4-80GB |
 | **TPU** | *skip* — the script refuses; it needs a different training loop and would not be comparable |
 
-**Copy the printed JSON out of each session before it disconnects.** Also record the actual cost
-per tier, so the strip's "$120" is measured rather than remembered.
+**Copy the printed JSON out of each session before it disconnects** — a Colab disk is disposable
+and these numbers are the whole point of the exercise.
 
-## E. What happens then
+**And read the compute-unit rate off the Colab usage page for each paid tier.** That is the half of
+the cost claim a benchmark cannot see, and the rates move with pricing and demand — the ones on the
+board were read on 13 August at $9.99 per 100 units.
 
-Drop the rows into `runs/hardware.json` and the cell-1 figure generates: machines on one axis,
-wall-clock for one full run on the other, a memory-fit marker, and the three cost routes
-annotated. Then nothing on this board is blocked.
+---
+
+## D. What happens then
+
+Paste the JSON back, or drop the rows into `runs/hardware.json` directly — it is a plain list and
+the figure reads it. Then:
+
+```bat
+python poster_figures.py fig_hardware
+```
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so. Five machines now say it — the free T4, the paid L4 and A100, and an 8 GB laptop
-that runs both models overnight-sized and beats its own CPU by 64×. A MacBook and the battery run
-are what is left, and the Mac is the one most students will look for.
+numbers say so. Five machines say it today — the free T4, the paid L4 and A100, and an 8 GB laptop
+that runs both models overnight-sized and beats its own CPU by 64×. What is missing is the Mac,
+the battery run, and sustained re-readings of every row that is currently a burst number.
