@@ -226,10 +226,10 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **143 GPU-hours. 69 kWh. About $7 of electricity.** Three routes to the same board: a $24,000
-> workstation, $120 of Colab Pro, or a plugged-in laptop over a month of nights. **The workstation
-> bought latency, not access** — a student who runs one cell a night gets the same board and waits
-> longer for it. Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
+> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab and it is **$104 on an
+> L4 or $99 on an A100** — the A100 costs 4.4× per hour and returns 4.5× the throughput, so the
+> tier changes the wait (28 days against 6) and not the bill. Free T4: 41 days, $0. **You buy
+> latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
 *63 words*
 
@@ -280,12 +280,14 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Two machines: the workstation and a free Colab T4. That is enough for the sentence the cell exists
-to earn, because the T4 is the *floor* — it is what a student with no budget gets, and if the study
-is feasible there it is feasible anywhere. **5.9× slower, 4.4 hours for one run, 36 days of card
-time for the whole project, and the 98M model fits too.** More rows drop into `runs/hardware.json`
-without touching the figure; a laptop, a MacBook, an L4 and an A100 are still wanted and would each
-add a bar.
+Four machines: the workstation, a free Colab T4, a paid Colab L4, and the 8 GB Surface Studio
+Laptop — that last one measured twice, on its GPU and with `--cpu` on its own processor. The T4
+is the *floor* of what a student with no budget gets — **5.9× slower, 4.4 hours for one run, 36
+days of card time for the whole project, and the 98M model fits too** — the L4 is the paid tier
+at **4.3× and 27 days**, and the laptop is the machine a student most likely already owns:
+**3.8 h / 8.8 h per run, 64× faster than its own CPU, and quicker than the free T4 on both model
+sizes.** More rows drop into `runs/hardware.json` without touching the figure; the laptop on
+battery, a MacBook and an A100 are still wanted and would each add a bar.
 
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
@@ -294,6 +296,17 @@ so a card whose tensor cores have no bf16 answered yes and ran it in software. 1
 was the same cause: in fp16 it fits at batch 128 with 9.85 GB. Nothing errored and nothing warned,
 and both readings looked equally plausible on the page. **Every row on the figure carries its dtype
 for that reason.**
+
+**The laptop's first reading failed the same way, in the opposite direction.** The 98M model wants
+~10 GB and the card has 8. Windows does not refuse: the driver spills the overflow into system RAM
+and the benchmark "worked" at 5,075 tok/s — the PCIe bus wearing a GPU costume, six times under the
+card's honest rate. On Linux the same run is an OutOfMemoryError. The fix was already in the
+factory: gradient accumulation (`mlm_train.pretrain(accum=)`, now mirrored by `bench_portable.py`)
+folds the same 16,384-token step into micro-batches — identical update math, the batch never stops
+being 128 — and the model trains in **5.98 GB at 32,267 tok/s**. The script now treats an
+allocation past free memory exactly like an OOM, walks the fallback ladder, and **the row records
+the configuration it took**, because a rate without one is not reproducible. Report 09 carries the
+full story under *"The 8 GB story: we needed 10 GB and had 8."*
 
 **`11-metric-validity.svg`, `08-why-not-shorter.svg` and `09-scaling-with-cards.svg` are drawn and
 carried by neither board.** Available if a cell wants one.
@@ -316,7 +329,8 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 3. **Set the nine cells and three strip blocks from the words above.** They are written to the
    measure; do not re-expand them.
 4. **Check every big number against the 18-character measure** before setting it.
-5. **Cell 1's figure**, once the hardware numbers exist. The only blocked item.
+5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, three machines on it and the CPU baseline
+   in its side panel.
 6. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
    `check_provenance.py`, regenerate every figure, run the staleness pass. Do it once.
 
@@ -363,15 +377,28 @@ comparable to a MacBook.
 
 ## B. Surface Studio Laptop (RTX 2000 Ada Mobile)
 
-The interesting row, because it is the machine a student is most likely to own.
+The interesting row, because it is the machine a student is most likely to own — **measured
+12 August, plugged in**: 75,583 tok/s on the 33.8M preset; 32,267 tok/s on the 98M via gradient
+accumulation (micro-batch 64 × 2 — it does not fit in 8 GB whole); 1,179 and 516 tok/s with
+`--cpu`. Still wanted from this machine: **the battery run**, same command with
+`--note "... on battery"`. Mobile GPUs throttle hard, and "can a student do this overnight" is a
+different question unplugged; if it differs by more than ~20%, the board says so (our a1-cv
+notes measured a 17% swing on this chassis).
 
-1. Copy `src/a2-nlp/bench_portable.py` — it needs nothing else.
-2. `pip install torch --index-url https://download.pytorch.org/whl/cu124`
-3. `python bench_portable.py --out hardware.json --note "Surface Studio Laptop, plugged in"`
-4. **Then again on battery**, noted as such. Mobile GPUs throttle hard, and "can a student do this
-   overnight" is a different question unplugged. If they differ by more than ~20%, the board says so.
+For anyone repeating it on their own laptop:
 
-If the 86M preset runs out of memory, that is a result rather than a failure — record it.
+1. Copy `src/a2-nlp/bench_portable.py` — it needs `torch` and `transformers`, nothing else.
+2. `pip install torch --index-url https://download.pytorch.org/whl/cu124`, then
+   `pip install transformers`
+3. `python bench_portable.py --out hardware.json --note "<your machine>, plugged in"`
+
+Two traps we hit so the next person does not. **Run it with the Python that actually has
+torch** — a bare `python` on Windows is often the Store alias or a different environment, and
+the resulting error names `transformers` even when the real problem is the interpreter. And
+**trust the spill note**: on Windows a model too big for VRAM does not error — it swaps over
+PCIe and reports a plausible number. The script detects the overflow, folds the batch until the
+measurement is honest, and records how. An out-of-memory that survives every fallback is still
+a result rather than a failure — record it.
 
 ## C. MacBook Pro (M4 Pro, MPS)
 
@@ -399,8 +426,9 @@ This decides whether the "$120 and you can do this" claim survives.
 > newer torch over them and leaves `torchvision`, `cuda-python` and the RAPIDS stack mismatched.
 > The run may still complete, and its throughput number is then wrong in an unpredictable
 > direction — which is the worst failure mode a benchmark has, because it looks like data.
-> `bench_portable.py` imports nothing but `torch`. If you have already run the upgrade:
-> **Runtime → Disconnect and delete runtime**, reconnect, and run the two lines above.*
+> `bench_portable.py` imports nothing Colab does not already ship (`torch` and `transformers`).
+> If you have already run the upgrade: **Runtime → Disconnect and delete runtime**, reconnect,
+> and run the two lines above.*
 
 | runtime | why it is on the list |
 |---|---|
@@ -418,5 +446,7 @@ Drop the rows into `runs/hardware.json` and the cell-1 figure generates: machine
 wall-clock for one full run on the other, a memory-fit marker, and the three cost routes
 annotated. Then nothing on this board is blocked.
 
-**The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so, and right now we have one machine's evidence for a claim about every machine.
+**The sentence the figure has to earn:** *you do not need the workstation.* It is only true if
+the numbers say so. Four machines now say it — the free tier's card, the paid L4 at 4.3×, and
+an 8 GB laptop that runs both models overnight-sized and beats its own CPU by 64× — with the
+MacBook, the A100 and the battery run still to come.
