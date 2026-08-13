@@ -93,16 +93,17 @@ glance before any of the prose below is cut down:
 | | | |
 |---|---|---|
 | **1** What does a run cost, and in what unit?<br>`62,500 steps = 1.024B tokens` | **2** Why optimize before anything needs it?<br>`2.07×, of which 1.32× is efficiency` | **3** What belongs in a notebook, and what belongs in a queue?<br>`53 s against 85 min — 96×` |
-| **4** What makes a record survive you?<br>`fingerprint 15abd33de5af` | **5** What does someone else have to be able to call?<br>`9 functions · 12,861 lines` | **6** Is this difference real?<br>`2.27×, not 1.0×` |
+| **4** What makes a record survive you?<br>`fingerprint 15abd33de5af` | **5** What does someone else have to be able to call?<br>`9 functions` | **6** Is this difference real?<br>`2.27×, not 1.0×` |
 | **7** Which of your units are not units?<br>`5.1× the compute at "matched" steps` | **8** Does a tuned setting transfer?<br>`7e-4: best for three languages, fatal to a fourth` | **9** Detect the failure, or prevent it?<br>`0 of 11 checkpoints separate them` |
 
 Three of the nine big numbers are ratios of a thing to itself measured two ways — 96×, 5.1×,
 2.27×. That is not a stylistic tic. It is what the whole board is about: the same work, counted in
 two units, giving two different answers.
 
-**One layout conflict to settle before printing:** cells 4 and 5 both currently point at
-`07-dashboard.png`. The dashboard belongs to 4, where it illustrates a record describing itself.
-Cell 5 needs its own graphic — see Gaps.
+**Every cell now carries its own figure except one.** Week 1 is still waiting on the hardware
+measurements, which are the only thing on this board that cannot be produced from this machine.
+Everything else is drawn and committed, and `check_boards.py` confirms no figure is claimed by
+both posters.
 
 ---
 
@@ -354,11 +355,17 @@ you are certain they came from two different experiments.
 
 ## Week 5 — What does someone else have to be able to call?
 
-**Big number:** `9 functions · 12,861 lines they never open` · **Figure:** *needs one — the
-signature column described in Gaps. `07-dashboard.png` is cell 4's.*
+**Big number:** `9 functions` · **Figure:** `19-the-interface.svg`
+
+*The second half of that big number used to read `· 12,861 lines they never open`, and it is not
+printed here any more because it moved twice while this sheet was being written — 12,861, then
+14,409, then 14,537 — as four checks and two studies were added, none of which touched the
+interface. It is **9 functions against whatever the figure prints on the day you export it**. The
+figure counts the folder at render time for exactly that reason, and the moving number is itself
+the point: the surface stayed at nine while the body grew 13%.*
 
 **Problem.** A factory only its author can operate is a hobby with a queue. Two other people had a
-study to run and a deadline, and neither of them was going to read twelve thousand lines of
+study to run and a deadline, and neither of them was going to read fourteen thousand lines of
 somebody else's Python to find out how to train a model.
 
 **Hypothesis.** We assumed the hard part was making the machinery correct, and that a reasonable
@@ -368,8 +375,8 @@ person who cannot work out how to call your code quietly writes their own and ne
 
 **Approach.** Cut the surface until it fits on one screen, and hide the rest. **Nine functions in
 `mlm_api` — prepare, inspect, estimate, pretrain, the untrained control, and three ways to read
-results back — sitting on 1,634 lines of pretraining machinery inside a folder holding 12,861
-lines of Python, none of which they have to open.** Three of those nine exist only because a
+results back — sitting on 1,634 lines of pretraining machinery inside a folder that was 12,861
+lines of Python when this was written and is more now, none of which they have to open.** Three of those nine exist only because a
 mistake made them necessary: `estimate()` measures twenty real steps on the actual card instead of
 consulting a throughput table that was wrong the first time something else held the GPU;
 `random_init()` is one line because a control that costs an afternoon does not get run; and the
@@ -748,14 +755,22 @@ what one run costs on each. Everything needed to produce it is written and self-
 `bench_portable.py` — but the measurements can only come from the machines themselves. **See the
 Appendix.**
 
-**Week 5 needs a figure, and it is the second blocked cell** — though blocked on a decision rather
-than on hardware. The dashboard screenshot belongs to cell 4, and in any case a screenshot of a
-dashboard illustrates what *I* look at, not what *they* call. What the cell wants is hand-set
-rather than plotted: the nine `mlm_api` signatures in one column at a size you can read from two
-metres, `12,861 lines` set behind them as a grey block at maybe 4% opacity to make the ratio
-visible without needing a caption, and Leon's question — *"is there an interface I should be
-using?"* — printed underneath in his own words. It is an hour in a vector editor, not a script,
-and it is the only cell whose figure is typography rather than data.
+**Week 5's figure is drawn: `19-the-interface.svg`.** This sheet used to say it was "an hour in a
+vector editor, not a script" — and hand-setting it would have been a mistake, for the reason the
+figure itself demonstrates. Every quantity on it is counted at render time: the nine signatures
+are read out of `mlm_api` with `ast`, and the line counts off the files. While it was being built
+the folder went from 12,861 lines to 14,537, because we added four checks and two studies in three
+days. **A hand-set panel would have been wrong within a week and would not have said so.**
+
+Two design notes worth keeping, since it is the only figure on the board whose content is
+typography. It is *emphasis*, not a chart: one accent for the surface a caller touches, grey for
+everything behind it, and the segments keyed below the track rather than labelled with leader
+lines — the first draft used `annotate()` and the leader landed on top of the subtitle. And the
+function count is set beside the track rather than as a segment in it, because nine functions and
+14,537 lines are not the same quantity and stacking them would be the dual-axis mistake in
+disguise. Both defects were caught by rendering the figure and looking at it, which is the only
+way that class of defect is ever caught — including `results(, …)`, which is what the obvious
+f-string prints for a function whose arguments are all optional.
 
 **The three released figures: two taken, one still free.** Cutting the metric-validity and
 tokenizer cells released `11-metric-validity.svg`, `12-floors.svg` and `17-tokenizer-lottery.svg`.
@@ -793,8 +808,7 @@ survived a reading, and rested on a coincidence.
 
 1. ~~Figure for week 8~~ — **done**, `16-lr-transfer.svg`, on the completed 60-run grid.
 2. ~~Figure for week 3~~ — **done**, `15-what-a-run-is-made-of.svg`, from the pipeline benchmark.
-3. **Figure for week 5** (the interface) — the hand-set signature column described in Gaps. An
-   hour in a vector editor. Nothing blocks it, and cell 4 keeps the dashboard.
+3. ~~Figure for week 5~~ — **done**, `19-the-interface.svg`, generated rather than hand-set.
 4. ~~Offer figures 11, 12 and 17 to Patrick and Leon~~ — **done**; report 13 took 12 and 17.
 5. ~~Settle figure 03~~ — **done**; it is the top board's, and Week 7 sets its table as type.
 6. **Figure for week 1** (hardware). Blocked on the measurements in the Appendix — the only item
