@@ -1673,10 +1673,12 @@ def fig_hardware():
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
 
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.6),
-                                  gridspec_kw={'width_ratios': [1.25, 1.0]})
+    # Four machines' worth of two-line tick labels need more rail than the original two did.
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(15.5, 5.6),
+                                  gridspec_kw={'width_ratios': [1.55, 1.0]})
 
-    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120',
+    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120 · bf16',
+             'NVIDIA L4': 'Colab L4, Pro tier\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16',
              'NVIDIA RTX 2000 Ada Generation Laptop GPU': 'RTX 2000 Ada Laptop\nsm_89 · 8 GB'}
     xs = range(len(order))
@@ -1690,7 +1692,7 @@ def fig_hardware():
             ax.text(x + (i - 0.5) * 0.36, v + 0.25, f'{v:.1f} h{star}', ha='center',
                     color=INK, fontsize=12, fontweight='bold')
     ax.set_xticks(list(xs))
-    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=12)
+    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=11)
     ax.set_ylabel('hours for one 62,500-step run')
     ax.set_ylim(0, max(machines[k]['afriberta']['full_run_hours'] for k in order) * 1.28)
     ax.legend(loc='upper left')
@@ -1707,11 +1709,14 @@ def fig_hardware():
     ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
              fontweight='bold', va='top')
     ax2.text(0, 0.80, 'Yes.', color=C3, fontsize=44, fontweight='bold', va='top')
+    l4 = machines['NVIDIA L4']['poc']
     lines = [
-        (f"{t4['vs_workstation']:.1f}×", 'slower than the workstation, on a free T4'),
-        (f"{t4['full_run_hours']:.1f} h", 'for one full run — an overnight job'),
-        (f"{t4['project_hours_here']/24:.0f} days", 'of card time for the whole project'),
-        (f"{t4['peak_gb']:.1f} GB", f"peak of 15 — the 98M fits too, at {machines['Tesla T4']['afriberta']['peak_gb']:.1f}"),
+        (f"{t4['vs_workstation']:.1f}×", 'slower on a free T4 — '
+                                         f"{l4['vs_workstation']:.1f}× on a paid L4"),
+        (f"{t4['full_run_hours']:.1f} h", f"for one run, or {l4['full_run_hours']:.1f} h on the L4"),
+        (f"{t4['project_hours_here']/24:.0f} days", 'of free card time for the whole project — '
+                                                    f"{l4['project_hours_here']/24:.0f} paid"),
+        (f"{t4['peak_gb']:.1f} GB", 'peak of 15 — the 98M model fits on both tiers'),
     ]
     # The 8 GB laptop measured against its own processor: the ratio that tells a student
     # whether the GPU they already own is worth plugging in for.
@@ -1735,8 +1740,8 @@ def fig_hardware():
              "so a card without bf16 tensor cores ran it in software. Every row carries its "
              "dtype for that reason. * The 98M model does not fit whole in 8 GB — the laptop "
              "runs it\nas the same 16,384-token step via gradient accumulation (micro-batch "
-             "64 × 2), which is the configuration the row records. Rows still wanted: a "
-             "MacBook, Colab L4 and A100.",
+             "64 × 2), which is the configuration the row records. Rows still wanted: the "
+             "laptop on battery, a MacBook, and Colab A100.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 

@@ -226,10 +226,10 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **143 GPU-hours. 69 kWh. About $7 of electricity.** Three routes to the same board: a $24,000
-> workstation, $120 of Colab Pro, or a plugged-in laptop over a month of nights. **The workstation
-> bought latency, not access** — a student who runs one cell a night gets the same board and waits
-> longer for it. Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
+> **148 GPU-hours. 71 kWh. About $7 of electricity.** Three routes to the same board, and two are
+> now measured rather than guessed: a $24,000 workstation, **27 days of a paid Colab L4 or 36 of
+> the free T4**, or a laptop over a month of nights. **The workstation bought latency, not
+> access.** Team: Jeffrey Stall (the factory), Patrick Kwok and Leon (the Yoruba science).
 
 *63 words*
 
@@ -280,13 +280,14 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Three machines: the workstation, a free Colab T4, and the 8 GB Surface Studio Laptop — measured
-twice, on its GPU and with `--cpu` on its own processor. The T4 is the *floor* of what a student
-with no budget gets — **5.9× slower, 4.4 hours for one run, 36 days of card time for the whole
-project, and the 98M model fits too** — and the laptop is the machine a student most likely
-already owns: **3.8 h / 8.8 h per run, 64× faster than its own CPU.** More rows drop into
-`runs/hardware.json` without touching the figure; a MacBook, an L4 and an A100 are still wanted
-and would each add a bar.
+Four machines: the workstation, a free Colab T4, a paid Colab L4, and the 8 GB Surface Studio
+Laptop — that last one measured twice, on its GPU and with `--cpu` on its own processor. The T4
+is the *floor* of what a student with no budget gets — **5.9× slower, 4.4 hours for one run, 36
+days of card time for the whole project, and the 98M model fits too** — the L4 is the paid tier
+at **4.3× and 27 days**, and the laptop is the machine a student most likely already owns:
+**3.8 h / 8.8 h per run, 64× faster than its own CPU, and quicker than the free T4 on both model
+sizes.** More rows drop into `runs/hardware.json` without touching the figure; the laptop on
+battery, a MacBook and an A100 are still wanted and would each add a bar.
 
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
@@ -446,6 +447,6 @@ wall-clock for one full run on the other, a memory-fit marker, and the three cos
 annotated. Then nothing on this board is blocked.
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if
-the numbers say so. Three machines now say it — the free tier's card, and an 8 GB laptop that
-runs both models overnight-sized and beats its own CPU by 64× — with the MacBook and the paid
-Colab tiers still to come.
+the numbers say so. Four machines now say it — the free tier's card, the paid L4 at 4.3×, and
+an 8 GB laptop that runs both models overnight-sized and beats its own CPU by 64× — with the
+MacBook, the A100 and the battery run still to come.

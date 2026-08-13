@@ -1436,16 +1436,16 @@ z
    </g>
    <g id="patch_3">
     <path d="M 553.672324 257.56596 
-L 578.643454 257.56596 
-L 578.643454 232.20216 
+L 578.635129 257.56596 
+L 578.635129 232.20216 
 L 553.672324 232.20216 
 z
 " clip-path="url(#p0f48d65dea)" style="fill: #2a78d6; opacity: 0.32"/>
    </g>
    <g id="patch_4">
     <path d="M 553.672324 257.56596 
-L 559.189201 257.56596 
-L 559.189201 232.20216 
+L 559.187362 257.56596 
+L 559.187362 232.20216 
 L 553.672324 232.20216 
 z
 " clip-path="url(#p0f48d65dea)" style="fill: #2a78d6"/>
@@ -2452,14 +2452,14 @@ z
     </g>
    </g>
    <g id="text_20">
-    <!-- 14,991 -->
+    <!-- 14,996 -->
     <g style="fill: #8a8985" transform="translate(575.800877 362.741184) scale(0.15 -0.15)">
      <use xlink:href="#DejaVuSans-Bold-14"/>
      <use xlink:href="#DejaVuSans-Bold-17" transform="translate(69.578125 0)"/>
      <use xlink:href="#DejaVuSans-Bold-f" transform="translate(139.15625 0)"/>
      <use xlink:href="#DejaVuSans-Bold-1c" transform="translate(177.140625 0)"/>
      <use xlink:href="#DejaVuSans-Bold-1c" transform="translate(246.71875 0)"/>
-     <use xlink:href="#DejaVuSans-Bold-14" transform="translate(316.296875 0)"/>
+     <use xlink:href="#DejaVuSans-Bold-19" transform="translate(316.296875 0)"/>
     </g>
    </g>
    <g id="text_21">
