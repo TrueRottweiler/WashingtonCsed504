@@ -85,27 +85,25 @@ three answers are *no*.
 
 ### 1 · What does a run cost, and in what unit?
 
-**Big number:** `62,500 steps = 1.024B tokens` · **Figure:** *blocked — see Gaps*
+**Big number:** `62,500 steps` / `= 1.024B tokens` · **Figure:** *blocked — see Gaps*
 
-> Every course measures training in epochs. The moment the dataset is the variable — which is the
-> first thing a scaling study does — an epoch stops being comparable between two runs. At 4M
-> tokens the model sees the corpus sixty times; at 1,024M it sees a quarter of it once. The unit
-> that survives is **tokens of updates**: steps × batch × sequence length. Pick the unit that
-> survives the thing you intend to vary, and write it into the tooling so nobody has to remember.
+> Every course measures training in epochs, and an epoch stops meaning anything the moment the
+> dataset is the variable — which is the first thing a scaling study does. At 4M tokens the model
+> sees the corpus sixty times; at 1,024M, a quarter of it once. **Tokens of updates** survives
+> both. Pick the unit that survives what you intend to vary.
 
-*54 words · `runs/scaling_law.json`*
+*56 words · `runs/scaling_law.json`*
 
 ### 2 · Why optimize before anything needs it?
 
 **Big number:** `2.07×` / `1.32× real` · **Figure:** `14-where-the-speedup-came-from.svg`
 
-> Nothing needed to be fast yet, which is the argument against doing it. 25.2 → 12.2 minutes on
-> the same four cells — but only **1.32× is efficiency**; the rest is a second card in parallel.
-> The hours saved are not the point. **1,089 models got trained, across 17 languages — and only
-> one of them is Yoruba.** At 25 minutes a cell the seventeen-language control set is a week's
-> work and gets cut to five. At 12 it is one night, and it runs.
+> Nothing needed to be fast yet, which is the argument against doing it. 25.2 → 12.2 minutes —
+> but only **1.32× is efficiency**; the rest is a second card. The hours saved are not the point.
+> **1,089 models across 17 languages, and only one is Yoruba.** At 25 minutes a cell that control
+> set is a week's work and gets cut. At 12 it runs.
 
-*61 words · `mlm_api.results()` · report 03*
+*58 words · `mlm_api.results()` · report 03*
 
 **Second block, if the cell can take two:**
 
@@ -380,10 +378,18 @@ on the figure.
 This decides whether the "$120 and you can do this" claim survives.
 
 ```python
-!pip -q install torch --upgrade
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
 !python bench_portable.py --note "Colab T4"
 ```
+
+> **Do not `pip install torch` on Colab.** An earlier version of this appendix said
+> `!pip -q install torch --upgrade` and it is wrong in a way that silently ruins the measurement.
+> Colab ships torch already, pinned against the CUDA libraries in that image; upgrading it pulls a
+> newer torch over them and leaves `torchvision`, `cuda-python` and the RAPIDS stack mismatched.
+> The run may still complete, and its throughput number is then wrong in an unpredictable
+> direction — which is the worst failure mode a benchmark has, because it looks like data.
+> `bench_portable.py` imports nothing but `torch`. If you have already run the upgrade:
+> **Runtime → Disconnect and delete runtime**, reconnect, and run the two lines above.*
 
 | runtime | why it is on the list |
 |---|---|
