@@ -38,8 +38,21 @@ FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapo
 # What the whole A2 project consumed on the workstation, so any machine can be told what the
 # same term of work would have cost it. This is the number that decides whether a student can
 # attempt a study like this at all, and it is more useful than tokens per second.
-PROJECT_GPU_HOURS = 83.3
-REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # our sustained medians, 96 and 55 runs
+#
+# A LITERAL ON PURPOSE, AND THEREFORE PINNED. This file has to stand alone -- it is pasted into a
+# fresh Colab cell with no repository behind it, so it cannot compute this from runs/. That makes
+# it exactly the shape of constant this project keeps writing panels about: measured once, correct
+# then, and quietly deciding an answer somewhere else later.
+#
+# It said 83.3 until 12 August, by which point the project had reached 148.0, so a Colab T4 was
+# told the whole term would cost it 492 hours when the answer was 874 -- 20 days against 36. The
+# number was not wrong when it was written. It was wrong by the time somebody used it, which is
+# the whole failure mode.
+#
+# test_board_numbers.py now asserts these against the live records, so the next drift fails a test
+# rather than reaching a student.
+PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results() + ft_api.results()
+REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # sustained medians; 127 and 70 runs today
 
 
 def pick_device():
@@ -72,9 +85,14 @@ def amp_dtype(device):
     bfloat16 tensor can be created, and returns True. bf16 then runs in software.
 
     A Colab T4 measured **11,566 tok/s that way, against 381,817 on the workstation -- 33x**, and
-    reported the whole project as 114 days. The real gap is nearer 8x. Nothing errored and nothing
-    warned; the benchmark simply produced a number that was wrong by 4x in the direction that
-    would have killed the board's central claim, which is that you do not need the workstation.
+    reported the whole project as 114 days. Re-run with this fix the same card gives **64,644
+    tok/s, 5.9x**, and 36 days. Nothing errored and nothing warned; the benchmark simply produced
+    a number wrong by 5.6x, in the direction that would have killed the board's central claim --
+    which is that you do not need the workstation.
+
+    The memory reading was wrong too, and for the same reason. The 86M model reported
+    OutOfMemoryError on 15 GB under emulated bf16; in fp16 it fits at batch 128 with 9.85 GB peak.
+    So "DOES NOT FIT" was not a property of the card at all.
 
     bf16 tensor cores arrive with Ampere (sm_80). Asking the hardware directly is both the honest
     question and one fewer library behaviour to track.

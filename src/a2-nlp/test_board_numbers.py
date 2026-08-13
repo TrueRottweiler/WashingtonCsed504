@@ -361,6 +361,64 @@ class ResidualPermutation(unittest.TestCase):
         self.assertGreater(centered, 0.5)
 
 
+class PortableBenchConstants(unittest.TestCase):
+    """The three literals in bench_portable.py, against the records they were measured from.
+
+    That file is pasted into a fresh Colab cell with no repository behind it, so it cannot compute
+    them -- which is what makes them the classic case: measured once, correct then, and quietly
+    deciding somebody else's answer later. PROJECT_GPU_HOURS said 83.3 until 12 August, by which
+    point the project was 148.0, so a T4 was told the term would cost it 492 hours when the answer
+    was 874.
+
+    Needs torch only to import the module, so it skips rather than fails on a laptop.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import bench_portable
+        except ImportError as exc:
+            raise unittest.SkipTest(f'bench_portable unavailable: {exc}')
+        cls.bp = bench_portable
+        if _records.STUBBED:
+            raise unittest.SkipTest('needs the real ft_api/mlm_api to recompute GPU-hours')
+
+    def test_project_gpu_hours_matches_the_records(self):
+        pre = mlm_api.results('*')
+        down = ft_api.results('*', eval_split=None)
+        hours = sum(r['seconds'] for r in pre if r.get('seconds')) / 3600
+        hours += sum((r.get('seconds_per_seed') or 0) * len(r.get('scores') or [])
+                     for r in down) / 3600
+        self.assertAlmostEqual(self.bp.PROJECT_GPU_HOURS, hours, delta=5.0,
+                               msg=f'bench_portable says {self.bp.PROJECT_GPU_HOURS} GPU-hours; '
+                                   f'the records say {hours:.1f}. A Colab row is projected from '
+                                   f'this, so the drift reaches a student.')
+
+    def test_reference_throughputs_match_the_records(self):
+        import statistics as _st
+        by = {}
+        for r in mlm_api.results('*'):
+            if r.get('tokens_per_s') and r.get('preset'):
+                by.setdefault(r['preset'], []).append(r['tokens_per_s'])
+        for preset, expected in self.bp.REF_TOK_S.items():
+            with self.subTest(preset=preset):
+                median = _st.median(by[preset])
+                self.assertAlmostEqual(expected / median, 1.0, delta=0.05,
+                                       msg=f'{preset}: constant {expected:,}, '
+                                           f'records {median:,.0f}')
+
+    def test_bf16_is_gated_on_the_hardware_not_the_library(self):
+        """The T4 defect: is_bf16_supported() defaults to including_emulation=True."""
+        import ast
+        import inspect
+        fn = ast.parse(inspect.getsource(self.bp.amp_dtype)).body[0]
+        # The docstring names the trap on purpose, so strip it before searching -- otherwise the
+        # test fails on the explanation rather than on the code.
+        body = ast.unparse(ast.Module(body=fn.body[1:], type_ignores=[]))
+        self.assertIn('get_device_capability', body)
+        self.assertNotIn('is_bf16_supported', body)
+
+
 if __name__ == '__main__':
     print(f'ft_api/mlm_api: {"stubbed (no torch)" if _records.STUBBED else "real"}')
     unittest.main(verbosity=2)

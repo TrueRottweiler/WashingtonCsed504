@@ -85,7 +85,7 @@ three answers are *no*.
 
 ### 1 · What does a run cost, and in what unit?
 
-**Big number:** `62,500 steps` / `= 1.024B tokens` · **Figure:** *blocked — see Gaps*
+**Big number:** `62,500 steps` / `= 1.024B tokens` · **Figure:** `21-hardware.svg`
 
 > Every course measures training in epochs, and an epoch stops meaning anything the moment the
 > dataset is the variable — which is the first thing a scaling study does. At 4M tokens the model
@@ -278,11 +278,22 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 ## Gaps
 
-**Cell 1 has no figure and it is the only thing on this board blocked on another machine.** It
-wants the hardware comparison: the machines, whether the model fits in memory, and what one run
-costs on each. `bench_portable.py` is self-contained — no corpus, no repository data — and takes
-two minutes per machine. The instructions are in the Appendix. It is also the worst cell to leave
-empty, because it is top-left and read first.
+**Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
+
+Two machines: the workstation and a free Colab T4. That is enough for the sentence the cell exists
+to earn, because the T4 is the *floor* — it is what a student with no budget gets, and if the study
+is feasible there it is feasible anywhere. **5.9× slower, 4.4 hours for one run, 36 days of card
+time for the whole project, and the 98M model fits too.** More rows drop into `runs/hardware.json`
+without touching the figure; a laptop, a MacBook, an L4 and an A100 are still wanted and would each
+add a bar.
+
+**The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
+precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
+so a card whose tensor cores have no bf16 answered yes and ran it in software. 11,566 tok/s against
+64,644 once it was measured in fp16. It also reported the 98M model as not fitting in 15 GB, which
+was the same cause: in fp16 it fits at batch 128 with 9.85 GB. Nothing errored and nothing warned,
+and both readings looked equally plausible on the page. **Every row on the figure carries its dtype
+for that reason.**
 
 **`11-metric-validity.svg`, `08-why-not-shorter.svg` and `09-scaling-with-cards.svg` are drawn and
 carried by neither board.** Available if a cell wants one.
