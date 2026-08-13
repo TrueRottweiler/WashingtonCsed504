@@ -21,10 +21,17 @@ dashboards, and what building it taught us about when a number is a result and w
 artifact.
 
 They are meant to be read in that order, and the join between them is the point: the top poster
-asks a question, the bottom poster is why it was answerable a hundred and five times instead of
-twice. **The fifteen sections below are the fifteen panels of the bottom poster.** Where a
-finding belongs upstairs it is stated here only as far as needed to explain what the factory was
-for; the top poster carries it properly.
+asks a question, the bottom poster is why it was answerable two hundred times instead of twice.
+Where a finding belongs upstairs it is stated here only as far as needed to explain what the
+factory was for; the top poster — [report 13](13-the-top-board.md) — carries it properly.
+
+**This report is not the board, and the sections below are not the panels.** An earlier version of
+this line claimed they were, one-for-one, and that stopped being true when the board was rebuilt:
+it is **nine cells and a strip**, and this is fifteen sections of long form. One is not a subset
+of the other. The board is laid out from
+[the build sheet](12-poster-build-sheet-v2.md); this is where a reader goes when a cell makes them
+want the whole argument. The table under *CSED 505* below is the current board, and the mapping
+from each cell to the section that carries it is beside it.
 
 ---
 
@@ -78,7 +85,7 @@ principles. It was that at this scale, being wrong got expensive enough to notic
 
 Every one of those ends when a model finishes training. **None of them covers what happens when
 you need a hundred models and have to believe the differences between them.** That is a different
-skill, it is most of what this term actually consisted of, and it is what the fifteen panels below
+skill, it is most of what this term actually consisted of, and it is what the nine cells below
 would be if they were a ten-week course.
 
 ### CSED 505: Building a Model Factory
@@ -92,15 +99,34 @@ the two cards over the weekend this poster was written.
 
 | | | |
 |---|---|---|
-| **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is 1.024B tokens ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>**Enables 2:** you cannot say a run got faster until you can say what a run is.<br>*figure — none yet* | **2 · Why optimize before anything needs it?**<br>25.2 → 12.2 minutes, **2.07×** — of which only **1.32×** is efficiency; the rest is a second card doing the same GPU-minutes in parallel. Had to learn that the hours saved are not the point: speed changes which experiments you are willing to **start**.<br>**Enables 4–9:** every result below rests on running one cell three to fifteen times.<br>*figure 14* | **3 · What makes a record survive you?**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint — `15abd33de5af` — and a dashboard showing an empty queue while both cards sit at 85% is worse than none.<br>**Enables 4:** two numbers only differ if they came from two experiments.<br>*figure 07* |
-| **4 · Is this difference real?**<br>Spread is a property of the **cell**, not a constant. And our rule, *"bigger than the spread"*, is half a rule: at three seeds a difference must be **2.27×** the spread, and the exact test cannot return a p below **0.10** at three a side however far apart the arms land. Two of our own claims were sitting in that gap.<br>**Enables 5–9:** this is the instrument the rest of the board is read through.<br>*figures 04, 13* | **5 · Is your metric the right metric — and why does one task refuse to be predicted?**<br>We minimized validation loss for a term without checking it predicts anything. Across the 16 models that trained: **−0.888** on topic classification, **+0.303** on entities. The aggregate −0.935 was three under-trained models holding up a line. Entities hand every working model a band **0.044** wide; topics spread them over **0.143**. A benefit everyone receives equally cannot be predicted by anything.<br>**Enables 6:** if the metric can be wrong, so can the unit under it.<br>*figures 11, 12* | **6 · Which of your units are not units?**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to bits per character — and that a 250k output head is **5.1×** the compute per step, so matched *steps* handed one arm five times the budget and reversed the conclusion.<br>**Enables 7:** only now can the tokenizer question be asked in a unit that can answer it.<br>*figure 03* |
-| **7 · Is the tokenizer a cost, or a coin flip?**<br>Report 08's headline was a 0.144 bits/char penalty at three seeds. At **six** — fixed in advance from the power calculation — it *shrank* to 0.059, p = 0.37, and the arms interleave. What survives is the **spread**: 0.145 against 0.037, **p = 0.0098** — and 8.6× wider downstream on entities (p = 0.005), though not on topic, where our own fourth seed reversed it. It is not a tax, it is a lottery.<br>**Enables 8:** a setting whose effect is on variance is exactly the kind that will not transfer.<br>*figure 17* | **8 · Does a tuned setting transfer?**<br>We claimed adding a language was one function call — true only if the settings come too. Five languages, six rates, 60 runs: Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo collapses at 7e-4 and at every rate above it. The risk is not a slightly worse model, it is a wasted night that looks like a result.<br>**Enables 9:** if runs fail this way, catch them early.<br>*figure 16* | **9 · Detect the failure, or prevent it?**<br>35 of 195 runs never learned — **17.9%**, wasting 25.5 GPU-hours. Scored against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all eleven**: the best doomed run always looks better than the worst healthy one. One rule in the grid ever fires, and it kills two healthy runs and zero dead ones. Do not build the detector — and clipping, at fifteen seeds a side, does **not** prevent divergence either (Fisher p = 1.00).<br>*figure 10* |
+| **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is **1.024B tokens** ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>**Enables 2:** you cannot say a run got faster until you can say what a run is.<br>*§5 · figure — none yet, the one gap on the board* | **2 · Why optimize before anything needs it?**<br>25.2 → 12.2 minutes, **2.07×** — of which only **1.32×** is efficiency; the rest is a second card doing the same GPU-minutes in parallel. Had to learn that the hours saved are not the point: speed changes which experiments you are willing to **start**.<br>**Enables 6–9:** every result below rests on running one cell three to fifteen times.<br>*§4, §11 · figure 14* | **3 · What belongs in a notebook, and what belongs in a queue?**<br>Measure the split rather than argue it. Preparing the corpus is **53 seconds**; one pretraining run is **85 minutes** — a ratio of **96×**, which is not close enough to be a judgment call. Everything cheap stays interactive, everything expensive goes in a queue, and **both paths write the same record.**<br>**Enables 4:** work that runs unattended has nobody watching it, so it has to describe itself.<br>*§7, §8 · figure 15* |
+| **4 · What makes a record survive you?**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint — `15abd33de5af` — and a dashboard showing an empty queue while both cards sit at 85% is worse than none.<br>**Enables 5:** a record that describes itself is the smallest unit somebody else can pick up.<br>*§8 · figure 07* | **5 · What does someone else have to be able to call?**<br>**Nine functions**, and nothing else to import, on a folder of fourteen thousand lines they never open. Three things it had to be — callable, shareable, runnable on one card — and a fourth we got wrong: **findable.** Leon read the documentation and asked whether there was an interface he was supposed to be using. There was.<br>**Enables 6:** once other people can disagree with your numbers, "is this real" stops being private.<br>*§6, §12 · figure 19* | **6 · Is this difference real?**<br>Spread is a property of the **cell**, not a constant. And our rule, *"bigger than the spread"*, is half a rule: at three seeds a difference must be **2.27×** the spread, and the exact test cannot return a p below **0.10** at three a side however far apart the arms land. Two of our own claims were sitting in that gap.<br>**Enables 7–9:** this is the instrument the rest of the board is read through.<br>*§10 · figures 04, 13* |
+| **7 · Which of your units are not units?**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to **bits per character** — and that a 250k output head is **5.1×** the compute per step, so matched *steps* handed one arm five times the budget and reversed the conclusion.<br>**Enables 8:** the same lesson, moved from a unit to a setting.<br>*§10 · no figure; the two readings are set as type* | **8 · Does a tuned setting transfer?**<br>We claimed adding a language was one function call — true only if the settings come too. Five languages, six rates, 60 runs: Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo collapses at 7e-4 and at every rate above it. The risk is not a slightly worse model, it is a wasted night that looks like a result.<br>**Enables 9:** if runs fail this way, catch them early.<br>*§14 · figure 16* | **9 · Detect the failure, or prevent it?**<br>35 of 195 runs never learned — **17.9%**, wasting 25.5 GPU-hours. Scored against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all eleven**: the best doomed run always looks better than the worst healthy one. One rule in the grid ever fires, and it kills two healthy runs and zero dead ones. Do not build the detector — and clipping, at fifteen seeds a side, does **not** prevent divergence either (Fisher p = 1.00).<br>*§14 · figure 10* |
 
 **10 · Writing it down so it stays true** — *the strip along the bottom.* What it cost, what we
 got wrong, and the machinery that keeps a report honest after the run that produced it is
 forgotten: numbers generated from records rather than typed, a staleness check that names any
 sentence the data no longer supports, and the five-constants table.
-*panels 11, 13, 15 · figure 06*
+*§11, §13, §15 · figure 06*
+
+### Two findings are in this report and not on the board
+
+The board used to carry both and no longer does, which is a decision worth stating rather than
+leaving as an absence.
+
+**Is your metric the right metric?** Across the sixteen models that trained, validation loss
+correlates **−0.888** with topic classification and **+0.303** with entity recognition; the
+aggregate −0.935 was three under-trained models holding up a line. It is a real result and it is
+in **§10** in full. It came off the board because it needed almost none of the factory to produce
+— it is a fact about the tasks, not about the machinery this poster is arguing for.
+
+**Is the tokenizer a cost, or a coin flip?** Six pre-registered seeds shrank report 08's 0.144
+bits/char penalty to 0.059 (p = 0.37) while the *spread* separated cleanly — 0.145 against 0.037,
+p = 0.0098. Not a tax, a lottery. That one went **upstairs**: the tokenizer is what Patrick and
+Leon's board argues about, and whoever owns the question owns the panel. It is
+[report 13, panels 10 and 11](13-the-top-board.md), and figure 17 went with it.
+
+Both survive in full here and in `poster_bottom.ipynb`. They left the board, not the project.
 
 **Prerequisite: 504. Assessment: build the factory, then find the five places it lied to you.**
 
@@ -488,8 +514,7 @@ ladder readable is gone.
 
 **The run is genuinely unfinished.** The learning-rate schedule anneals to zero at the *planned*
 end. Stopping at 30,000 of 62,500 does not give a slightly worse model — it gives a model caught
-mid-schedule with a large learning rate still applied, which is the top half of the figure in
-panel 11a.
+mid-schedule with a large learning rate still applied, which is the top half of figure 08.
 
 ### Where the epochs went
 
@@ -609,7 +634,7 @@ retrains the exact headline model on Colab and computes the table from what it m
 than from a guess.
 
 **Against $24,000 of cards, $120 is two hundred times cheaper.** The workstation bought us
-*latency* — an answer in ninety minutes rather than tomorrow — and panel 4 argues that latency is
+*latency* — an answer in ninety minutes rather than tomorrow — and cell 2 argues that latency is
 what let the project find its own mistakes. It did not buy access to the science. A student with a
 subscription and patience can run every experiment on this board.
 
@@ -668,7 +693,7 @@ Two things this table is really for. The first is that "it does not fit" is a le
 mobile card with 8 GB cannot hold the 98M model at this batch, and knowing that before you plan a
 term is worth more than any throughput number. The second is the ratio — if the same study is four
 days on a laptop and thirty-four hours here, that difference is not convenience, it is the
-difference between a study you run and a study you abandon. Which is the whole argument of panel 4.
+difference between a study you run and a study you abandon. Which is the whole argument of cell 2.
 
 ### You have met this exact trap before
 
@@ -772,6 +797,10 @@ None of these is a machine learning problem. All of them cost real time.
 
 ## 7. Notebooks, for going fast
 
+*Cell 3 of the board is this section and the next one together — the split between what belongs in
+a notebook and what belongs in a queue. It is one argument and it is written here in two halves
+because the halves were built a month apart.*
+
 A notebook is an interactive document where you write a bit of code, run it, see the answer, and
 write the next bit. It is the right tool for figuring out what you want to do.
 
@@ -779,6 +808,17 @@ The group's original proof of concept was a notebook, and it worked. The trouble
 notebook is a bad place to *keep* work. Close the laptop and the state is gone. Run the cells in
 a different order and get a different answer. Train for three hours and lose it when the kernel
 restarts.
+
+**The obvious response is "move everything into scripts", and it is wrong** — a notebook is the
+best tool anyone has for the part of the work that is figuring out what you want. So the split was
+measured rather than argued. `pipeline_bench.py` times every stage on the real Yoruba corpus:
+reading all 79,999 documents takes about a second, training the 16k vocabulary **20.7 s**,
+encoding the whole corpus **21 s**, and moving the token store onto the card **11.4 s**.
+Preparation, all in, is **53 seconds**. One pretraining run at 62,500 steps is **85 minutes**.
+
+**That is a ratio of 96×, and a gap that size is not a judgment call.** Everything cheap stays
+interactive; everything expensive goes into a queue you can start and walk away from. Figure 15
+draws all of it on one log axis, which is the only scale on which both ends are visible at once.
 
 So the factory is arranged so that notebooks stay useful for the part they are good at:
 
@@ -866,15 +906,19 @@ say Yoruba is not harder to model than English.
 quality in *bits per character* rather than per word-piece, which is the only unit that survives
 changing vocabularies. Without it the central experiment could not have been read.
 
-By the end the factory had trained **105 models across 22 corpora and 17 languages, using about
-79 hours of graphics-card time** — and the number that matters more is that any of those runs can
-be traced to the exact settings that produced it.
+By the end the factory had trained **197 models across 22 corpora and 17 languages, plus 278
+fine-tuning records made of 892 individual runs, using about 143 hours of graphics-card time** —
+and the number that matters more is that any of those runs can be traced to the exact settings
+that produced it.
+
+That first figure was 105 when this paragraph was written, then 156, then 197. It is recomputed by
+`poster_bottom.ipynb` rather than typed, which is the only reason the sentence is still true.
 
 ---
 
 ## 10. What we computed, and what made it hard
 
-**105 models sounds like a lot. Why so many?**
+**Two hundred models sounds like a lot. Why so many?**
 
 Not because of a grid search. A grid search asks "which settings give the best score?" — you try
 combinations and keep the winner. We were asking something different: **"is this difference real?"**
@@ -1248,15 +1292,34 @@ you scale it up, because at a hundred times the model size that 20% is the whole
 
 ---
 
-## 12. Enabling the upstairs half
+## 12. What someone else has to be able to call
+
+*This is cell 5 of the board, and the section it most needs. §6 above describes the interface as
+one of the factory's four stations, which is how it was built; this is the interface as the thing
+two other people had to operate under a deadline, which is what it turned out to be for.*
 
 The measure of the factory is not what it computed. It is whether two other people could use it —
 and the honest test of that is the poster hanging above this one. Every trained model, every
 score, and every comparison on Patrick and Leon's board came out of this machinery. If their
-poster stands up, that is the result this panel is reporting.
+poster stands up, that is the result this section is reporting.
 
-**Something they could call.** Nine functions, documented where they are defined, and nothing else
-to import.
+A factory only its author can operate is a hobby with a queue. Correctness and callability are
+different problems and they fail differently: a wrong answer eventually announces itself, whereas
+somebody who cannot work out how to call your code quietly writes their own and never mentions it.
+So the surface was cut until it fit on one screen, and the rest hidden.
+
+**Something they could call.** Nine functions — prepare, inspect, estimate, pretrain, the
+untrained control, and three ways to read results back — documented where they are defined, and
+nothing else to import. Behind them sit **1,634 lines** of pretraining machinery, inside a folder
+of **more than fourteen thousand lines** of Python none of which they have to open. Figure 19 draws
+that ratio, and it counts the folder at render time rather than quoting it: while this report was
+being written the folder grew 13% and the interface stayed at nine.
+
+Three of those nine exist only because a mistake made them necessary. `estimate()` measures twenty
+real steps on the actual card instead of consulting a throughput table, which was wrong the first
+time something else was using the GPU. `random_init()` is one line, because a control that costs
+an afternoon does not get run. And the run tag encodes every setting, because two runs once
+quietly overwrote each other.
 
 **Something that survives being shared.** Corpora, vocabularies and every result are committed to
 the repository, so Patrick and Leon can plot our findings without re-running anything.
@@ -1267,8 +1330,15 @@ a free cloud notebook. Nothing requires the two-card workstation.
 **Something they could find.** This one we got wrong. Leon cloned the repository, read the
 documentation, and asked whether there was an interface he was supposed to be using. There was —
 he could not find it, because the folder's front page described a *different* study and the
-relevant material started 130 lines in. That is a failure of my half, not his, and it is worth
-putting on the poster: **a tool nobody can find does not exist.**
+folder's front page was titled with a *different study* — "When Does Attention Beat Recurrence?" —
+and `mlm_api` first appeared on **line 25**, as one row of a second table, under a heading about
+"the masked-LM half". Every word of that was accurate. It was still unfindable, and that is a
+failure of my half rather than his: **a tool nobody can find does not exist.** The fix took twenty
+minutes — a two-row table at the top saying which study you are here for — and it should have been
+the first thing written rather than the last.
+
+Discoverability is part of an interface and it fails silently. Nobody files a bug saying they
+could not find your API.
 
 **And crucially, something they could argue with.** The most valuable thing the factory produced
 was not a model. It was Patrick being able to check a number I was confident about and show it was
@@ -1276,8 +1346,17 @@ wrong — twice. He found that a baseline everyone had quoted for weeks had neve
 and that an evaluation dataset used a different text encoding from our vocabulary, which had
 silently reversed a comparison. Both came from him re-running things rather than trusting them.
 
+It kept happening after the boards were written, which is the better evidence. He found that the
+label-quantity study's model set had grown from sixteen to twenty-one when somebody else's sweep
+landed, flipping a printed verdict with no change to the study at all. He found that the audit's
+untrained-NER floor was picking up his own subsampled controls and was right only by luck. He read
+a permutation *p* of 1/70 in a paragraph of mine and identified from that value alone that the
+test underneath it was one-sided while being reported as two-sided — without seeing the code,
+because the code was not in the repository to see.
+
 The collaboration worked because results were reproducible enough to be challenged. That is a
-property of the tooling, and it is the property I would defend hardest.
+property of the tooling, it is the property I would defend hardest, and being proved wrong five
+times by a partner is evidence the tooling succeeded rather than evidence it failed.
 
 ---
 
@@ -1332,7 +1411,7 @@ of errors were caught that way — including errors in text the assistant had it
 
 **The honest summary for a student:** it made me perhaps three to five times faster at building
 things, and no faster at all at knowing whether a result was true. Those are different skills, and
-only one of them was automated. If you take one thing from this panel, take that the verification
+only one of them was automated. If you take one thing from this section, take that the verification
 habit is not optional overhead — on this project it was the difference between eight findings and
 about three.
 
@@ -1360,7 +1439,7 @@ at every checkpoint we tested, in both directions. No threshold on "how far has 
 can work at any step.
 
 **The rule that does discriminate still loses money.** What actually separates the two groups is
-whether the run has *left its plateau* — the cliff from panel 11a. A rule that waits and then
+whether the run has *left its plateau* — the cliff in figure 08. A rule that waits and then
 abandons anything still flat catches **every one** of the doomed runs. It also kills a large
 number of good ones, because the cliff arrives anywhere from 15% to 90% of the way through a
 run. The best operating point available nets **−36.1 GPU-hours**.
@@ -1399,7 +1478,7 @@ a side a permutation test cannot return a p below 0.10.
 
 ---
 
-### Week 7 — is your metric the right metric?
+### Is your metric the right metric? *(cut from the board — see the note under the grid)*
 
 Every pretraining decision this term was made on **validation loss**. Not one was ever checked
 against whether the model is any *good* at anything, because of an accident of history: 107
@@ -1436,7 +1515,7 @@ the same checkpoints.
 
 ### Why the two tasks differ — and the explanation we got wrong first
 
-The first version of this panel blamed the floor: entity recognition starts closer to its ceiling,
+The first version of this account blamed the floor: entity recognition starts closer to its ceiling,
 so less is left for pretraining to supply. That is wrong, and it survived into a figure and an
 email before anyone checked it. **The floors are near enough identical** — 0.403 of 0.705 on topic
 classification is 57%, 0.414 of 0.798 on entity recognition is 52%. A five-point difference
@@ -1463,7 +1542,7 @@ other, and it has nothing to do with where the floor sits.
 The uncomfortable implication is for the data ladder, the step budgets and the seed replication —
 all chosen to move a number that, on one of our two tasks, moves nothing downstream.
 
-### Week 8 — does a tuned setting transfer to a new language?
+### Cell 8 — does a tuned setting transfer to a new language?
 
 This board claims adding a language is one function call. That is only true if the *settings* come
 with it, and we had never checked: Yoruba and English were tuned separately and the two best rates
@@ -1490,7 +1569,7 @@ warning itself rather than leaving it to be noticed, and the range has been exte
 for all five languages, not only the three that ran out of room, because extending just the arms
 that hit the edge is the asymmetry report 08 spent three passes removing.
 
-### The mistake inside this panel
+### The mistake inside this section
 
 The first version of this analysis called a run dead if it finished within four nats of an
 untrained model. That labels every *data-starved* run a failure — at 4M tokens the best anyone
