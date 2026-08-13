@@ -1,0 +1,99 @@
+%!Adobe-FontList 1.23
+%Locale:0x409
+
+%BeginFont
+Handler:DirectoryHandler
+FontType:TrueType
+FontName:EncodeSansNormal-Black
+FamilyName:Encode Sans Normal
+StyleName:Black
+FullName:Encode Sans Normal Black
+MenuName:Encode Sans Normal
+StyleBits:0
+WritingScript:Roman
+OutlineFileName:D:\Projects\Graphic Design\UW\UW Template Refresh 2023\ResearchPoster_Template_Vertical_2023 Packaged\Document fonts\EncodeSansNormal-900-Black.ttf
+DataFormat:sfntData
+hasSVG:no
+VariableFontType:NonVariableFont
+FileLength:209624
+FileModTime:1396366982
+WeightClass:900
+WidthClass:5
+AngleClass:0
+NameArray:0,Mac,18,Encode Sans Normal Black
+NameArray:0,Mac,4,Encode Sans Normal Black
+NameArray:0,Win,1,Encode Sans Normal
+%EndFont
+
+%BeginFont
+Handler:DirectoryHandler
+FontType:Type1
+FontName:UniSansBook
+FamilyName:Uni Sans
+StyleName:Book
+FullName:Uni Sans Book
+MenuName:Uni Sans Book
+StyleBits:0
+WritingScript:Roman
+OutlineFileName:D:\Projects\Graphic Design\UW\UW Template Refresh 2023\ResearchPoster_Template_Vertical_2023 Packaged\Document fonts\Fontfabric - UniSansBook.otf
+DataFormat:sfntData
+UsesStandardEncoding:yes
+isCFF:yes
+hasSVG:no
+VariableFontType:NonVariableFont
+FileLength:133084
+FileModTime:1489164714
+WeightClass:400
+WidthClass:5
+AngleClass:0
+NameArray:0,Mac,4,Uni Sans Book
+NameArray:0,Win,1,Uni Sans Book
+NameArray:0,Win,16,Uni Sans
+%EndFont
+
+%BeginFont
+Handler:DirectoryHandler
+FontType:TrueType
+FontName:OpenSans-Bold
+FamilyName:Open Sans
+StyleName:Bold
+FullName:Open Sans Bold
+MenuName:Open Sans
+StyleBits:2
+WritingScript:Roman
+OutlineFileName:D:\Projects\Graphic Design\UW\UW Template Refresh 2023\ResearchPoster_Template_Vertical_2023 Packaged\Document fonts\OpenSans-Bold.ttf
+DataFormat:sfntData
+hasSVG:no
+VariableFontType:NonVariableFont
+FileLength:224592
+FileModTime:1528475078
+WeightClass:700
+WidthClass:5
+AngleClass:0
+NameArray:0,Mac,4,Open Sans Bold
+NameArray:0,Win,1,Open Sans
+%EndFont
+
+%BeginFont
+Handler:DirectoryHandler
+FontType:TrueType
+FontName:OpenSans
+FamilyName:Open Sans
+StyleName:Regular
+FullName:Open Sans
+MenuName:Open Sans
+StyleBits:0
+WritingScript:Roman
+OutlineFileName:D:\Projects\Graphic Design\UW\UW Template Refresh 2023\ResearchPoster_Template_Vertical_2023 Packaged\Document fonts\OpenSans-Regular.ttf
+DataFormat:sfntData
+hasSVG:no
+VariableFontType:NonVariableFont
+FileLength:217360
+FileModTime:1528475078
+WeightClass:400
+WidthClass:5
+AngleClass:0
+NameArray:0,Mac,4,Open Sans
+NameArray:0,Win,1,Open Sans
+%EndFont
+
