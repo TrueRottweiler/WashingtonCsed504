@@ -82,6 +82,15 @@ PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results()
 REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}         # real-run medians; 127 and 70 runs
 
 
+TICK = 20.0                      # seconds between progress lines while a preset is timing
+
+
+def say(msg):
+    """Print immediately. Colab buffers stdout, and a progress line that arrives at the end of
+    the run is worse than none -- it looks like the script sat silent and then lied about it."""
+    print(msg, flush=True)
+
+
 def pick_device():
     # A TPU runtime has torch but no CUDA, so without this check it would silently fall through
     # to CPU and report a number that describes neither the TPU nor a sensible CPU baseline.
@@ -157,6 +166,7 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         torch.cuda.reset_peak_memory_stats()
         free_start, _ = torch.cuda.mem_get_info()
 
+    say(f'{preset:>10}: building the model ...')
     model = build(preset, device)
     if ckpt:
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
@@ -192,6 +202,7 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         if torch.cuda.max_memory_allocated() > free_start * 0.95:
             raise MemorySpill(f'peak {torch.cuda.max_memory_allocated() / 1024**3:.1f} GB '
                               f'against {free_start / 1024**3:.1f} GB free')
+    say(f'{preset:>10}: {warmup} warmup steps ...')
     for _ in range(warmup - 1):                  # warmup is not optional: the first steps pay
         one_step()                               # for kernel autotuning and allocator growth
     if device.type == 'cuda':
@@ -218,14 +229,35 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     # So: run for a fixed number of SECONDS, and report the last third separately from the first.
     # The ratio between them is the throttle, measured rather than assumed, and on a laptop it is
     # a finding rather than an artefact.
+    #
+    # It also prints while it works. Three minutes a preset is six minutes of silence for the two,
+    # and on a Colab cell silence is indistinguishable from a hang -- Jeffrey watched one for
+    # several minutes not knowing whether it had died. Every 20 seconds it says where it is and
+    # what it is currently getting, so a slow machine looks slow rather than broken, and the
+    # running figure lets you see the throttle happening rather than waiting for the verdict.
+    say(f'{preset:>10}: timing for {seconds:.0f}s ...')
     t0 = time.perf_counter()
-    marks, n = [], 0
-    while time.perf_counter() - t0 < seconds:
+    marks, n, next_report = [], 0, TICK
+    while True:
+        elapsed = time.perf_counter() - t0
+        if elapsed >= seconds:
+            break
         one_step()
         n += 1
-        if device.type == 'cuda' and n % 10 == 0:
-            torch.cuda.synchronize()
+        if n % 10 == 0:
+            # Sync before reading the clock, or the mark records when the work was QUEUED rather
+            # than when it finished. MPS needs this as much as CUDA does, and it is the device
+            # where throttle matters most -- a lightly-cooled chassis is the whole question.
+            if device.type == 'cuda':
+                torch.cuda.synchronize()
+            elif device.type == 'mps':
+                torch.mps.synchronize()
             marks.append((n, time.perf_counter() - t0))
+        if elapsed >= next_report:
+            rate = n * BATCH * SEQ / elapsed
+            say(f'{"":>10}  {elapsed:5.0f}s / {seconds:.0f}s   {n:6,} steps'
+                f'   {rate:9,.0f} tok/s so far')
+            next_report += TICK
     if device.type == 'cuda':
         torch.cuda.synchronize()
     dt_s = time.perf_counter() - t0
@@ -322,7 +354,7 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, 
         else (RuntimeError,)
     for cfg in attempts:
         try:
-            return bench(preset, device, dev_name, steps, warmup,
+            return bench(preset, device, dev_name, steps, warmup, seconds=seconds,
                          micro=cfg.get('micro'), ckpt=cfg.get('ckpt', False))
         except oom as e:
             # str() rather than the exception itself: e.__traceback__ pins bench()'s frame,
@@ -371,10 +403,14 @@ def main():
     # On CPU the defaults would run for tens of minutes and nobody would wait. Scale down and say
     # so, rather than appearing to hang -- a benchmark people abandon produces no data at all.
     if device.type == 'cpu':
-        if a.steps > 6:
-            a.steps, a.warmup = 4, 1
-            print('CPU detected: dropping to 4 timed steps. Even so, expect minutes, and expect '
-                  'the 98M model to be very slow.')
+        # The loop times a DURATION now, so there is no step count to shrink -- what a CPU needs
+        # is a shorter duration and one warmup step, or the 98M preset alone takes the best part
+        # of ten minutes. Said out loud because a benchmark people abandon produces no data.
+        a.warmup = 1
+        if a.seconds > 60:
+            a.seconds = 60.0
+            print(f'CPU detected: timing for {a.seconds:.0f}s per preset rather than 180. Expect '
+                  f'minutes even so, and expect the 98M model to be very slow.', flush=True)
     print(f'device: {dev_name}   torch {torch.__version__}   dtype {amp_dtype(device) or "fp32"}')
     if device.type == 'cuda':
         # mem_get_info is the DEVICE's free/total, across every process. memory_reserved() only
