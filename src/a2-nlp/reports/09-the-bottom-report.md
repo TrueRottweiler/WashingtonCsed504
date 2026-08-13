@@ -546,15 +546,79 @@ Colab cell.
 | machine | 33.8M model | 98M model | one 62,500-step run (98M) |
 |---|---|---|---|
 | **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
-| Surface Studio Laptop — RTX 2000 Ada Mobile | *to measure* | *to measure* | |
-| Google Colab — free tier | *to measure* | *to measure* | |
+| Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB | 76k tok/s | 32k tok/s\* | **8.8 h** |
+| — the same laptop with `--cpu`, GPU ignored | 1.2k tok/s | 0.5k tok/s | 23 days |
+| Google Colab — free tier (T4, fp16) | 65k tok/s | 26k tok/s | **10.9 h** |
 | Google Colab — paid tier | *to measure* | *to measure* | |
 | MacBook Pro — Apple Silicon, MPS | *to measure* | *to measure* | |
+
+\* The 98M model does not fit in 8 GB whole. This is the same 16,384-token step folded through
+gradient accumulation (micro-batch 64 × 2) — the next section is that story, and why the row is
+still the same experiment.
 
 The Toothless figures are medians across 96 and 55 completed runs, not a short probe — sustained
 rates after the card is hot, which is the only kind worth quoting. A twenty-step benchmark on a
 cold card reads about 10% high, and a benchmark run while another job holds the same card reads
-about **half**, which is a mistake we made and the script now warns about.
+about **half**, which is a mistake we made and the script now warns about. The laptop and Colab
+rows are forty-step probes, so read them as the ceiling of what a night will sustain. And the
+`--cpu` row is the same laptop with its GPU switched off: the **64×** between those two rows is
+what the GPU a student already owns is worth.
+
+##### The 8 GB story: we needed 10 GB and had 8
+
+An earlier version of this report said the 98M model on an 8 GB laptop card "is simply no, and
+no amount of patience changes it." Then we plugged in exactly that laptop and ran it, and both
+halves of the sentence turned out to be wrong in instructive ways.
+
+**The first thing that happened was worse than a no.** Windows does not refuse a model that is
+too big — the driver quietly spills the overflow into system RAM and keeps going. The benchmark
+"worked": it reported 5,075 tok/s, a peak of 9.86 GB on an 8 GB card, and no error of any kind.
+That number is not a slow GPU; it is the PCIe bus wearing a GPU costume, six times below what the
+card honestly does. On Linux the same run raises an out-of-memory error. This is the T4's
+software-bf16 defect in a different coat — a plausible number produced by a machine doing
+something other than what you think you are measuring — and it is why `bench_portable.py` now
+reads free memory before the first step and treats an allocation past it exactly like an OOM.
+
+**The second thing is that the model was never too big — the batch was.** The hard floor for the
+98M model is its parameters, gradients and optimizer state, about 1.6 GB. Everything above that
+is activations, and nothing in the study requires 128 sequences to be resident at once; it
+requires a **16,384-token optimizer step**. Gradient accumulation runs that step as two
+micro-batches of 64 with the loss averaged between them — identical update, identical schedule,
+the batch never stops being 128, and the project's unit (tokens of updates) does not move.
+This is not even a new knob: `mlm_train.pretrain()` has carried `accum=` since the workstation
+needed effective batches bigger than memory. Pointed the other way, it folds a 10 GB training
+run into **5.98 GB at 32,267 tok/s** — and micro-batch 32 × 4 measures within 2% of that, so
+the folding itself is nearly free. Activation checkpointing (recompute the forward pass,
+roughly a third slower) waits behind it in the fallback ladder; the 98M model never needed it.
+
+**What that buys a student with a gaming laptop, measured and plugged in:** the 33.8M model at
+3.8 hours a run and the 98M at 8.8 — one pretraining run per night, either size, on a card that
+sells inside consumer laptops. The same machine without its GPU is 241 hours for the *small*
+model: the difference between "one model per night" and "one model per fortnight, if nothing
+sleeps." A month of nights runs the small-model half of this study; patience, it turns out,
+changes quite a lot.
+
+**What an 8 GB card genuinely cannot do**, so the paragraph above does not oversell:
+
+- **The XLM-R-vocabulary arm.** A 250,002-token output head is 5.1× the compute per step and its
+  logits dwarf the 16k head's. We have not measured it on 8 GB; the arithmetic says micro-batches
+  shrink toward single digits and a run stops fitting in a night. This is the experiment where
+  "more memory" is the honest prescription.
+- **Experiments where the batch is the variable.** The throughput sweep that found batch 512 at
+  22.8 GB and batch 2048 at 89.7 GB cannot be folded — accumulation changes exactly the thing
+  under test.
+- **The English ladder's top rungs as designed.** The resident token store that deleted the
+  DataLoader wants the corpus in VRAM; 1,024M tokens is 2 GB before training starts. On 8 GB
+  those rungs mean streaming from host memory, which is real engineering this project has not
+  done.
+- **Latency.** 197 pretraining runs at a fifth of the speed is not a term. The card trains the
+  models; it does not make checking a hunch cheap, and cell 2 argues the hunches are where the
+  corrections came from.
+
+"Go buy a better video card" was never the interesting answer. The interesting answer is that
+the factory already owned the knob that makes 8 GB enough for most of this board, and that the
+list of things it is *not* enough for is short, specific, and worth knowing before you plan a
+term — rather than the day your card meets a model ten percent bigger than its memory.
 
 ##### How to tell these cards apart
 
@@ -567,7 +631,7 @@ decide everything, and none of them is the headline number on a spec sheet.
 | **T4** | Turing, 2018 | 16 GB GDDR6 | **no** | Colab's free card. Predates bf16, so our stack silently falls back to fp16 — which works, but is the precision we chose *not* to use |
 | **L4** | Ada, 2023 | 24 GB GDDR6 | yes | the value option: modern instruction set, modest bandwidth |
 | **A100** | Ampere, 2020 | 40 or 80 GB **HBM2e** | yes | older architecture than the L4 and far faster anyway, because HBM has roughly 5× the memory bandwidth |
-| **RTX 2000 Ada Mobile** | Ada, 2023 | 8 GB GDDR6 | yes | a laptop card. Modern, but 8 GB is the binding constraint |
+| **RTX 2000 Ada Mobile** | Ada, 2023 | 8 GB GDDR6 | yes | a laptop card, and the most instructive row: 8 GB holds the 98M model only folded — the section above |
 | **RTX PRO 6000 Max-Q** | Blackwell, 2025 | 96 GB GDDR7 | yes | ours. Compute capability 12.0, 188 SMs, both measured rather than quoted |
 | **Apple M-series** | — | *unified* | not in PyTorch | a different world; see below |
 | **TPU v5e / v6e** | Google | — | — | **not a GPU.** Different programming model entirely — `torch_xla`, a different training loop. Our code exits rather than pretend |
@@ -576,9 +640,15 @@ decide everything, and none of them is the headline number on a spec sheet.
 
 **The three things that actually decide it**
 
-1. **Does the model fit?** This is binary and it beats everything else. The 98M model at our batch
-   needs about 10 GB; on an 8 GB laptop card the answer is simply no, and no amount of patience
-   changes it.
+1. **Does the model fit?** This question looks binary and mostly is not, and both of our
+   failures prove it. The 98M model at our batch wants about 10 GB; a T4 reported "does not
+   fit" inside 15 GB (the emulated-bf16 defect), and the 8 GB laptop "fit" it by silently
+   spilling into system RAM at a sixth of the card's honest speed. What is actually binary is
+   the floor — parameters, gradients, optimizer state, about 1.6 GB here. Everything above the
+   floor is activations, and activations are negotiable: gradient accumulation folds the same
+   16,384-token step into micro-batches until it fits. The real question is "at what
+   micro-batch, and what does that cost" — measured in the 8 GB story above, and the answer
+   there was "almost nothing."
 2. **Memory bandwidth, not FLOPS.** Our models are small and our batches are small, so the card
    spends its time moving parameters, not multiplying them. That is why an A100 — a *older*
    architecture than an L4 — beats it comfortably: HBM2e against GDDR6.
@@ -635,10 +705,11 @@ There is an option between "buy a workstation" and "pay for cloud" that almost n
 students: **plug your laptop in and let it train while you sleep.**
 
 Eight hours a night, five nights a week, is **40 GPU-hours a month for free** — on hardware you
-already own and are not using between midnight and eight. Our entire project was 143.3 GPU-hours.
-Even at four or five times a laptop's disadvantage, the small-model half of this study is a
-month of nights. Drop the 98M model, which will not fit in 8 GB anyway, and it is comfortably
-less.
+already own and are not using between midnight and eight. Our entire project was 148 GPU-hours.
+"Four or five times a laptop's disadvantage" was this sentence's guess before we measured; the
+measured answer is 5.1×, and the small-model half of this study is a month of nights. The 98M
+model, folded through gradient accumulation because it does not fit in 8 GB whole, is 8.8 hours
+a run — precisely one model per night.
 
 | route | money | elapsed | what you need |
 |---|---|---|---|
@@ -678,13 +749,16 @@ Three caveats, because this is the number people will quote:
 - You get **whichever GPU is free**, so a study split across an A100 and an L4 has hardware as an
   uncontrolled variable. Week 3's fingerprint discipline is exactly the tool for noticing that.
 - **Owning wins eventually.** The crossover against rental is ~9,300 GPU-hours. This project used
-  83 — 0.9% of the way there.
+  148 — 1.6% of the way there.
 
-Two things this table is really for. The first is that "it does not fit" is a legitimate entry: a
-mobile card with 8 GB cannot hold the 98M model at this batch, and knowing that before you plan a
-term is worth more than any throughput number. The second is the ratio — if the same study is four
-days on a laptop and thirty-four hours here, that difference is not convenience, it is the
-difference between a study you run and a study you abandon. Which is the whole argument of cell 2.
+Two things this table is really for. The first is that "it does not fit" is a configuration
+statement, not a verdict: the 8 GB row runs the 98M model folded through gradient accumulation,
+and the row records that configuration, because a rate without one is not reproducible. What
+stays binary is the floor — the model, its gradients, its optimizer state — and knowing which
+experiments clear it before you plan a term is worth more than any throughput number. The second
+is the ratio — if the same study is four days on a laptop and thirty-four hours here, that
+difference is not convenience, it is the difference between a study you run and a study you
+abandon. Which is the whole argument of cell 2.
 
 ##### You have met this exact trap before
 

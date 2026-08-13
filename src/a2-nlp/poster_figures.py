@@ -1643,14 +1643,21 @@ def fig_hardware():
     only number in the project that cannot be produced from this machine. It needs somebody to run
     bench_portable.py somewhere else.
 
-    Two machines so far: the workstation, and a free Colab T4. That is enough for the sentence the
-    panel exists to earn, because the T4 is the floor -- it is what a student with no budget gets,
-    and if the study is feasible there it is feasible anywhere. More rows (L4, A100, a laptop, a
-    MacBook) drop in without touching this function.
+    Three machines so far: the workstation, a free Colab T4, and the 8 GB laptop -- measured
+    twice, once on its GPU and once with --cpu on its own processor, which is the pair that
+    answers "is a small mobile GPU even worth using". More rows (L4, A100, a MacBook) drop in
+    without touching this function.
 
     The first T4 reading was 33x and said no. It was bf16 running in software on a card whose
     tensor cores do not have it; measured in fp16 the same card is 5.9x. Both numbers looked
-    equally plausible on the page, which is why the row carries its dtype.
+    equally plausible on the page, which is why the row carries its dtype. The laptop's first
+    reading failed the same way in a different direction: Windows spilled the 98M model into
+    system RAM and reported 5,075 tok/s of PCIe traffic as if it were the GPU. Its row carries
+    the gradient-accumulation configuration that actually fits for the same reason.
+
+    CPU rows are kept off the bar panel on purpose: 551 hours next to 1.5 would flatten every
+    GPU bar to nothing on a linear axis, and the number a reader needs from the CPU is not its
+    bar but its ratio to the card sitting in the same chassis.
     """
     rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
     machines, order = {}, []
@@ -1660,6 +1667,8 @@ def fig_hardware():
             machines[key] = {}
             order.append(key)
         machines[key][r['preset']] = r
+    cpu_only = [k for k in order if not machines[k]['poc'].get('compute_capability')]
+    order = [k for k in order if machines[k]['poc'].get('compute_capability')]
     # Fastest first, so the workstation anchors the left and the question "how far down can you
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
@@ -1668,15 +1677,17 @@ def fig_hardware():
                                   gridspec_kw={'width_ratios': [1.25, 1.0]})
 
     short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120',
-             'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16'}
+             'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16',
+             'NVIDIA RTX 2000 Ada Generation Laptop GPU': 'RTX 2000 Ada Laptop\nsm_89 · 8 GB'}
     xs = range(len(order))
     for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
                                     (1, 'afriberta', C2, '98M model')):
         vals = [machines[k][preset]['full_run_hours'] for k in order]
         ax.bar([x + (i - 0.5) * 0.36 for x in xs], vals, 0.34, color=color, label=label,
                zorder=3)
-        for x, v in zip(xs, vals):
-            ax.text(x + (i - 0.5) * 0.36, v + 0.25, f'{v:.1f} h', ha='center',
+        for x, v, k in zip(xs, vals, order):
+            star = '*' if 'micro_batch' in machines[k][preset] else ''
+            ax.text(x + (i - 0.5) * 0.36, v + 0.25, f'{v:.1f} h{star}', ha='center',
                     color=INK, fontsize=12, fontweight='bold')
     ax.set_xticks(list(xs))
     ax.set_xticklabels([short.get(k, k) for k in order], fontsize=12)
@@ -1702,8 +1713,15 @@ def fig_hardware():
         (f"{t4['project_hours_here']/24:.0f} days", 'of card time for the whole project'),
         (f"{t4['peak_gb']:.1f} GB", f"peak of 15 — the 98M fits too, at {machines['Tesla T4']['afriberta']['peak_gb']:.1f}"),
     ]
+    # The 8 GB laptop measured against its own processor: the ratio that tells a student
+    # whether the GPU they already own is worth plugging in for.
+    lap = machines.get('NVIDIA RTX 2000 Ada Generation Laptop GPU')
+    if lap and cpu_only:
+        cpu = machines[cpu_only[0]]
+        lines.append((f"{lap['poc']['tokens_per_s'] / cpu['poc']['tokens_per_s']:.0f}×",
+                      'faster than the same laptop with its GPU ignored'))
     for i, (big, rest) in enumerate(lines):
-        y = 0.60 - i * 0.118
+        y = 0.62 - i * 0.105
         ax2.text(0.0, y, big, color=INK, fontsize=17, fontweight='bold', va='center')
         ax2.text(0.30, y, rest, color=INK2, fontsize=12, va='center')
     ax2.text(0, 0.02,
@@ -1711,11 +1729,14 @@ def fig_hardware():
              'a night for a month gets the same board — they wait longer for it.',
              color=INK2, fontsize=11.5, va='bottom', linespacing=1.6)
 
-    fig.text(0.5, -0.06,
+    fig.text(0.5, -0.145,
              "Measured by bench_portable.py on each machine. The T4's first reading was 33× and "
              "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True,\n"
-             "so a card without bf16 tensor cores ran it in software. Every row carries its dtype "
-             "for that reason. Rows still wanted: a laptop, a MacBook, Colab L4 and A100.",
+             "so a card without bf16 tensor cores ran it in software. Every row carries its "
+             "dtype for that reason. * The 98M model does not fit whole in 8 GB — the laptop "
+             "runs it\nas the same 16,384-token step via gradient accumulation (micro-batch "
+             "64 × 2), which is the configuration the row records. Rows still wanted: a "
+             "MacBook, Colab L4 and A100.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 
