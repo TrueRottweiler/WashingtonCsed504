@@ -1692,7 +1692,6 @@ def fig_hardware():
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
 
-    FULL_RUN_TOKENS = 62_500 * 128 * 128
     # Six machines' worth of two-line tick labels need more rail than two did.
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(17.0, 6.0),
                                   gridspec_kw={'width_ratios': [1.75, 1.0]})
@@ -1742,6 +1741,7 @@ def fig_hardware():
         m = machines[device]
         return {'name': name, 'fixed': fixed,
                 'rate': {p: m[p]['tokens_per_s'] for p in ('poc', 'afriberta')},
+                'hours': m['poc']['full_run_hours'],
                 'uph': m['poc'].get('compute_units_per_hour'),
                 'usd': m['poc'].get('usd_per_compute_unit')}
 
@@ -1773,8 +1773,10 @@ def fig_hardware():
         col = C3 if strong else INK
         ax2.text(cols[0], y, t['name'], color=col, fontsize=12.5,
                  fontweight='bold' if strong else 'normal')
-        ax2.text(cols[1], y, f"{FULL_RUN_TOKENS / t['rate']['poc'] / 3600:.1f} h", color=col,
-                 fontsize=12.5, ha='right')
+        # Quote the row's own full_run_hours, exactly as the bars do. Re-deriving hours from
+        # the rate here put 5.2 h on the T4's bar and 5.3 h in the table beside it -- the same
+        # machine, the same measurement, split by a second rounding.
+        ax2.text(cols[1], y, f"{t['hours']:.1f} h", color=col, fontsize=12.5, ha='right')
         ax2.text(cols[2], y, f'{hrs / 24:.0f} d', color=col, fontsize=12.5, ha='right')
         ax2.text(cols[3], y, cost, color=col, fontsize=12.5, ha='right',
                  fontweight='bold' if strong else 'normal')
