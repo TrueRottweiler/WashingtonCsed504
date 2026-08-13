@@ -52,7 +52,7 @@ STUDIES = {
     'gradient_languages.json': ('prepare_gradient_languages.py', 'which languages were prepared'),
     'scaling_law.json': ('scaling_law.py', 'the fitted data/compute surface'),
     'claims_audit.json': ('claims_audit.py', 'every comparative claim against its null'),
-    'hardware.json': ('bench_portable.py', 'one run costed on each machine — NOT YET COLLECTED'),
+    'hardware.json': ('bench_portable.py', 'one run costed on each machine — 3 so far'),
 }
 
 # `runs/pipeline_bench.json` in prose or code, with or without the runs/ prefix.
