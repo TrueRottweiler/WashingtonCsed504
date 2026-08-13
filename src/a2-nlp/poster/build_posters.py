@@ -4,9 +4,9 @@ Outputs are editable PowerPoint files plus print PDFs and PNG previews. The layo
 recursive/axis-aligned splits: each design starts with one content rectangle and partitions it
 into a small number of visual regions before placing text or figures.
 
-FROM PR #77, WITH TWO THINGS CHANGED AND ONE STILL OPEN. Patrick wrote this and it is the only
-tool in the project that turns a board into something printable, which is why it is here. Three
-notes for whoever picks it up.
+FROM PR #77, WITH TWO THINGS CHANGED AND ONE STILL OPEN. Leon wrote this and it is the only tool
+in the project that turns a board into something printable, which is why it is here. Three notes
+for whoever picks it up.
 
 The docstring used to say "3x4-foot" and the eight committed outputs were 36 x 48 inches. The UW
 vertical template is 24 x 36 -- 2.25x smaller in area. That was my error before it was anybody

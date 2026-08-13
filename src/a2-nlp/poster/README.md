@@ -1,7 +1,7 @@
 # poster/ — turning a board into something printable
 
 `build_posters.py` renders the two posters into editable PowerPoint, print PDF and a PNG preview,
-from the UW templates. It came from Patrick's PR #77 and is the only tool in the project that
+from the UW templates. It came from Leon's PR #77 and is the only tool in the project that
 produces something you can hand to a print shop.
 
 ```bash
