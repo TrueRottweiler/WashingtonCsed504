@@ -378,6 +378,8 @@ times, as it happens, and every one of them improved a number on one of these tw
 
 **Big number:** `62,500 steps = 1.024B tokens`
 
+![Panel 1](figures/21-hardware.png)
+
 **Problem.** Every course up to this point measured training in epochs, and an epoch is a
 perfectly good unit as long as the dataset is a constant. The moment the dataset becomes a
 variable — which is the first thing any scaling study does — an epoch stops meaning anything

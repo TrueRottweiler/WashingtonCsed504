@@ -1636,13 +1636,97 @@ def fig_board_layout():
     save(fig, '20-board-layout')
 
 
+def fig_hardware():
+    """What one run costs on each machine, and whether you need the workstation.
+
+    Panel 1's figure, and the last blocked cell on the bottom board -- blocked because it is the
+    only number in the project that cannot be produced from this machine. It needs somebody to run
+    bench_portable.py somewhere else.
+
+    Two machines so far: the workstation, and a free Colab T4. That is enough for the sentence the
+    panel exists to earn, because the T4 is the floor -- it is what a student with no budget gets,
+    and if the study is feasible there it is feasible anywhere. More rows (L4, A100, a laptop, a
+    MacBook) drop in without touching this function.
+
+    The first T4 reading was 33x and said no. It was bf16 running in software on a card whose
+    tensor cores do not have it; measured in fp16 the same card is 5.9x. Both numbers looked
+    equally plausible on the page, which is why the row carries its dtype.
+    """
+    rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    machines, order = {}, []
+    for r in rows:
+        key = r['device']
+        if key not in machines:
+            machines[key] = {}
+            order.append(key)
+        machines[key][r['preset']] = r
+    # Fastest first, so the workstation anchors the left and the question "how far down can you
+    # go" reads left to right.
+    order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
+
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.6),
+                                  gridspec_kw={'width_ratios': [1.25, 1.0]})
+
+    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'RTX PRO 6000\nBlackwell · sm_120',
+             'Tesla T4': 'Colab T4, free tier\nsm_75 · fp16'}
+    xs = range(len(order))
+    for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
+                                    (1, 'afriberta', C2, '98M model')):
+        vals = [machines[k][preset]['full_run_hours'] for k in order]
+        ax.bar([x + (i - 0.5) * 0.36 for x in xs], vals, 0.34, color=color, label=label,
+               zorder=3)
+        for x, v in zip(xs, vals):
+            ax.text(x + (i - 0.5) * 0.36, v + 0.25, f'{v:.1f} h', ha='center',
+                    color=INK, fontsize=12, fontweight='bold')
+    ax.set_xticks(list(xs))
+    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=12)
+    ax.set_ylabel('hours for one 62,500-step run')
+    ax.set_ylim(0, max(machines[k]['afriberta']['full_run_hours'] for k in order) * 1.28)
+    ax.legend(loc='upper left')
+    ax.set_title('One run, on each machine', pad=30, loc='left')
+    ax.text(0, 1.04, 'same experiment, same token budget', transform=ax.transAxes,
+            color=INK2, fontsize=12, va='bottom')
+
+    # The right panel is the claim the panel has to earn, in the unit a student actually has.
+    ax2.axis('off')
+    ax2.set_xlim(0, 1)
+    ax2.set_ylim(0, 1)
+    t4 = machines['Tesla T4']['poc']
+    ws = machines['NVIDIA RTX PRO 6000 Blackwell Max-Q']['poc']
+    ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
+             fontweight='bold', va='top')
+    ax2.text(0, 0.80, 'Yes.', color=C3, fontsize=44, fontweight='bold', va='top')
+    lines = [
+        (f"{t4['vs_workstation']:.1f}×", 'slower than the workstation, on a free T4'),
+        (f"{t4['full_run_hours']:.1f} h", 'for one full run — an overnight job'),
+        (f"{t4['project_hours_here']/24:.0f} days", 'of card time for the whole project'),
+        (f"{t4['peak_gb']:.1f} GB", f"peak of 15 — the 98M fits too, at {machines['Tesla T4']['afriberta']['peak_gb']:.1f}"),
+    ]
+    for i, (big, rest) in enumerate(lines):
+        y = 0.60 - i * 0.118
+        ax2.text(0.0, y, big, color=INK, fontsize=17, fontweight='bold', va='center')
+        ax2.text(0.30, y, rest, color=INK2, fontsize=12, va='center')
+    ax2.text(0, 0.02,
+             'The workstation bought latency, not access. A student who runs one cell\n'
+             'a night for a month gets the same board — they wait longer for it.',
+             color=INK2, fontsize=11.5, va='bottom', linespacing=1.6)
+
+    fig.text(0.5, -0.06,
+             "Measured by bench_portable.py on each machine. The T4's first reading was 33× and "
+             "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True,\n"
+             "so a card without bf16 tensor cores ran it in software. Every row carries its dtype "
+             "for that reason. Rows still wanted: a laptop, a MacBook, Colab L4 and A100.",
+             ha='center', color=INK2, fontsize=11, linespacing=1.7)
+    save(fig, '21-hardware')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
            fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
-           fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout)
+           fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout, fig_hardware)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
