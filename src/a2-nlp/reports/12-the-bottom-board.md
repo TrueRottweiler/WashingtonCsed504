@@ -137,6 +137,10 @@ make it a variable by definition. Pick the unit that survives the thing you inte
 write it into the tooling so nobody has to remember. The cost of getting this wrong is not a bad
 number — it is two numbers that look comparable and are not.
 
+**Source.** Every pretraining record, via `mlm_api.results('*')`; the step and batch fields are
+written by `mlm_train.py` at the end of each run. The 4M-to-1,024M ladder is `runs/scaling_law.json`
+(`scaling_law.py`).
+
 **What this makes possible.** You cannot say a run got faster until you can say what a run *is*.
 Week 2 is the measurement, and it needs this unit to be meaningful.
 
@@ -173,6 +177,10 @@ four of the five corrections on this board came from a cheap re-run somebody did
 hunch is not worth acting on at 25 minutes a cell. Conflating efficiency with parallelism is how a
 project claims 2× and bought 1.3×, so decompose any speedup before quoting it. And optimize early
 when what you are buying is *iteration* rather than throughput.
+
+**Source.** `runs/pipeline_bench.json` (`pipeline_bench.py`) for the stage timings in change 4;
+the 2.07× decomposition is report 03, measured on the four-cell comparison it names. Rows without a
+record file were measured once at the time and are marked as such in the table.
 
 **What this makes possible.** Weeks 6 through 9 each rest on running one cell three to fifteen
 times. At 25 minutes a run nobody would have done that, and every result below would have been a
@@ -280,6 +288,11 @@ unreproducible, so the rule is that anything you would be upset to lose does not
 And a split only helps if both halves produce the same artifact — two formats would have moved
 the problem rather than solved it.
 
+**Source.** `runs/pipeline_bench.json` (`pipeline_bench.py`) — the 20.7 s is stage *"2. train 16k
+BPE tokenizer"*, `trained_on_chars` 12,745,110; the 1 s read and the 21 s encode are the `extrapolated_full_s`
+fields of stages 1 and 3, not the sampled `seconds` beside them. The 85 minutes is stage *"6. train step,
+98M model"*, `hours_for_62500_steps` × 60.
+
 **What this makes possible.** Work that runs unattended overnight has nobody watching it, which
 means it has to describe itself. Week 4 is what that costs.
 
@@ -346,6 +359,9 @@ the answer. A vocabulary needs a hash, because two people following the same rec
 produce the same tokenizer. And a dashboard that shows an empty queue while both cards are at 85%
 is worse than no dashboard, because it answers the question wrongly instead of declining to.
 
+**Source.** `mlm_api.results('*')` and `ft_api.results('*', eval_split=None)` for the inventory;
+the fingerprint is `corpus_info('yor')['vocab_fingerprint']`.
+
 **What this makes possible.** A record that describes itself is the smallest unit of work somebody
 else can pick up without asking you what it is. Week 5 is that same property at the scale of a
 whole interface — and Week 6 needs both, because you cannot ask whether two numbers differ until
@@ -409,6 +425,9 @@ part of the interface and fails silently — nobody files a bug saying they coul
 And the property to defend hardest is not accuracy but *challengeability*: the collaboration
 worked because results were reproducible enough to be argued with, and being proved wrong twice by
 a partner is evidence the tooling succeeded, not evidence it failed.
+
+**Source.** Counted at render time from `mlm_api.py` and the folder by `poster_figures._api_surface()`,
+which is why the figure and this sheet cannot disagree about a number that moves weekly.
 
 **What this makes possible.** Once other people can run your comparisons and disagree with your
 numbers, "is this difference real" stops being a private question. Week 6 is the rule we needed.
@@ -485,6 +504,10 @@ things just above it. A pre-registered sample size sets a floor on the p-value y
 quote, and that floor is often larger than people expect. This is the instrument the rest of the
 board is read through, and the first thing it did was retire two of our own numbers.
 
+**Source.** `runs/claims_audit.json` (`claims_audit.py`) for which claims clear the bar. The four
+derivations above are arithmetic, not measurements — they are reproduced here so a reader never has to
+take a threshold on faith.
+
 **What this makes possible.** Weeks 7 through 9 are all comparisons, and so is every number on
 the board above this one. Without this they are anecdotes with decimal points.
 
@@ -540,6 +563,9 @@ reversed. Both readings come from the same runs; only the axis held fixed change
 arms differ in something that changes cost per step, "same steps" is a budget transfer rather than
 a control. Convert to a unit that does not depend on the thing you are varying, and state which
 axis you held fixed, because the reader cannot tell from the number.
+
+**Source.** `runs/tokenizer_seeds.json` (`study_tokenizer_seeds.py`), selected through `arm_records()`
+rather than a glob; throughput from the `tokens_per_s` field of the runs themselves.
 
 **What this makes possible.** The tokenizer question can now be asked in a unit capable of
 answering it — and it is asked on the board above this one, where it belongs. Week 8 takes the
@@ -676,6 +702,10 @@ after the fact rather than re-run from scratch — not one new model was trained
 it. `study_budget.py` recomputes all five parts and writes `runs/budget.json`; quote it from there
 rather than from this sheet.
 
+**Source.** `runs/lr_transfer.json` (`study_lr_transfer.py`) for the 60-run grid, and `runs/budget.json`
+(`study_budget.py`) for every number in the luck-and-skill section below — that script recomputes all five
+parts and trained nothing new to do it.
+
 **What this makes possible.** If runs can fail this way — and if a second seed is the cheapest
 instrument for noticing — the obvious engineering response is to catch the failures early and stop
 paying for them. Week 9 tries exactly that, and fails.
@@ -711,6 +741,9 @@ fifteen seeds a side, does **not** prevent divergence either (4 of 15 against 3 
 p = 1.00). What clipping does do is improve the runs that survive (2.825 → 2.530, exact p = 0.0003)
 and tighten them (sd 0.256 → 0.104, p = 0.0065), which is a real benefit and not the one it was
 sold on.
+
+**Source.** `runs/early_signal.json` (`early_signal.py`) for the eleven checkpoints and the abandonment
+grid; `runs/clip_prevention.json` (`study_clip_prevention.py`) for the fifteen-seeds-a-side clipping test.
 
 ---
 
@@ -949,6 +982,43 @@ machine.
 
 ---
 
+# Provenance — where every number on this board comes from
+
+Each cell above ends with a **Source** line naming the record a reader can open. This is the index
+of those records. The layer being cited is deliberate: a report cites the **study record**, the
+study record is computed from the ~700 per-run files beside it, and those are what the cards
+actually wrote. The middle layer is the useful altitude — small enough to read, specific enough to
+check.
+
+| record | written by | what it holds |
+|---|---|---|
+| `runs/pipeline_bench.json` | `pipeline_bench.py` | what each stage of a run costs in wall-clock |
+| `runs/budget.json` | `study_budget.py` | luck vs skill vs search budget on the 60-run grid |
+| `runs/lr_transfer.json` | `study_lr_transfer.py` | five languages x six rates x two seeds |
+| `runs/early_signal.json` | `early_signal.py` | can a doomed run be detected early |
+| `runs/clip_prevention.json` | `study_clip_prevention.py` | does tighter clipping prevent divergence |
+| `runs/swap_downstream.json` | `study_swap_downstream.py` | the vocabulary swap, carried downstream |
+| `runs/tokenizer_seeds.json` | `study_tokenizer_seeds.py` | six pre-registered seeds a side |
+| `runs/label_quantity.json` | `study_label_quantity.py` | the decisive labelled-data experiment |
+| `runs/ner_control_sweep.json` | `study_ner_control_sweep.py` | the untrained NER floor, twelve rates |
+| `runs/downstream_correlation.json` | `study_downstream_correlation.py` | does validation loss predict downstream score |
+| `runs/gradient_table.json` | `gradient_table.py` | the vocabulary penalty across seventeen languages |
+| `runs/gradient_languages.json` | `prepare_gradient_languages.py` | which languages were prepared |
+| `runs/scaling_law.json` | `scaling_law.py` | the fitted data/compute surface |
+| `runs/claims_audit.json` | `claims_audit.py` | every comparative claim against its null |
+| `runs/hardware.json` *(not yet on disk)* | `bench_portable.py` | one run costed on each machine — NOT YET COLLECTED |
+
+`check_provenance.py` resolves every `runs/*.json` named in any report against what is on disk, and
+reports the other direction too: a record that exists and no report points at is an experiment that
+ran and never reached a reader. It exits non-zero on a dangling citation, so it belongs in the print
+gate beside `check_links.py` and `check_boards.py`.
+
+**One citation dangles on purpose.** `runs/hardware.json` is named by Week 1 and the Appendix and
+does not exist, because the measurements can only come from machines that are not this one. That is
+the blocked cell, and the check stops failing the moment the benchmark is run.
+
+---
+
 # References
 
 Everything the board leans on that we did not measure ourselves — **including the assistant**,
@@ -1064,7 +1134,7 @@ instead of citing it and carrying on.
     unattended overnight, no result was analyzed without a person reading the records, and the
     scheduler that spent every one of the 143.3 GPU-hours has no model in it. It was also
     confidently and completely wrong three times, in ways worth reading rather than summarizing.
-    **The full account is [report 09 §13](09-the-poster.md), "How we used AI, honestly."**
+    **The full account is [report 09 §13](09-the-bottom-report.md), "How we used AI, honestly."**
 
 **Check before printing.** Reference 6 is the one to verify — mmBERT is recent enough that the
 canonical citation may have changed since this was written, and a poster is a bad place to be

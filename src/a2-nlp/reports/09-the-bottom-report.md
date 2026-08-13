@@ -29,7 +29,7 @@ factory was for; the top poster — [report 13](13-the-top-board.md) — carries
 this line claimed they were, one-for-one, and that stopped being true when the board was rebuilt:
 it is **nine cells and a strip**, and this is fifteen sections of long form. One is not a subset
 of the other. The board is laid out from
-[the build sheet](12-poster-build-sheet-v2.md); this is where a reader goes when a cell makes them
+[the build sheet](12-the-bottom-board.md); this is where a reader goes when a cell makes them
 want the whole argument. The table under *CSED 505* below is the current board, and the mapping
 from each cell to the section that carries it is beside it.
 
