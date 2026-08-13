@@ -1733,12 +1733,23 @@ def fig_hardware():
     # A100 costs 4.40x the L4 per hour and returns 4.48x the throughput, so the same work lands
     # within 5% of the same price on either tier. You buy latency, not access, which is the
     # workstation argument arrived at from a completely different direction.
-    ws_rate = {'poc': 381_817, 'afriberta': 184_329}
-    tiers = [('Colab T4, free', {'poc': 64_644, 'afriberta': 26_050}, None, '$0'),
-             ('Colab L4, Pro', {'poc': 87_800, 'afriberta': 39_050}, 1.54, None),
-             ('Colab A100, Pro', {'poc': 393_405, 'afriberta': 184_726}, 6.77, None),
-             ('the workstation', ws_rate, None, '$24,000')]
-    USD_PER_UNIT = 0.0999
+    # The table's rates come from the same rows as the bars, so the two halves of the figure
+    # cannot disagree. The first version hardcoded burst readings here -- a hand-typed count on
+    # the one board that forbids them -- and the day the sustained rows landed, the bars moved
+    # and the table did not. Billing fields ride on the rows, read off the usage page the day
+    # of the sitting; a paid tier whose rows lack them shows an em dash rather than a guess.
+    def tier(name, device, fixed=None):
+        m = machines[device]
+        return {'name': name, 'fixed': fixed,
+                'rate': {p: m[p]['tokens_per_s'] for p in ('poc', 'afriberta')},
+                'uph': m['poc'].get('compute_units_per_hour'),
+                'usd': m['poc'].get('usd_per_compute_unit')}
+
+    tiers = [tier('Colab T4, free', 'Tesla T4', fixed='$0'),
+             tier('Colab L4, Pro', 'NVIDIA L4'),
+             tier('Colab A100, Pro', 'NVIDIA A100-SXM4-80GB'),
+             tier('the workstation', 'NVIDIA RTX PRO 6000 Blackwell Max-Q', fixed='$24,000')]
+    ws_rate = tiers[-1]['rate']
 
     ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
              fontweight='bold', va='top')
@@ -1751,24 +1762,34 @@ def fig_hardware():
         ax2.text(x, 0.685, lbl, color=MUTED, fontsize=10.5, ha='right', fontweight='bold')
     ax2.plot([0, 1.0], [0.655, 0.655], color=GRID, lw=1.2)
 
-    for n, (name, rate, uph, fixed) in enumerate(tiers):
+    costs = {}
+    for n, t in enumerate(tiers):
         y = 0.575 - n * 0.088
-        hrs = sum(WS_HOURS[k] * ws_rate[k] / rate[k] for k in WS_HOURS)
-        cost = fixed if fixed else f'${hrs * uph * USD_PER_UNIT:,.0f}'
-        strong = name.startswith('Colab A100')
+        hrs = sum(WS_HOURS[k] * ws_rate[k] / t['rate'][k] for k in WS_HOURS)
+        if not t['fixed'] and t['uph'] and t['usd']:
+            costs[t['name']] = hrs * t['uph'] * t['usd']
+        cost = t['fixed'] or (f"${costs[t['name']]:,.0f}" if t['name'] in costs else '—')
+        strong = t['name'].startswith('Colab A100')
         col = C3 if strong else INK
-        ax2.text(cols[0], y, name, color=col, fontsize=12.5,
+        ax2.text(cols[0], y, t['name'], color=col, fontsize=12.5,
                  fontweight='bold' if strong else 'normal')
-        ax2.text(cols[1], y, f"{FULL_RUN_TOKENS / rate['poc'] / 3600:.1f} h", color=col,
+        ax2.text(cols[1], y, f"{FULL_RUN_TOKENS / t['rate']['poc'] / 3600:.1f} h", color=col,
                  fontsize=12.5, ha='right')
         ax2.text(cols[2], y, f'{hrs / 24:.0f} d', color=col, fontsize=12.5, ha='right')
         ax2.text(cols[3], y, cost, color=col, fontsize=12.5, ha='right',
                  fontweight='bold' if strong else 'normal')
 
-    ax2.text(0, 0.085,
-             'The A100 costs 4.4× the L4 per hour and returns 4.5× the throughput, so\n'
-             'the whole project lands within 5% of the same price on either tier.',
-             color=INK, fontsize=11.5, va='bottom', linespacing=1.6)
+    # Computed, not quoted: this sentence read "4.4x / 4.5x / within 5%" as prose while the
+    # numbers lived in the rows, and prose does not notice when its numbers move.
+    l4 = next(t for t in tiers if t['name'] == 'Colab L4, Pro')
+    a100 = next(t for t in tiers if t['name'] == 'Colab A100, Pro')
+    if l4['name'] in costs and a100['name'] in costs:
+        gap = abs(costs[a100['name']] / costs[l4['name']] - 1)
+        ax2.text(0, 0.085,
+                 f"The A100 costs {a100['uph'] / l4['uph']:.1f}× the L4 per hour and returns "
+                 f"{a100['rate']['poc'] / l4['rate']['poc']:.1f}× the throughput, so\n"
+                 f"the whole project lands within {gap:.0%} of the same price on either tier.",
+                 color=INK, fontsize=11.5, va='bottom', linespacing=1.6)
     ax2.text(0, 0.0,
              'Compute-unit rates move with pricing and demand — read 13 Aug 2026 at $9.99\n'
              'per 100 units. One reading, not a constant. The ratio is the durable part.',

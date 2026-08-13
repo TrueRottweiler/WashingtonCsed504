@@ -426,8 +426,11 @@ def main():
                   'out at half the sustained rate. A desktop merely holding memory (Windows '
                   'uses ~1 GB for the display) costs headroom rather than speed, and the '
                   'fallback below accounts for it.')
+    # Print the timing mode the loop actually uses. This line used to say "40 timed steps" from
+    # the vestigial --steps flag while the loop timed a duration -- and a transcript that lies
+    # about its own method is how burst numbers sneak back onto the figure.
     print(f'batch {BATCH} x seq {SEQ} = {BATCH*SEQ:,} tokens per step, '
-          f'{a.steps} timed steps after {a.warmup} warmup\n')
+          f'timing {a.seconds:.0f}s per preset after {a.warmup} warmup steps\n')
 
     if a.note:
         print(f'note: {a.note}')
