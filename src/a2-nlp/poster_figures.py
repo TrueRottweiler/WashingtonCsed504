@@ -1380,13 +1380,141 @@ def fig_label_quantity():
     save(fig, '18-label-quantity')
 
 
+def _api_surface():
+    """The published interface and the code behind it, read off the files rather than recalled.
+
+    Every quantity this figure draws is counted at render time on purpose. The build sheet quoted
+    the folder at 12,861 lines for two days and it is 14,409 now -- four checks and a study were
+    added in between, none of which changed the interface at all. A figure whose whole subject is
+    "a small surface on a large body" cannot carry a literal for the body.
+    """
+    def count(path):
+        with open(os.path.join(HERE, path), encoding='utf-8') as fh:
+            return len(fh.read().splitlines())
+
+    import ast
+    import glob as _glob
+
+    with open(os.path.join(HERE, 'mlm_api.py'), encoding='utf-8') as fh:
+        tree = ast.parse(fh.read())
+    sigs = []
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef) or node.name.startswith('_'):
+            continue
+        pos = [a.arg for a in node.args.args]
+        required = pos[:len(pos) - len(node.args.defaults)]
+        # Required arguments in full, optionals as an ellipsis. The real pretrain() takes fifteen
+        # and printing them all would make the one line nobody can read the widest thing on the
+        # panel -- which would say the opposite of what the panel is for.
+        #
+        # The join has to handle "no required arguments at all": results() and bits_per_char()
+        # take only optionals, and the obvious f-string renders them as `results(, …)`. Caught by
+        # looking at the rendered figure, which is the only way that class of defect is ever
+        # caught.
+        inner = ', '.join(required + (['…'] if len(pos) > len(required) else []))
+        sigs.append(f'{node.name}({inner})')
+
+    return {
+        'signatures': sigs,
+        'api': count('mlm_api.py'),
+        'factory': sum(count(p) for p in
+                       ('mlm_api.py', 'mlm_data.py', 'mlm_train.py', 'text_data.py')),
+        'folder': sum(count(os.path.basename(p))
+                      for p in sorted(_glob.glob(os.path.join(HERE, '*.py')))),
+        'files': len(_glob.glob(os.path.join(HERE, '*.py'))),
+    }
+
+
+def fig_api():
+    """What somebody else has to be able to call. Week 5 of the bottom board.
+
+    NOT A CHART, and that is the design decision worth recording. The panel's content is nine
+    function signatures, which are type; the only quantity is one ratio, and it is roughly 1:40
+    between the file you import and the folder you do not. A bar chart of that is one visible bar
+    and one invisible one.
+
+    So: emphasis rather than categorical. One accent for the surface a caller touches, the
+    de-emphasis gray for everything behind it, and a single stacked track in ONE unit -- lines of
+    Python -- so the nesting is legible without a second axis. The function count is a hero
+    number set beside the track rather than a segment in it, because nine functions and 14,409
+    lines are not the same quantity and stacking them would be exactly the dual-axis mistake.
+
+    The caption is the panel's actual finding, and it is a failure rather than a number: Leon
+    cloned the repository, read the documentation and asked whether there was an interface he was
+    supposed to be using. There was.
+    """
+    d = _api_surface()
+    fig = plt.figure(figsize=(13.0, 6.1))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.58, 1.0], wspace=0.16)
+
+    # --- left: the interface itself, which is the content ------------------------------------
+    ax = fig.add_subplot(gs[0, 0])
+    ax.axis('off')
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.text(0, 0.965, 'T H E   W H O L E   I N T E R F A C E', color=MUTED, fontsize=12,
+            fontweight='bold')
+    ax.text(0, 0.905, 'import mlm_api as factory', color=INK2, fontsize=14.5,
+            family='DejaVu Sans Mono', style='italic')
+    for i, sig in enumerate(d['signatures']):
+        y = 0.815 - i * 0.092
+        ax.plot([0.004], [y + 0.018], marker='s', markersize=7, color=C1, clip_on=False)
+        ax.text(0.035, y, sig, color=INK, fontsize=14.5, family='DejaVu Sans Mono', va='bottom')
+
+    # --- right: the one ratio, in one unit ----------------------------------------------------
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.axis('off')
+    ax2.set_xlim(0, 1)
+    ax2.set_ylim(0, 1)
+
+    ax2.text(0.5, 0.98, f'{len(d["signatures"])}', color=C1, fontsize=104,
+             fontweight='bold', ha='center', va='top')
+    ax2.text(0.5, 0.675, 'functions to import', color=INK, fontsize=15.5, ha='center')
+    ax2.text(0.5, 0.620, 'nothing else in the folder', color=MUTED, fontsize=13, ha='center')
+
+    # The track: three nested quantities, all lines of Python, drawn to scale. The segments are
+    # keyed below rather than labelled with leader lines -- the first version used annotate() and
+    # the 1,634 leader landed on top of the subtitle, which a rendered look caught and no amount
+    # of reading would have.
+    x0, x1, y, h = 0.06, 0.94, 0.435, 0.075
+    span = x1 - x0
+    for frac, color, alpha in ((1.0, GRID, 1.0),
+                               (d['factory'] / d['folder'], C1, 0.32),
+                               (d['api'] / d['folder'], C1, 1.0)):
+        ax2.add_patch(plt.Rectangle((x0, y), span * frac, h, facecolor=color, alpha=alpha,
+                                    edgecolor='none'))
+
+    ax2.text(x0, y + h + 0.045, 'LINES OF PYTHON, TO SCALE', color=MUTED, fontsize=11)
+
+    key = ((C1, 1.0, f'{d["api"]:,}', 'you import — mlm_api.py', INK),
+           (C1, 0.32, f'{d["factory"]:,}', 'of factory behind it', INK2),
+           (GRID, 1.0, f'{d["folder"]:,}', f'in the folder, {d["files"]} files', MUTED))
+    for i, (color, alpha, num, label, ink) in enumerate(key):
+        yy = y - 0.105 - i * 0.105
+        ax2.add_patch(plt.Rectangle((x0, yy), 0.055, 0.045, facecolor=color, alpha=alpha,
+                                    edgecolor='none', clip_on=False))
+        ax2.text(x0 + 0.085, yy + 0.004, num, color=ink, fontsize=15, fontweight='bold')
+        ax2.text(x0 + 0.325, yy + 0.006, label, color=MUTED, fontsize=12.5)
+
+    fig.suptitle('A tool nobody can find does not exist', x=0.5, y=1.015,
+                 fontsize=19, fontweight='bold', color=INK)
+    fig.text(0.5, -0.055,
+             'Leon cloned the repository, read the documentation, and asked whether there was an '
+             'interface he was supposed to be using.\nThere was. The folder’s front page was '
+             'titled with a different study and mlm_api first appeared on line 25, one row of a '
+             'second table.\nEvery word of it accurate. Still unfindable — and that is a failure '
+             'of the interface, not of the reader.',
+             ha='center', color=INK2, fontsize=12.5, linespacing=1.7)
+    save(fig, '19-the-interface')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
            fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
-           fig_tokenizer_lottery, fig_label_quantity)
+           fig_tokenizer_lottery, fig_label_quantity, fig_api)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
