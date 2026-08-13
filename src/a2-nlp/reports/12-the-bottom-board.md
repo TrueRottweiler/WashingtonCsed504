@@ -64,6 +64,21 @@ Kwok, Leon** — with the role split named once, on this board, in the strip.
 
 ## The nine cells
 
+> **A decision three cells need before setting.** Cells 2, 3 and 5 each carry a **second block**
+> below, added on 12 August. A cell holds ~55 words *with* a figure or ~110 *without*, and two
+> blocks is 120. So each of those three is a straight choice: **keep the figure and cut the second
+> block, or drop the figure and run both blocks as type.** My recommendation in each case —
+>
+> - **Cell 2:** drop `14-where-the-speedup-came-from.svg`. The seventeen-language argument is the
+>   stronger content and the speedup decomposition survives as a big number.
+> - **Cell 3:** keep `15-what-a-run-is-made-of.svg`; the rush-order block moves to **cell 4**,
+>   which is about records and queues and is currently the lightest cell on the board.
+> - **Cell 5:** keep `19-the-interface.svg` and cut the masking block to one sentence — *"35 of
+>   1,114 lines touch masking; a second study on a different objective already shares this
+>   factory."* It is a footnote-sized point and the figure is doing more work.
+>
+> None of this is settled. It is the last real layout decision on the board.
+
 Read left to right, top to bottom. The top row builds a factory; the middle row makes it
 survivable, shareable and trustworthy; the bottom row spends the instruments, and two of those
 three answers are *no*.
@@ -85,12 +100,22 @@ three answers are *no*.
 **Big number:** `2.07×` / `1.32× real` · **Figure:** `14-where-the-speedup-came-from.svg`
 
 > Nothing needed to be fast yet, which is the argument against doing it. 25.2 → 12.2 minutes on
-> the same four cells — but only **1.32× is efficiency**; the rest is a second card doing the same
-> GPU-minutes in parallel. Decompose a speedup before quoting it. The hours saved are not the
-> point: **speed changes which experiments you are willing to start**, and four of the five
-> corrections on this board came from a cheap re-run somebody did on a hunch.
+> the same four cells — but only **1.32× is efficiency**; the rest is a second card in parallel.
+> The hours saved are not the point. **1,089 models got trained, across 17 languages — and only
+> one of them is Yoruba.** At 25 minutes a cell the seventeen-language control set is a week's
+> work and gets cut to five. At 12 it is one night, and it runs.
 
-*57 words · `runs/pipeline_bench.json` · report 03*
+*61 words · `mlm_api.results()` · report 03*
+
+**Second block, if the cell can take two:**
+
+> **Why train Mandarin, French and Indonesian for a Yoruba study?** Because "the penalty tracks
+> coverage" cannot be shown on one language — Yoruba is Latin-script, African and under-served all
+> at once, and you cannot tell which one is doing the work. Ten covered languages against seven
+> uncovered, four scripts, three continents. **Mandarin is the row that kills the script
+> explanation.**
+
+*58 words · `runs/gradient_table.json`*
 
 ### 3 · What belongs in a notebook, and what belongs in a queue?
 
@@ -102,6 +127,16 @@ three answers are *no*.
 > and the part that makes it work rather than merely tidy: **both paths write the same record.**
 
 *55 words · `runs/pipeline_bench.json`*
+
+**Second block — the rush order:**
+
+> A queue that only runs the plan it was given is a batch job. On 9 August there were **44.7
+> GPU-hours across 69 runs** committed to both cards when Patrick needed four cells now. Pin the
+> urgent fleet to one card; `reuse=True` means restarting costs the one cell in flight, not ten
+> hours; and `estimate()` measures twenty real steps, so the answer was **"fifty minutes"** rather
+> than "sometime tonight."
+
+*62 words · `mlm_api.estimate()` · `mlm_fleet.py --gpu-base`*
 
 ### 4 · What makes a record survive you?
 
@@ -124,6 +159,16 @@ three answers are *no*.
 > was. **A tool nobody can find does not exist**, and nobody files a bug to tell you.
 
 *57 words · counted at render time from `mlm_api.py`*
+
+**Second block — is it a masked-LM factory, or a factory?**
+
+> **35 of 1,114 lines touch masking — about 3%.** The corpus prep, the resident token store, the
+> records, the scheduler and the estimator have no opinion about what the model predicts. Proof
+> rather than claim: a **second study on a different objective** — next-token prediction, LSTM vs
+> GPT — already shares the token store, the scheduler and the dashboard. A general study needs a
+> different `pretrain()`, not a different API.
+
+*63 words · counted from `mlm_data.py`, `mlm_train.py`*
 
 ### 6 · Is this difference real?
 

@@ -808,6 +808,56 @@ reason the list has a "kept?" column.
 
 ---
 
+
+### What the capacity actually bought: 1,089 models and sixteen languages nobody was studying
+
+The throughput number is abstract until you count what got run with it. **The factory trained
+1,089 models** — 197 pretraining runs and 892 individual fine-tuning runs — from **30 seconds to
+2 hours 10 minutes** each, 148 GPU-hours in total. On its busiest day it put through **44.7
+GPU-hours across 69 runs**, which is more than a wall-clock day on two cards.
+
+![The vocabulary penalty across seventeen languages](figures/02-tokenizer-gradient.png)
+
+**And only one of those languages is the one we were studying.** Yoruba is 48 of the 197
+pretraining runs. English is 70. The rest are Hausa, Igbo, Nyanja, Swahili, Wolof, Xhosa, Shona,
+Kinyarwanda, Luganda, Somali, Amharic, Afrikaans, Mandarin, French and Indonesian — 22 corpora
+across 17 languages. That looks like scope creep and it is the opposite: **three of the group's
+findings are unprovable without them.**
+
+**Why English.** All of FineWeb-2's Yoruba is 69.1M tokens, and the top rung already uses 93% of
+it, so *the data axis cannot be varied in Yoruba at all.* The question "does more text help?" is
+unaskable on the language we care about. English has effectively unlimited text, so the ladder
+runs there — 256× of data at fixed compute — and the answer that comes back, that more text buys
+nothing measurable past a threshold, is what licenses the sentence **"this study is compute-bound,
+not data-bound."** That sentence is about Yoruba and could only be established somewhere else.
+
+**Why Mandarin, French and Indonesian.** The group's thesis is that a multilingual vocabulary
+costs you in proportion to how badly the language is covered. Tested only on Yoruba, that is one
+number with no way to tell coverage from three confounds: script, region, and morphology. Yoruba
+is Latin-script, African, and agglutinative-ish all at once. So the gradient spans **ten covered
+and seven uncovered languages** across four scripts and three continents, and it is that spread
+which lets the figure's title say **"the penalty tracks coverage — not script, and not region"**
+rather than merely "Yoruba is expensive." Mandarin is in there precisely because it is a different
+script and *well* covered: it is the row that breaks the script explanation.
+
+**Why the five African languages twice.** Hausa, Igbo, Nyanja, Swahili and Yoruba are the
+learning-rate transfer grid — sixty runs testing whether a setting tuned on one language survives
+being moved to another. One language cannot answer a question about transfer, by definition.
+
+**The general point, which is Panel 2's point at a larger scale.** Every one of those languages
+was a decision somebody made at some point *not* to skip. At 25 minutes a cell, on a machine where
+the queue is already full, a seventeen-language gradient is a week's work and gets cut to five. At
+12 minutes a cell across two cards, it is an overnight queue and gets run. **The factory did not
+make the Yoruba answer better by being fast. It made the comparison set big enough for the Yoruba
+answer to mean something** — and a control set is exactly the kind of work that gets dropped first
+when each run is expensive, because it is never the run you are excited about.
+
+**And it made the factory itself better**, which is the second-order effect. Sixteen extra
+languages found the bugs a single language could not: a Latin-script assumption in the tooling that
+Mandarin broke, a Unicode normalization mismatch that only showed up on MasakhaNER, and a
+vocabulary-size assumption that only failed at 250k. A factory tested on one input is a factory
+tested on one input.
+
 ### In depth — Preparation: from coursework to real hardware
 
 In coursework you are usually handed a dataset that fits in memory and a model that trains in
@@ -963,6 +1013,49 @@ means it has to describe itself. Panel 4 is what that costs.
 
 ---
 
+
+### The rush order, which is the thing a queue is actually for
+
+An overnight queue is easy to build and easy to make useless. The test is not whether it runs
+unattended; it is what happens at 9 p.m. when somebody needs four cells *now* and there are ten
+hours of work already committed to both cards. On 9 August there were **44.7 GPU-hours queued
+across 69 runs**, and Patrick needed a learning-rate sweep before he could write anything.
+
+The wrong answers are all obvious. Kill the queue and lose the work in flight. Wait ten hours and
+lose the evening. Start a second process and have two schedulers fight over the same two cards,
+which is how you get a nine-hour run that dies at hour eight with a CUDA out-of-memory nobody can
+reproduce.
+
+**Three things already in the factory turned that into a twenty-minute answer, and none of them
+was built for this.**
+
+**Cards are assignable, so a rush order takes a lane rather than the road.** `--gpu-base` with
+`--n-gpu 1` pins a fleet to one card, so the overnight queue keeps card 0 and the urgent work runs
+beside it on card 1. Both write to the same records directory and the dashboard shows both. The
+cost is real and worth stating: the long queue now has one card instead of two and finishes later,
+which is a *decision* somebody makes rather than an accident.
+
+**`reuse=True` means a restart is cheap, so stopping is not catastrophic.** Every finished cell is
+already on disk with its settings in its name, so restarting a queue re-runs only what was
+genuinely in flight — one cell, not ten hours. That single default is what turns "do not touch the
+queue" into "stop it if you need to." It was built so re-running a notebook top to bottom cost
+nothing; the fact that it also makes the queue interruptible is a property nobody designed and
+everybody used.
+
+**`estimate()` measures rather than guesses, so a promise can be made.** It runs twenty real steps
+on the actual card and extrapolates, which means the answer to "how long will my four cells take"
+is a measured number in about fifteen seconds rather than a shrug. That is the part that made the
+collaboration work: **Patrick and Leon could be told *fifty minutes* rather than *sometime
+tonight*,** and could decide whether to wait for it. A table of expected throughput would have been
+wrong the first time something else was on the card — which, during a rush order, is always.
+
+**What this is really about.** A factory that can only run the plan it was given at the start of
+the night is a batch job with better logging. Handling a rush order correctly — without losing
+committed work, without a race, and with an honest estimate attached — is the difference between
+tooling two other people rely on and tooling they route around. Every capability above existed for
+a different reason and cost nothing extra, which is the usual shape of this: **the things that make
+a system interruptible are rarely the features it advertises.**
+
 ### In depth — Notebooks, for going fast
 
 *Cell 3 of the board is this section and the next one together — the split between what belongs in
@@ -1095,7 +1188,7 @@ job started last sets the finish time on its own.
 finish. This sounds like a nicety. It is not: you cannot fix at 8am a problem you could not see at
 midnight.
 
-![The training dashboard: a queue panel, live GPU cards, and a comparison view of five languages](figures/07-dashboard.png)
+![More cards clear a queue sooner; they never make one run shorter](figures/09-scaling-with-cards.png)
 
 Reading that screen top to bottom is roughly how the project was run:
 
@@ -1200,6 +1293,48 @@ numbers, "is this difference real" stops being a private question. Panel 6 is th
 ---
 
 ---
+
+
+### How much of this is "fill in the blank", and how much is a language-model factory?
+
+A fair question about any tooling built for one study, and one with a checkable answer rather than
+an opinion. Masked language modelling — *fill in the blank* — is the group's training objective.
+If the factory is really a masked-LM factory, then anyone wanting to train a different kind of
+model starts over, and the nine functions are worth much less than they look.
+
+**Counted rather than argued: 35 of 1,114 lines in the two core modules touch masking.** About
+**3%**. The rest is objective-agnostic and always was:
+
+| what it does | masking-specific? |
+|---|---|
+| collect text, train a vocabulary, fingerprint it | no |
+| tokenize once into a flat array, choose the dtype from the vocabulary size | no |
+| hold the corpus resident on the GPU and serve random windows | no |
+| the run tag, the record format, `results()`, `curve()` | no |
+| the two-card scheduler, the queue, the dashboard, `estimate()` | no |
+| **build a RoBERTa-style head and apply the 80/10/10 corruption** | **yes** — this is the 3% |
+| bits per character | no — it is a unit conversion, not an objective |
+
+**And this is demonstrated rather than claimed, which is the part worth putting on a board.** The
+same folder already contains a *second* study on a different objective — next-token prediction,
+LSTM against GPT on WikiText — and it shares the token store, the scheduler and the dashboard with
+the masked-LM half. Two objectives, one factory, and the shared parts were never rewritten for
+either.
+
+**So: would a general NLP study need a separate API?** No. It needs a different `pretrain()` — one
+function, the 3% — and it inherits everything else. The honest framing is that this is **a
+corpus-and-experiment factory with a masked-LM head bolted to it**, and the head is the small part.
+That is not an accident of good design so much as a consequence of where the work actually was: the
+hard parts were making the data path fast, the records survivable, and the comparisons believable,
+and none of those three has any opinion about what the model predicts.
+
+**What would genuinely not transfer**, since a claim like this is only useful with its limits
+attached. Anything sequence-to-sequence — translation, summarization — needs a second stream and a
+different collator, which is more than one function. Anything needing a corpus that does not fit in
+GPU memory breaks the resident-store assumption that buys most of the throughput; at 96 GB the
+ceiling is roughly 24 billion tokens at uint32, which is generous and is still a ceiling. And the
+evaluation half — `ft_api` — is genuinely task-specific: it knows about topic classification and
+entity recognition and nothing else.
 
 ### In depth — Setting up a factory: workloads, interfaces, and adjustments
 
