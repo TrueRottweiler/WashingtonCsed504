@@ -4,6 +4,16 @@
 questions about **how to run experiments**, which is what the bottom poster is about, and all
 three are answerable with hardware we already own and checkpoints we already trained.*
 
+> **This is a plan, and the plan has since been executed. Read it as history, not as status.**
+> Leon flagged on 12 August that it still reads like a to-do list; it is not one. Study 1 ran and is
+> `runs/downstream_correlation.json` — the result is in [report 09](09-the-bottom-report.md), Panel 6
+> and the note on the two cut findings. Study 2 ran as the sixty-run grid and is
+> `runs/lr_transfer.json`, written up in Panel 8 along with the luck-versus-skill analysis it turned
+> into. Study 3 was not run. **For what is true now, go to [report 09](09-the-bottom-report.md),
+> [11](11-selecting-on-the-dev-split.md), [12](12-the-bottom-board.md) and
+> [13](13-the-top-board.md)** — the four current documents. The counts below (107 checkpoints, 90 GB)
+> were right on the 8th and are 197 and larger now.
+
 The starting observation is embarrassing and useful: **we have 107 trained checkpoints on disk,
 90 GB of them, and exactly one has ever been fine-tuned.** The scarce resource on this project was
 never GPU time. It was that we trained a hundred models and only ever asked one of them whether it

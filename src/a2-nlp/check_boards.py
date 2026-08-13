@@ -32,7 +32,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 BOARDS = (
-    ('bottom (report 12 v2)', 'reports/12-poster-build-sheet-v2.md'),
+    ('bottom (report 12 v2)', 'reports/12-the-bottom-board.md'),
     ('top (report 13)', 'reports/13-the-top-board.md'),
 )
 
