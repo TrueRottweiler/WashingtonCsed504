@@ -62,7 +62,24 @@ FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapo
 # test_board_numbers.py now asserts these against the live records, so the next drift fails a test
 # rather than reaching a student.
 PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results() + ft_api.results()
-REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}   # sustained medians; 127 and 70 runs today
+
+# WHAT THE RATIO DIVIDES BY, AND WHY IT IS STILL THE REAL-RUN MEDIAN.
+#
+# Jeffrey asked how a two-minute test could be representative of a laptop. It could not: the old
+# loop timed 40 steps, which is 1.3 seconds of work on this box, taken while the card is cold. So
+# the loop now runs for a DURATION and reports the first third against the last as `throttle`.
+#
+# I then tried to derive a benchmark-to-benchmark reference from this workstation and got it
+# wrong twice. Three 3-minute runs gave 448,571, then 377,576 for the identical configuration,
+# and I attributed the gap first to per-run overhead and then to thermal history. Both times the
+# card was shared with an ollama process, and both times this file PRINTED that it was -- the
+# "other processes hold part of this card" warning fired on every run and I read past all three.
+#
+# So there is no benchmark-derived constant here. REF_TOK_S stays what it has always been: the
+# median over 127 and 70 real training runs, spread across weeks and machines states, which is
+# the only workstation number in this project not measured in a single contended sitting. A
+# sustained reading on an idle card can replace it later; a rushed one should not.
+REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}         # real-run medians; 127 and 70 runs
 
 
 def pick_device():
@@ -127,7 +144,8 @@ class MemorySpill(RuntimeError):
     like an OOM: not a measurement, try a smaller footprint."""
 
 
-def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False):
+def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
+          seconds=180.0):
     micro = micro or BATCH
     if BATCH % micro:
         raise SystemExit(f'--micro-batch must divide {BATCH}')
@@ -180,12 +198,46 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False):
         torch.cuda.synchronize()
         torch.cuda.reset_peak_memory_stats()
 
+    # TIME A DURATION, NOT A STEP COUNT, AND REPORT THE END RATHER THAN THE AVERAGE.
+    #
+    # Jeffrey asked how a two-minute test can be representative of a laptop, and the honest
+    # answer is that it was not representative of anything. At 40 steps the timed section is
+    # 1.3 seconds of work on the workstation and 20 on the laptop -- a burst, taken while every
+    # card is still cold, and the number it returns is a boost clock rather than a rate anything
+    # can hold.
+    #
+    # The proof is on the one machine where both readings exist. bench_portable measured the
+    # workstation at 490,338 tok/s; the median over 127 real runs, most of them 40 minutes or
+    # longer, is 381,654. The burst reads 1.28x the truth on a desktop card with a 300 W limit
+    # and good cooling. A laptop in a chassis will be worse, and a laptop on battery worse again.
+    #
+    # That error was not symmetric, which is what made it dangerous. REF_TOK_S -- the thing every
+    # "x the workstation" ratio divides by -- is a SUSTAINED median, so the figure was dividing
+    # burst numbers by a sustained one and flattering every machine that is not this one.
+    #
+    # So: run for a fixed number of SECONDS, and report the last third separately from the first.
+    # The ratio between them is the throttle, measured rather than assumed, and on a laptop it is
+    # a finding rather than an artefact.
     t0 = time.perf_counter()
-    for _ in range(steps):
+    marks, n = [], 0
+    while time.perf_counter() - t0 < seconds:
         one_step()
+        n += 1
+        if device.type == 'cuda' and n % 10 == 0:
+            torch.cuda.synchronize()
+            marks.append((n, time.perf_counter() - t0))
     if device.type == 'cuda':
         torch.cuda.synchronize()
     dt_s = time.perf_counter() - t0
+    steps = n
+
+    # First third against last third, from the marks, so the throttle needs no second run.
+    early = late = None
+    if len(marks) >= 3:
+        a, b = marks[len(marks) // 3 - 1], marks[-1]
+        mid = marks[(2 * len(marks)) // 3 - 1]
+        early = a[0] * BATCH * SEQ / a[1]
+        late = (b[0] - mid[0]) * BATCH * SEQ / (b[1] - mid[1])
 
     tok_s = steps * BATCH * SEQ / dt_s
     peak = (torch.cuda.max_memory_allocated() / 1024 ** 3) if device.type == 'cuda' else None
@@ -197,6 +249,13 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False):
         props = torch.cuda.get_device_properties(0)
         cc, sms = f'{props.major}.{props.minor}', props.multi_processor_count
     r = {'preset': preset, 'device': dev_name, 'compute_capability': cc, 'sms': sms,
+         'timed_seconds': round(dt_s, 1), 'timed_steps': steps,
+         # The rate at the start against the rate at the end. 1.0 means the card held its clocks;
+         # anything well above means the projection above is a boost number and the machine
+         # cannot sustain it for a real run.
+         'tok_s_first_third': round(early) if early else None,
+         'tok_s_last_third': round(late) if late else None,
+         'throttle': round(early / late, 2) if early and late else None,
          'dtype': str(dt or torch.float32),
          'params_m': round(n_params / 1e6, 1), 'backbone_m': round(n_backbone / 1e6, 1),
          'tokens_per_s': round(tok_s), 'peak_gb': round(peak, 2) if peak else None,
@@ -230,7 +289,7 @@ def fit_label(micro, ckpt):
     return ' + '.join(bits) or f'full batch {BATCH}'
 
 
-def bench_with_fallback(preset, device, dev_name, steps, warmup, micro=None, ckpt=False):
+def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, micro=None, ckpt=False):
     """Measure as asked; when memory says no, fold the batch rather than shrink it.
 
     "DOES NOT FIT" is the wrong answer to the question this benchmark exists to ask. A Colab T4
@@ -279,6 +338,11 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, micro=None, ckp
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--seconds', type=float, default=180.0,
+                    help='how long to hold each preset under load. The default of 3 '
+                         'minutes is long enough for a laptop to reach its steady '
+                         'clocks; shorter readings are boost numbers and the row '
+                         'says so via `throttle`.')
     ap.add_argument('--steps', type=int, default=40)
     ap.add_argument('--warmup', type=int, default=8)
     ap.add_argument('--preset', default=None, help='poc or afriberta; both if omitted')
@@ -339,10 +403,12 @@ def main():
         try:
             if a.no_fallback:
                 r = bench(preset, device, dev_name, a.steps, a.warmup,
-                          micro=a.micro_batch, ckpt=a.checkpointing)
+                          seconds=a.seconds, micro=a.micro_batch,
+                          ckpt=a.checkpointing)
             else:
                 r = bench_with_fallback(preset, device, dev_name, a.steps, a.warmup,
-                                        micro=a.micro_batch, ckpt=a.checkpointing)
+                                        seconds=a.seconds, micro=a.micro_batch,
+                                        ckpt=a.checkpointing)
         except ((torch.cuda.OutOfMemoryError, MemorySpill)
                 if device.type == 'cuda' else RuntimeError) as e:
             # Not a failure of the benchmark. "It does not fit" is one of the answers a student

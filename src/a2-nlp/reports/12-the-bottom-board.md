@@ -280,14 +280,16 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Four machines: the workstation, a free Colab T4, a paid Colab L4, and the 8 GB Surface Studio
-Laptop — that last one measured twice, on its GPU and with `--cpu` on its own processor. The T4
+Six rows across five machines: the workstation, a free Colab T4, a paid Colab L4, a paid Colab
+A100, and the 8 GB Surface Studio Laptop — that last one measured twice, on its GPU and with
+`--cpu` on its own processor. The T4
 is the *floor* of what a student with no budget gets — **5.9× slower, 4.4 hours for one run, 36
 days of card time for the whole project, and the 98M model fits too** — the L4 is the paid tier
 at **4.3× and 27 days**, and the laptop is the machine a student most likely already owns:
 **3.8 h / 8.8 h per run, 64× faster than its own CPU, and quicker than the free T4 on both model
-sizes.** More rows drop into `runs/hardware.json` without touching the figure; the laptop on
-battery, a MacBook and an A100 are still wanted and would each add a bar.
+sizes.** More rows drop into `runs/hardware.json` without touching the figure. **Still wanted: a MacBook,
+and the laptop on battery** — and every existing row wants re-measuring at `--seconds 180`, because
+all of them were taken with the old 40-step burst.
 
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
@@ -329,9 +331,13 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 3. **Set the nine cells and three strip blocks from the words above.** They are written to the
    measure; do not re-expand them.
 4. **Check every big number against the 18-character measure** before setting it.
-5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, three machines on it and the CPU baseline
+5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, five machines on it and the CPU baseline
    in its side panel.
-6. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
+6. **Re-measure every machine at `--seconds 180`.** Every row currently on the figure was taken
+   with the old 40-step burst, which is 1.3 s of work on the workstation and reads a boost clock.
+   Colab is three minutes a tier; the laptop is three plugged and three on battery, back to back
+   so the second starts warm; the Mac is the row most students will look for.
+7. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
    `check_provenance.py`, regenerate every figure, run the staleness pass. Do it once.
 
 ---
@@ -360,10 +366,23 @@ identical for timing, which means it pastes straight into a fresh Colab cell.
 **What we are collecting.** For each machine: tokens per second on both model shapes, whether the
 model fits in memory, and the extrapolated wall-clock for one full 62,500-step run. The reference
 row exists — the workstation sustains **381,817 tok/s** on the 33.8M `poc` preset and **184,329
-tok/s** on the 86M `afriberta` preset, medians over 96 and 55 real runs.
+tok/s** on the 98M `afriberta` preset, medians over **127 and 70** real training runs. Those come
+from weeks of actual runs rather than from a benchmark sitting, which is why they are the
+workstation numbers this board trusts.
 
-**Before you start, on every machine:** close other GPU work. A number taken while something else
-holds the card is simply wrong, and it is the most common way these tables mislead.
+**Before you start, on every machine: close other GPU work, and mean it.** A number taken while
+something else holds the card is simply wrong, and it is the most common way these tables mislead.
+
+The script prints `NOTE: other processes hold part of this card` when it can detect this. **Do not
+read past that line.** On 13 August three workstation readings were taken with an ollama process on
+the same card; the warning fired on all three and was dismissed each time as "Windows display
+memory". The numbers that came back — 448,571 then 377,576 tok/s for an identical configuration —
+were then used to build two different explanations, both wrong. Check with `nvidia-smi` before you
+start rather than trusting the notice to be about something harmless:
+
+```bash
+nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv
+```
 
 ## A. The workstation — re-run to confirm
 
@@ -372,8 +391,14 @@ cd /o/Sources/GitHub/TrueRottweiler/WashingtonCsed504/src/a2-nlp
 CUDA_VISIBLE_DEVICES=0 bash py.sh bench_portable.py --out runs/hardware.json --note "Toothless, RTX PRO 6000 Blackwell Max-Q, 1 card"
 ```
 
-Two minutes. One card deliberately — the figure compares *a card*, and a two-card number is not
-comparable to a MacBook.
+**Three minutes per preset**, which is the `--seconds 180` default and is the point: the old
+version timed 40 steps, or about 1.3 seconds of work on this box, taken while the card is cold.
+That is a boost clock rather than a rate anything can hold. Every row now reports `throttle` — the
+first third of the run against the last — so a machine that cannot sustain its opening pace says
+so in its own record.
+
+One card deliberately: the figure compares *a card*, and a two-card number is not comparable to a
+MacBook.
 
 ## B. Surface Studio Laptop (RTX 2000 Ada Mobile)
 
@@ -400,25 +425,42 @@ PCIe and reports a plausible number. The script detects the overflow, folds the 
 measurement is honest, and records how. An out-of-memory that survives every fallback is still
 a result rather than a failure — record it.
 
-## C. MacBook Pro (M4 Pro, MPS)
+## C. MacBook Pro (M4 Pro, MPS) — wanted, not optional
 
 ```bash
-python bench_portable.py --out hardware.json --note "MacBook Pro M4 Pro, MPS"
+python bench_portable.py --seconds 180 --out hardware.json --note "MacBook Pro M4 Pro, MPS"
 ```
 
-MPS is detected automatically. Two things to expect: MPS does not support the same
-mixed-precision path, so the number is honest but not comparable in *kind*; and unified memory
-means the larger preset may fit where a discrete GPU of similar size would not. Both are footnotes
-on the figure.
+**A lot of students own a Mac, so this is a row people will look for.** An earlier version of this
+appendix called it a footnote and said to skip it if time was short. That was the wrong call: it
+put methodological tidiness ahead of the audience, and a Mac owner reading this board deserves an
+answer rather than an omission.
+
+Two things to expect, both of which go *on* the figure rather than being reasons to leave it off.
+MPS does not support the same mixed-precision path — the run stays in fp32 on purpose, because a
+benchmark that silently changes precision between machines is comparing two different
+computations — so the row is **directional rather than exactly comparable**, and its dtype column
+says `float32` where every CUDA row says bf16 or fp16. And unified memory means the 98M preset may
+fit where a discrete card of nominally similar size would not, which is a genuine advantage worth
+showing.
+
+`throttle` matters here as much as on the laptop: a fanless or lightly-cooled Mac will not hold
+its opening pace for three minutes, and that is exactly what a student needs to know before
+starting an overnight run.
 
 ## D. Google Colab — the important set
 
-This decides whether the "$120 and you can do this" claim survives.
+This is the tier ladder, and it is now measured rather than remembered: **$104 on an L4, $99 on
+an A100** for the whole project, against a guessed "$120". Re-run them for the sustained numbers.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
-!python bench_portable.py --note "Colab T4"
+!python bench_portable.py --seconds 180 --note "Colab T4"
 ```
+
+**Also read the compute-unit rate off the Colab usage page for each paid tier.** That is the half
+of the cost claim a benchmark cannot see, and the rates move with pricing and demand — the ones on
+the board were read on 13 August at $9.99 per 100 units.
 
 > **Do not `pip install torch` on Colab.** An earlier version of this appendix said
 > `!pip -q install torch --upgrade` and it is wrong in a way that silently ruins the measurement.
@@ -434,7 +476,7 @@ This decides whether the "$120 and you can do this" claim survives.
 |---|---|
 | **T4** (free) | the honest floor — what somebody with no budget gets |
 | **L4** | the cheap paid tier, probably the best-value row |
-| **A100 40GB** | the fast tier, for the "under two hours" claim |
+| **A100** | the fast tier — ours read as an A100-SXM4-80GB |
 | **TPU** | *skip* — the script refuses; it needs a different training loop and would not be comparable |
 
 **Copy the printed JSON out of each session before it disconnects.** Also record the actual cost
@@ -446,7 +488,7 @@ Drop the rows into `runs/hardware.json` and the cell-1 figure generates: machine
 wall-clock for one full run on the other, a memory-fit marker, and the three cost routes
 annotated. Then nothing on this board is blocked.
 
-**The sentence the figure has to earn:** *you do not need the workstation.* It is only true if
-the numbers say so. Four machines now say it — the free tier's card, the paid L4 at 4.3×, and
-an 8 GB laptop that runs both models overnight-sized and beats its own CPU by 64× — with the
-MacBook, the A100 and the battery run still to come.
+**The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
+numbers say so. Five machines now say it — the free T4, the paid L4 and A100, and an 8 GB laptop
+that runs both models overnight-sized and beats its own CPU by 64×. A MacBook and the battery run
+are what is left, and the Mac is the one most students will look for.
