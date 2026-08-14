@@ -380,33 +380,46 @@ This is the missing cell-1 figure. `bench_portable.py` needs no corpus, no token
 repository data, because its token stream is random integers — worthless for learning and
 identical for timing, which means it pastes straight into a fresh Colab cell.
 
-**What we are collecting.** For each machine: tokens per second on both model shapes, whether the
-model fits in memory, and the extrapolated wall-clock for one full 62,500-step run. The reference
-row exists — the workstation sustains **381,817 tok/s** on the 33.8M `poc` preset and **184,329
-tok/s** on the 98M `afriberta` preset, medians over **127 and 70** real training runs. Those come
-from weeks of actual runs rather than from a benchmark sitting, which is why they are the
-workstation numbers this board trusts.
+**What we are collecting.** For each machine, on both model shapes: tokens per second for the step
+`mlm_train.pretrain()` actually runs, the same figure for the old step-only loop, whether the model
+fits in memory, and the extrapolated wall-clock for one full 62,500-step run. The reference is the
+workstation running this same script on one idle card — **442,510 tok/s** at 33.8M and **186,534**
+at 98M — so every ratio divides a measurement by the same kind of measurement.
+
+**Everything before 13 August needs re-running.** Those rows timed a stripped-down step: one fixed
+batch reused, no gradient clipping, no host sync. Rows now carry `"method"`, and `bare-step` and
+`realistic-loop` numbers must never be averaged together.
+
+**Read every row as a ceiling.** The benchmark measures a machine with nothing else on it. Checked
+against 190 of this project's own training runs, that is exactly what a *good* run gets — the
+benchmark sits at 1.006 of the 98M preset's p90 — but the median 33.8M run reached only **0.86** of
+it, because a 9-minute run is at the mercy of whatever else the box does during those 9 minutes.
+Real runs span **1.73×** from p10 to p90 at 33.8M and **1.11×** at 98M. The number is honest; the
+spread is the finding.
 
 **Before you start, on every machine: close other GPU work, and mean it.** A number taken while
 something else holds the card is simply wrong, and it is the most common way these tables mislead.
 
-The script prints `NOTE: other processes hold part of this card` when it can detect this. **Do not
-read past that line.** On 13 August three workstation readings were taken with an ollama process on
-the same card; the warning fired on all three and was dismissed each time as "Windows display
-memory". The numbers that came back — 448,571 then 377,576 tok/s for an identical configuration —
-were then used to build two different explanations, both wrong. Check first rather than trusting
-the notice to be about something harmless:
+The script now names the processes rather than guessing from a memory threshold. It prints either
+`no other process is computing on this card` or a count with their pids. **Do not read past the
+second one.** On 13 August three workstation readings were taken with ollama on the same card, the
+warning fired on all three, and it was dismissed each time as "Windows display memory" — the
+numbers, 448,571 then 377,576 for an identical configuration, then supported two different wrong
+explanations. It was dismissed so easily because *it fired on every run*, including clean ones: the
+old check asked `torch.cuda.mem_get_info()`, which can only be called after CUDA has taken its own
+1.6 GB context, and then called that context "other processes". A warning that is always on carries
+no information. You can still confirm by hand:
 
 ```
 nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv
 ```
 
-If either card shows meaningful utilisation or memory, stop and clear it. This one command would
-have saved an afternoon.
-
-**Three minutes per preset**, which is the `--seconds 180` default and is the point. The old
-version timed 40 steps — about 1.3 seconds of work on the workstation, taken while the card is
-cold, which is a boost clock rather than a rate anything can hold. Every row now reports
+**About four minutes per preset, so eight per machine.** That is `--seconds 180` for the realistic
+loop plus `--bare-seconds 60` for the old step-only one, interleaved in ten-to-twenty-second blocks
+rather than run back to back. Interleaving is not fussiness: run in sequence, whichever loop goes
+second is measured on a hotter card, and this workstation sheds ~5% over its first couple of
+minutes. Measured sequentially the same gap read 1.01× one way and 1.09× the other; interleaved it
+is 1.03×. Every row now also reports
 **`throttle`**: the first third of the run against the last. A datacenter card should read ~1.0;
 anything well above means the machine cannot sustain its opening pace, and on a laptop that is the
 finding rather than an artefact.
@@ -531,13 +544,11 @@ overnight run.
 All three tiers are measured, and now at `--seconds 180`: **$110 on an L4, $100 on an A100** for
 the whole project, against a guessed "$120" before any of it was run.
 
-**The T4 is the one worth another sitting, and it is the only one.** It is the tier whose timed
-reading came back farthest from its burst — 19–22% lower, where nothing else moved by 2% — but
-those two readings were taken in different sessions on a card that shares a host, so the method
-and the session are confounded. **Run the T4 once more on a fresh runtime**, at `--seconds 180`.
-If it lands near 54k the method was the story; if it lands somewhere else again, free-tier
-variance is, and the figure should quote a median with a range. Either answer is worth having.
-The paid tiers agreed with their bursts to within 2%, so one sitting each is honest.
+**Run the T4 three times, on three fresh runtimes.** It is the only tier where the earlier
+readings disagreed by more than a couple of percent, and a free runtime shares a host — so the
+free tier's *range* is a finding in its own right, and it is the row belonging to the student with
+no budget and no alternative. Three sittings give a median with a band; one gives a number with a
+false air of precision. The paid tiers were steady enough that two sittings each is honest.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
