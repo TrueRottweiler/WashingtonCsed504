@@ -288,7 +288,7 @@ Eight columns across seven machines: the workstation, a Colab A100, a Colab L4, 
 MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with
 `--cpu` on its own processor. **A Colab A100 very nearly matches one Blackwell card.** The L4 is
 **5.0× slower, 32 days of card time, $117**. The free T4 is the floor of what somebody with no
-budget gets — **8.2×, 53 days, and the 98M model fits there too**. The laptop a student most
+budget gets — **8.3×, 53 days, and the 98M model fits there too**. The laptop a student most
 likely already owns runs **3.8 h / 8.9 h per run, 63× its own CPU, and beats the free T4 on both
 model sizes even on battery.** More rows drop into `runs/hardware.json` without touching the
 figure.
@@ -296,13 +296,17 @@ figure.
 > **Read the whole table as provisional, and this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **The workstation and the MacBook have been re-measured; the
-> Colab tiers and the laptop have not.** Every remaining column
-> is still the old loop, which reads high, and the figure marks each of them `‡`. So the ratios
-> above divide an old-method numerator by a new-method denominator and flatter every machine that
-> is not this one. **They will get worse, not better, when the re-runs land.** The cost table on
-> the figure says PROVISIONAL for the same reason. This is the fourth time this project has had a
-> number that was fine until the thing it was compared against moved.
+> the loss read back every step. **The workstation, the MacBook and the free T4 are re-measured;
+> the L4, the A100 and the laptop are not.** Those three are still the old loop, which reads
+> high, and the figure marks each of them `‡`. So their ratios divide an old-method numerator by
+> a new-method denominator and flatter them. **They will get worse, not better, when the re-runs
+> land** — the cost table says PROVISIONAL for that reason, and the L4 and A100 are exactly the
+> two rows its dollars come from.
+>
+> **How much worse is now bounded rather than guessed.** The correction measured 2.7% on the
+> workstation, 0.7% on the Mac and about 1% on the T4, and it shrinks as the step gets dearer. The
+> three outstanding machines all have steps inside that range, so expect one to two percent, not a
+> revision.
 
 **The workstation row is no longer the open one — it is the only closed one.** Measured on an idle
 card at **442,510 tok/s** (33.8M) and **186,534** (98M), and validated against the project's own
@@ -342,11 +346,23 @@ it is a property of the two models, not of the silicon. `test_board_numbers.py` 
 **Switching from a burst to `--seconds 180` mattered on one machine out of five, and it was the
 one that mattered.** The A100, the L4 and the laptop all came back within 2% of their burst
 readings, and none of them decayed measurably across the three minutes. The free T4 came back
-**19% lower on the 33.8M model and 22% lower on the 98M**, while its own within-run throttle read
-1.07. **We cannot yet say which effect that is.** The burst and the timed reading came from
-different Colab sessions, so "the method flatters this card by a fifth" and "free-tier sessions
-differ by a fifth" are confounded. One more sitting separates them, and it is the row belonging to
-the student with no alternative. Until then it is one sitting, not a constant.
+**19% lower on the 33.8M model and 22% lower on the 98M**. Two explanations were confounded —
+"the method flatters this card by a fifth" against "free-tier sessions differ by a fifth" — and
+the only way to separate them was to sit the T4 down three times.
+
+**Three sittings, and the answer is the method.** Free-tier sessions agree to **1.8%** on the
+33.8M model and **0.5%** on the 98M. A shared host was the intuitive explanation and it is wrong:
+this is one of the most repeatable machines on the figure.
+
+**What the burst was catching was a card that throttles, and only on the small model.** The T4's
+within-run decay is **1.19, 1.22 and 1.20** across the three sittings on the 33.8M preset — it
+opens near 60k tok/s and closes near 50k, every time — while the 98M preset sits at **0.98–0.99**
+and does not decay at all. No other machine here does this: the A100, the L4 and the laptop are
+flat on both shapes. A 70 W passively-cooled card runs the cheap model at a duty cycle it cannot
+hold and the expensive one at one it can, so the 40-step burst was reading an opening clock that
+lasts about twenty seconds. **The row a student with no budget lands on is the one row where the
+first number you see is not the number you get**, and it is the only row on this figure whose
+throttle would have told you so.
 
 **Unplugging the laptop costs a quarter of it: 24% on the 33.8M model, 25% on the 98M**, run
 back-to-back so the battery reading started warm and got no cold-start flattery. 8.9 hours becomes
@@ -400,11 +416,12 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
 6b. **Re-measure every machine against the realistic loop.** Eight minutes each, `--seconds 180
-   --bare-seconds 60`, which are the defaults. ~~Workstation~~ and ~~Mac × 2~~ are done — the Mac
-   confirmed the prediction that made the method change worth doing, at 1.007 and 1.004. What is
-   left, in priority order: **T4 × 3** (free tier, shares a host, its range is a finding),
-   **L4 × 2**, **A100 × 2**, **laptop × 2 plugged + 1 on battery**. A second sitting per machine
-   is what lets the figure draw a spread at all — the two Mac sittings came back 0.80% apart.
+   --bare-seconds 60`, which are the defaults. ~~Workstation~~, ~~Mac × 2~~ and ~~T4 × 3~~ are
+   done. The Mac confirmed the prediction that made the method change worth doing (1.007 and
+   1.004); the T4 settled the burst question and turned out to be repeatable to 1.8%. What is
+   left: **L4 × 2** and **A100 × 2** — about half an hour, and they are the two rows the strip
+   block's dollars depend on. The laptop's three rows are the lowest priority of what remains,
+   since nothing on the board quotes a dollar figure from them.
 7. **Re-render `fig_hardware` and re-set the strip's cost block**, which is the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
@@ -473,7 +490,18 @@ loop plus `--bare-seconds 60` for the old step-only one, interleaved in ten-to-t
 rather than run back to back. Interleaving is not fussiness: run in sequence, whichever loop goes
 second is measured on a hotter card, and this workstation sheds ~5% over its first couple of
 minutes. Measured sequentially the same gap read 1.01× one way and 1.09× the other; interleaved it
-is 1.03×. Every row now also reports
+is 1.03×.
+
+**And interleaving alone was not enough, which the T4 caught.** The first version always ran the
+bare block *second* within each cycle, so on a card whose clocks fall it was always sampled a
+little later and a little cooler. On flat machines that is invisible; on the T4, which sheds 20%
+across three minutes, it showed up as `bare_over_real` of **0.99** — the stripped-down step, which
+does strictly less work, reading *slower* than the loop that builds and masks a batch on top of
+it. An impossible number is a gift; a plausible one would have gone on the board. The loops now
+take turns leading, and the T4's three rows read about 1% optimistic on the 33.8M preset until
+they are taken again.
+
+Every row now also reports
 **`throttle`**: the first third of the run against the last. A datacenter card should read ~1.0;
 anything well above means the machine cannot sustain its opening pace, and on a laptop that is the
 finding rather than an artefact.
@@ -640,21 +668,20 @@ this chassis the memory ceiling is the finding and the thermals were a non-event
 
 ---
 
-## C. Google Colab — the tier ladder *(all three need re-running)*
+## C. Google Colab — the tier ladder *(T4 done ×3; L4 and A100 still need two each)*
 
-Every Colab row is the old step-only loop, and these are the rows the strip block's dollars come
-from — so until they are re-taken, **$117 on an L4 and $107 on an A100** are the figure's best
-current guess rather than a measurement, and both will rise.
+The L4 and A100 rows are still the old step-only loop, and they are where the strip block's
+dollars come from — so **$117 on an L4 and $107 on an A100** remain provisional until re-taken.
 
-**Run the T4 three times, on three fresh runtimes; the L4 and the A100 twice each.** The T4 gets
-three because it is the only tier whose readings have disagreed by more than a couple of percent,
-and a free runtime shares a host — so the free tier's *range* is a finding in its own right, and
-it is the row belonging to the student with no budget and no alternative. Three sittings give a
-median with a band; one gives a number with a false air of precision.
+**The T4 is done, three times, and it settled an open question.** It was run three times because
+its readings had disagreed by a fifth and two explanations were confounded: the method, or the
+free tier's shared host. The sittings came back **1.8% apart** on the 33.8M model and **0.5%** on
+the 98M. The host was not the problem. What the old burst was catching is a card that **throttles
+20% within three minutes on the small model and not at all on the large one** — the only machine
+on this figure that does. Its `throttle` column said so all along.
 
-**A second sitting is what buys an error bar.** The figure can only draw a spread for a machine
-measured more than once, and every claim it makes about dispersion currently rests on the
-workstation's 190 training runs rather than on the tiers themselves.
+**A second sitting is what buys an error bar**, and it is worth having even where the answer turns
+out to be boring: the figure can only draw a spread for a machine measured more than once.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
@@ -701,16 +728,16 @@ a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-si
 still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
 finishes.
 
-**Five of the seven are still measured the old way** — the four Colab and laptop columns and the
-laptop's CPU baseline. The workstation and the Mac time the loop `pretrain()` runs, so those five
-ratios still divide an old-method numerator by a new-method denominator, which flatters them.
+**Three of the seven are still measured the old way** — the L4, the A100 and the laptop on both
+power settings. The workstation, the Mac and the free T4 time the loop `pretrain()` runs, so only
+those three ratios still divide an old-method numerator by a new-method denominator.
 
-**How much they will move is now measured rather than guessed, and it is small.** The correction
-is 2.7% on the workstation and 0.7% on the Mac, and it shrinks as the step gets dearer — so the
-T4, the L4 and the mobile RTX, all of which have steps between those two, should land between
-those two figures. Against gaps of five-, eight- and twenty-sixfold that changes nothing about the
-claim. Re-run them anyway, because a board that says 8.2× when the number is 8.4× is wrong in the
-one way this project has spent a fortnight arguing nobody should be.
+**How much they will move is measured rather than guessed, and it is small.** The correction came
+in at 2.7% on the workstation, 0.7% on the Mac and about 1% on the T4, and it shrinks as the step
+gets dearer. The three that remain all have steps inside that range. Against gaps of five-, eight-
+and twenty-sixfold, that changes nothing about the claim — but re-run them anyway, because a board
+that prints 5.0× when the number is 5.1× is wrong in the one way this project has spent a
+fortnight arguing nobody should be.
 
 **The Mac is the honest edge of that claim rather than a counterexample to it.** 16.9 h and 43.1 h
 is three times the free T4, and a reader who owns one should know that the free tier is faster
