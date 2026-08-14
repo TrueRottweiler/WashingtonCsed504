@@ -226,12 +226,16 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$110 on an L4,
-> $100 on an A100.** The A100 costs 4.4× per hour and returns 4.8× the work, so the faster tier
-> is also the cheaper one — what changes is **30 days against 6**. Free T4: 50 days, $0. **You buy
+> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$117 on an L4,
+> $107 on an A100.** The A100 costs 4.4× per hour and returns 4.8× the work, so the faster tier
+> is also the cheaper one — what changes is **32 days against 7**. Free T4: 53 days, $0. **You buy
 > latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
 *66 words · `runs/hardware.json`*
+
+> **Do not set this block until the Colab re-runs land.** All three tier figures are old-method
+> numerators over a re-measured workstation, so the days and the dollars will rise. The shape of
+> the claim — faster tier, same bill — is the durable part and is not at risk; the digits are.
 
 ### What we do not claim
 
@@ -280,16 +284,29 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Eight columns across seven machines, and every one except the workstation is now a three-minute
-timed run rather than a forty-step burst: the workstation, a Colab A100, a Colab L4, a free Colab
-T4, a MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and
-with `--cpu` on its own processor. **A Colab A100 matches one Blackwell card**, 94 minutes a run
-against 93. The L4 is **4.3× slower, 30 days of card time, $110**. The free T4 is the floor of
-what somebody with no budget gets — **7.1×, 50 days, and the 98M model fits there too**. And the
-laptop is the machine a student most likely already owns: **3.8 h / 8.9 h per run, 63× its own
-CPU, and quicker than the free T4 on both model sizes even on battery.** More rows drop into
-`runs/hardware.json` without touching the figure. **Still wanted: a sustained workstation row
-taken when the card is actually idle** — the three attempts on 13 August were all contended.
+Eight columns across seven machines: the workstation, a Colab A100, a Colab L4, a free Colab T4, a
+MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with
+`--cpu` on its own processor. **A Colab A100 very nearly matches one Blackwell card.** The L4 is
+**5.0× slower, 32 days of card time, $117**. The free T4 is the floor of what somebody with no
+budget gets — **8.2×, 53 days, and the 98M model fits there too**. The laptop a student most
+likely already owns runs **3.8 h / 8.9 h per run, 63× its own CPU, and beats the free T4 on both
+model sizes even on battery.** More rows drop into `runs/hardware.json` without touching the
+figure.
+
+> **Read the whole table as provisional, and this paragraph before quoting any of it.** On 14
+> August the benchmark stopped timing a stripped-down step and started timing the one
+> `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
+> the loss read back every step. **Only the workstation has been re-measured.** Every other column
+> is still the old loop, which reads high, and the figure marks each of them `‡`. So the ratios
+> above divide an old-method numerator by a new-method denominator and flatter every machine that
+> is not this one. **They will get worse, not better, when the re-runs land.** The cost table on
+> the figure says PROVISIONAL for the same reason. This is the fourth time this project has had a
+> number that was fine until the thing it was compared against moved.
+
+**The workstation row is no longer the open one — it is the only closed one.** Measured on an idle
+card at **442,510 tok/s** (33.8M) and **186,534** (98M), and validated against the project's own
+training runs: it sits at **1.006 of the 98M preset's p90** over 70 real runs. That is the first
+time any number on this figure has been checked against the thing it claims to predict.
 
 **The MacBook row landed on 13 August, and it is the one row on the figure that runs off the top
 of the axis.** An M4 Pro with 24 GB sustains **16.3k tok/s on the 33.8M model and 6.2k on the
@@ -378,15 +395,20 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 3. **Set the nine cells and three strip blocks from the words above.** They are written to the
    measure; do not re-expand them.
 4. **Check every big number against the 18-character measure** before setting it.
-5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, five machines on it and the CPU baseline
-   in its side panel.
-6. ~~Re-measure every machine at `--seconds 180`~~ — **done for six of seven.** The T4, the L4,
-   the A100, the laptop (plugged and on battery, back to back) and the MacBook are all
-   three-minute rows now. One remains: **a workstation row taken on an idle card** — its current
-   figure is the median of 127 and 70 real training runs, which is a defensible number but not
-   the same measurement as the others.
-7. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
-   `check_provenance.py`, regenerate every figure, run the staleness pass. Do it once.
+5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, eight columns across seven machines and the
+   CPU baseline in its side panel.
+6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
+   taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
+6b. **Re-measure every machine against the realistic loop.** Eight minutes each, `--seconds 180
+   --bare-seconds 60`, which are the defaults. Only the workstation is done. In priority order —
+   **T4 × 3** (free tier, shares a host, its range is a finding), **Mac × 2** (also the test of
+   whether the fixed-cost account generalises), **L4 × 2**, **A100 × 2**, **laptop × 2 plugged +
+   1 on battery**. A second sitting per machine is what lets the figure draw a spread at all.
+7. **Re-render `fig_hardware` and re-set the strip's cost block**, which is the only board text
+   whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
+8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
+   `check_provenance.py`, `poster/board_content.py`, the four test files, regenerate every
+   figure, run the staleness pass. Do it once.
 
 ---
 
@@ -468,11 +490,15 @@ PowerShell — the commands below are cmd syntax and will not work in a bash she
 conda activate uw-csed504
 ```
 
-### A1. Toothless — the workstation *(still open)*
+### A1. Toothless — the workstation *(done — and the only machine that is)*
 
-The one machine on the figure without a benchmark row of its own. Three attempts on 13 August were
-all taken while ollama held the card, so the figure quotes the median of 127 and 70 real training
-runs instead. Run this whenever both cards are genuinely free.
+Measured 14 August on an idle card 0: **442,510 tok/s** at 33.8M, **186,534** at 98M. Three
+earlier attempts were all taken while ollama held the card; the fourth was clean, and the script
+now says so in as many words rather than firing a warning it fires on every run.
+
+The procedure is kept because this row is the denominator of every ratio on the figure, so it is
+the one most worth being able to reproduce. Re-run it if the card, the driver or the torch version
+changes.
 
 ```bat
 cd /d O:\Sources\GitHub\TrueRottweiler\WashingtonCsed504\src\a2-nlp
@@ -489,12 +515,12 @@ python bench_portable.py --seconds 180 --out runs\hardware.json --note "Toothles
 One card deliberately: the figure compares *a card*, and a two-card number is not comparable to a
 MacBook. `set CUDA_VISIBLE_DEVICES=0` lasts for that prompt session only.
 
-### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB *(done — both rows in)*
+### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB *(needs re-running: 2 plugged, 1 battery)*
 
 The most important row on the figure, because it is the machine a student is most likely to own.
-It does not need the repository — the script is self-contained. Kept here because it is the
-procedure the battery finding rests on, and because anyone reproducing it needs the back-to-back
-ordering below rather than two runs taken whenever.
+It does not need the repository — the script is self-contained. Its current rows are the old
+step-only loop, so all three want taking again; the back-to-back ordering below is what the
+battery finding rests on and still applies.
 
 ```bat
 conda activate uw-csed504
@@ -502,10 +528,13 @@ cd /d %USERPROFILE%\Desktop
 curl -o bench_portable.py https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
 ```
 
-Take a fresh copy every time. An older one still has the 40-step burst, and the two readings look
-equally plausible on the page.
+Take a fresh copy every time — this matters more now than it did. A copy from before 14 August
+times the stripped-down step and one from before 13 August times a 40-step burst, and all three
+readings look equally plausible on the page. The row's `method` field is the only thing that says
+which loop produced it.
 
-**Plugged in first:**
+**Plugged in first, and twice** — the spread between two sittings is the only honest error bar a
+single machine can give you:
 
 ```bat
 python bench_portable.py --seconds 180 --out hardware.json --note "Surface Studio Laptop, RTX 2000 Ada, plugged in"
@@ -519,7 +548,7 @@ python bench_portable.py --seconds 180 --out hardware.json --note "Surface Studi
 
 **Back-to-back matters.** The battery run should start on a warm card, because that is the honest
 comparison — letting it cool first hands the battery reading exactly the cold-start flattery the
-old burst was giving everything. About 13 minutes for the pair.
+old burst was giving everything. About **eight minutes per sitting**, so twenty-four for the three.
 
 Expect the 98M model to fall back to gradient accumulation: it wants ~10 GB and the card has 8.
 That is not a failure, and the row records the configuration it took.
@@ -541,7 +570,14 @@ pip install transformers
 
 ---
 
-## B. MacBook Pro (M4 Pro, MPS) *(done — both rows in)*
+## B. MacBook Pro (M4 Pro, MPS) *(needs re-running: 2 sittings)*
+
+Its rows are the old step-only loop. Worth doing early for a reason beyond completeness: **the Mac
+is the test of why the method change mattered.** The overheads the new loop adds are roughly fixed
+per step, so they cost a machine less the dearer its step is — 3% on the workstation. An M4 Pro's
+step is twenty-seven times more expensive, so `bare_over_real` should come back **near 1.00**. If
+it does, the mechanism is confirmed on hardware that is not ours. If it comes back above 1.03,
+something in the account is wrong and worth knowing about before the board prints.
 
 A Mac is **zsh**, not cmd. From Terminal:
 
@@ -598,16 +634,21 @@ this chassis the memory ceiling is the finding and the thermals were a non-event
 
 ---
 
-## C. Google Colab — the tier ladder
+## C. Google Colab — the tier ladder *(all three need re-running)*
 
-All three tiers are measured, and now at `--seconds 180`: **$110 on an L4, $100 on an A100** for
-the whole project, against a guessed "$120" before any of it was run.
+Every Colab row is the old step-only loop, and these are the rows the strip block's dollars come
+from — so until they are re-taken, **$117 on an L4 and $107 on an A100** are the figure's best
+current guess rather than a measurement, and both will rise.
 
-**Run the T4 three times, on three fresh runtimes.** It is the only tier where the earlier
-readings disagreed by more than a couple of percent, and a free runtime shares a host — so the
-free tier's *range* is a finding in its own right, and it is the row belonging to the student with
-no budget and no alternative. Three sittings give a median with a band; one gives a number with a
-false air of precision. The paid tiers were steady enough that two sittings each is honest.
+**Run the T4 three times, on three fresh runtimes; the L4 and the A100 twice each.** The T4 gets
+three because it is the only tier whose readings have disagreed by more than a couple of percent,
+and a free runtime shares a host — so the free tier's *range* is a finding in its own right, and
+it is the row belonging to the student with no budget and no alternative. Three sittings give a
+median with a band; one gives a number with a false air of precision.
+
+**A second sitting is what buys an error bar.** The figure can only draw a spread for a machine
+measured more than once, and every claim it makes about dispersion currently rests on the
+workstation's 190 training runs rather than on the tiers themselves.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
@@ -649,11 +690,17 @@ python poster_figures.py fig_hardware
 ```
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so. Seven machines say it today, six of them held for three minutes rather than forty
-steps — the free T4, the paid L4, an A100 that matches one Blackwell card outright, an 8 GB laptop
-that runs both models overnight-sized on mains, still runs them on battery, and beats its own CPU
-by 63×, and a MacBook Pro that is slow but finishes. **One row is still open:** a workstation
-reading taken on an idle card rather than the median of its real training runs.
+numbers say so. Seven machines say it today — the free T4, the paid L4, an A100 that comes within
+a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-sized on mains,
+still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
+finishes.
+
+**Six of the seven are still measured the old way.** Only the workstation times the loop
+`pretrain()` runs, so every ratio on the figure currently divides an old-method numerator by a
+new-method denominator — which flatters the other machines. The claim survives that comfortably:
+the correction on this workstation was 3%, and the gaps here are five- and eight- and
+twenty-seven-fold. But the *digits* will move, so re-run everything before the board prints, and
+do not set the strip's cost block until they have.
 
 **The Mac is the honest edge of that claim rather than a counterexample to it.** 17.4 h and 45.6 h
 is three times the free T4, and a reader who owns one should know that the free tier is faster
