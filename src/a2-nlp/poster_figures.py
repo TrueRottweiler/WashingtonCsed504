@@ -1459,9 +1459,15 @@ def _api_surface():
     """The published interface and the code behind it, read off the files rather than recalled.
 
     Every quantity this figure draws is counted at render time on purpose. The build sheet quoted
-    the folder at 12,861 lines for two days and it is 14,409 now -- four checks and a study were
-    added in between, none of which changed the interface at all. A figure whose whole subject is
-    "a small surface on a large body" cannot carry a literal for the body.
+    the folder at 12,861 lines for two days, then it was 14,409, and it is 16,102 now -- checks, a
+    benchmark and a second study were added in between, none of which changed the interface at
+    all. A figure whose whole subject is "a small surface on a large body" cannot carry a literal
+    for the body.
+
+    Counting at render time is necessary and not sufficient: this figure sat in git drawing 15,175
+    for a day because nothing re-rendered it, while the prose beside it said "fourteen thousand"
+    and the folder had passed sixteen. The number was computed and still stale, which is why the
+    print gate's last step is to regenerate every figure rather than the ones that look affected.
     """
     def count(path):
         with open(os.path.join(HERE, path), encoding='utf-8') as fh:
