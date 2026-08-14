@@ -19,8 +19,9 @@ job holds the same card are lower, and the script prints a warning when it can d
 
 A preset that does not fit is a configuration problem, not a verdict. The 98M model wants
 ~10 GB at the study's batch and the most common student card has 8, so on an out-of-memory --
-a real OOM, or the silent spill into system RAM that Windows calls working, which times the
-PCIe bus instead of the GPU -- the script retries the same 16,384-token step in smaller
+a real OOM, or one of the two silent spills that no operating system will raise for you (Windows
+pages VRAM over PCIe and calls it working; a Mac takes the overflow out of the same pool the
+rest of the machine is using) -- the script retries the same 16,384-token step in smaller
 pieces: gradient accumulation first (mlm_train.pretrain has the same accum= knob), activation
 checkpointing after. Every configuration still does 128 x 128 tokens of updates per optimizer
 step, so the row stays the same experiment in the project's own unit, and it records how it
@@ -108,6 +109,7 @@ def say(msg):
 # into a bare Colab cell. What it holds is random rather than Yoruba, which is worthless for
 # learning and identical for timing -- a gather and a comparison do not care what the ids mean.
 POOL_TOKENS = 64_000_000         # real runs held 16M (poc median) to 1,024M; 64M sits between
+POOL_TOKENS_SMALL = 16_000_000   # unified memory has no headroom to spare -- see make_pool()
 MLM_PROB, MASK_ID, N_SPECIAL = 0.15, 4, 5
 
 
@@ -118,9 +120,16 @@ def make_pool(device):
     for a 16k vocabulary and the gather bandwidth is half what int32 costs. MPS and CPU take
     int32, which is the same data and the safer index path on backends that are patchier about
     narrow integer types; the whole data path is under a millisecond either way.
+
+    SMALLER ON MPS, and #89 is the reason. A Mac has no free VRAM to spend -- the 98M preset
+    already lands at 16.2 GB against Metal's 17.8 GB recommended working set, and past that line
+    the machine does not fail, it degrades silently and hands back 286 tok/s. 256 MB of int32
+    pool is not worth a quarter of the remaining headroom, and 16M tokens is the median corpus
+    the `poc` runs actually used, so it is the more faithful number anyway.
     """
-    dtype = torch.int16 if device.type == 'cuda' else torch.int32
-    return torch.randint(0, VOCAB, (POOL_TOKENS,), device=device, dtype=dtype)
+    if device.type == 'cuda':
+        return torch.randint(0, VOCAB, (POOL_TOKENS,), device=device, dtype=torch.int16)
+    return torch.randint(0, VOCAB, (POOL_TOKENS_SMALL,), device=device, dtype=torch.int32)
 
 
 def masked_batch(pool, micro, device):
@@ -131,7 +140,10 @@ def masked_batch(pool, micro, device):
     80% become <mask>, 10% become a random real token and 10% are left alone; labels are -100
     everywhere the model is not asked to predict.
     """
-    starts = torch.randint(0, POOL_TOKENS - SEQ - 1, (micro,), device=device)
+    # Bounded by the pool that was actually built, not by POOL_TOKENS. Those differ on MPS, and
+    # reading the constant here would have indexed a 64M-token window into a 16M-token tensor --
+    # on the one backend nobody here can test against.
+    starts = torch.randint(0, pool.numel() - SEQ - 1, (micro,), device=device)
     x = pool[starts.view(-1, 1) + torch.arange(SEQ, device=device)].long()
     labels = x.clone()
     sel = torch.rand(x.shape, device=device) < MLM_PROB
@@ -250,10 +262,87 @@ def build(preset, device):
 
 
 class MemorySpill(RuntimeError):
-    """The driver oversubscribed VRAM into system RAM instead of raising OOM (Windows does
-    this). The step 'works' while timing the PCIe bus -- our first laptop measurement of the
-    98M model came out at 5,075 tok/s against an honest 32,267 -- so it is treated exactly
-    like an OOM: not a measurement, try a smaller footprint."""
+    """The driver oversubscribed device memory into system RAM instead of raising OOM. The step
+    'works' while timing the wrong hardware -- our first laptop measurement of the 98M model came
+    out at 5,075 tok/s against an honest 32,267 -- so it is treated exactly like an OOM: not a
+    measurement, try a smaller footprint.
+
+    TWO OPERATING SYSTEMS DO THIS, FOR DIFFERENT REASONS, AND NEITHER RAISES ANYTHING.
+    On Windows the driver pages VRAM over PCIe. On a Mac there is no separate VRAM to overflow --
+    the GPU and the CPU share one pool, so going past what Metal recommends does not fail, it
+    just starts swapping against the rest of the machine. The first MacBook reading of the 98M
+    model was 286 tok/s: four steps in 229 seconds, the rate decaying 1,029 -> 701 -> 515 as the
+    machine dug itself further in. Held under the recommended working set it is 6,000+ -- a
+    factor of twenty, in the direction that says a Mac cannot do this project."""
+
+
+def sync(device):
+    """Wait for the device to actually finish, on whichever backend this is.
+
+    CUDA and MPS both queue work asynchronously, so a clock read without this records when the
+    work was SUBMITTED. The timing loop always got this right for CUDA and, after one fix, for
+    the marks on MPS -- but the final elapsed and the memory readings around warmup were still
+    CUDA-only, which is exactly how a Mac row ends up with numbers nobody checked."""
+    if device.type == 'cuda':
+        torch.cuda.synchronize()
+    elif device.type == 'mps':
+        torch.mps.synchronize()
+
+
+def empty_cache(device):
+    """Hand cached blocks back before the next attempt, so a failed configuration does not
+    shrink the memory available to the smaller one that follows it."""
+    if device.type == 'cuda':
+        torch.cuda.empty_cache()
+    elif device.type == 'mps':
+        torch.mps.empty_cache()
+
+
+def mem_budget(device):
+    """How much memory this run can occupy before the machine starts paging, or None if the
+    backend cannot say.
+
+    The two backends answer slightly different questions and both answers are the right one for
+    their platform. CUDA reports what is FREE on the card right now, across every process, which
+    is what a discrete card can still hand out. MPS reports Metal's RECOMMENDED WORKING SET --
+    on a 24 GB M4 Pro that is 17.8 GB -- because unified memory has no free/total to speak of:
+    the GPU can always have more, it just takes it from the operating system and everything else
+    running. Past that line the machine does not fail, it degrades, which is the harder failure
+    to notice and the reason this function exists."""
+    if device.type == 'cuda':
+        return torch.cuda.mem_get_info()[0]
+    if device.type == 'mps':
+        return torch.mps.recommended_max_memory()
+    return None
+
+
+def mem_held(device):
+    """High-water bytes this process has taken from the device, or None.
+
+    CUDA has a true peak counter that can be reset. MPS has no peak statistic in torch 2.5, so
+    this reports what the driver is currently holding -- which serves as a high-water mark
+    because the caching allocator does not give blocks back until empty_cache()."""
+    if device.type == 'cuda':
+        return torch.cuda.max_memory_allocated()
+    if device.type == 'mps':
+        return torch.mps.driver_allocated_memory()
+    return None
+
+
+def check_spill(device, budget, where):
+    """Raise if this configuration is working outside the memory the device can comfortably give.
+
+    The 0.95 leaves margin for other processes drifting between two readings; a false positive
+    only costs falling back to a configuration that certainly fits.
+
+    CHECKED TWICE, after the first step and again after warmup. On CUDA the first step really
+    does allocate everything at once -- params, grads, optimizer state, activations -- so one
+    check was enough. MPS grows into its allocation: the 98M model at full batch reads 12.6 GB
+    after step one and 15.6 GB by step two. A single early check is a check that passes."""
+    held = mem_held(device)
+    if budget and held and held > budget * 0.95:
+        raise MemorySpill(f'{held / 1024**3:.1f} GB held {where} against a '
+                          f'{budget / 1024**3:.1f} GB budget')
 
 
 def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
@@ -263,11 +352,10 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         raise SystemExit(f'--micro-batch must divide {BATCH}')
     accum = BATCH // micro
 
-    free_start = None
+    empty_cache(device)                          # release anything a failed attempt cached
     if device.type == 'cuda':
-        torch.cuda.empty_cache()                 # release anything a failed attempt cached
         torch.cuda.reset_peak_memory_stats()
-        free_start, _ = torch.cuda.mem_get_info()
+    budget = mem_budget(device)
 
     say(f'{preset:>10}: building the model ...')
     model = build(preset, device)
@@ -346,20 +434,16 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
 
     one_step, bare_step = make_step(bare=False), make_step(bare=True)
 
-    one_step()                                   # the first step allocates everything at once:
-    if device.type == 'cuda':                    # params, grads, optimizer state, activations
-        torch.cuda.synchronize()
-        # Allocations beyond what was free at the start cannot have come out of VRAM. The 0.95
-        # leaves margin for other processes' usage drifting between the two readings; a false
-        # positive only costs falling back to a config that certainly fits.
-        if torch.cuda.max_memory_allocated() > free_start * 0.95:
-            raise MemorySpill(f'peak {torch.cuda.max_memory_allocated() / 1024**3:.1f} GB '
-                              f'against {free_start / 1024**3:.1f} GB free')
+    one_step()                                   # on CUDA the first step allocates everything at
+    sync(device)                                 # once: params, grads, optimizer state, activations
+    check_spill(device, budget, 'after the first step')
     say(f'{preset:>10}: {warmup} warmup steps ...')
     for _ in range(warmup - 1):                  # warmup is not optional: the first steps pay
         one_step()                               # for kernel autotuning and allocator growth
+    sync(device)
+    # Again, now that the allocator has stopped growing. This is the check that catches a Mac.
+    check_spill(device, budget, 'after warmup')
     if device.type == 'cuda':
-        torch.cuda.synchronize()
         torch.cuda.reset_peak_memory_stats()
 
     # TIME A DURATION, NOT A STEP COUNT, AND REPORT THE END RATHER THAN THE AVERAGE.
@@ -417,15 +501,9 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         see the same clock history, near enough -- and it costs nothing but bookkeeping. The
         progress line and the throttle still describe the realistic loop, which is the headline.
         """
-        def sync():
-            # Sync before reading the clock, or a mark records when the work was QUEUED rather
-            # than when it finished. MPS needs this as much as CUDA does, and it is the device
-            # where throttle matters most -- a lightly-cooled chassis is the whole question.
-            if device.type == 'cuda':
-                torch.cuda.synchronize()
-            elif device.type == 'mps':
-                torch.mps.synchronize()
-
+        # sync(device) before every clock read, or a mark records when the work was SUBMITTED
+        # rather than when it finished. That helper is the Mac's, from #89, and it is why this
+        # loop is correct on MPS as well as CUDA -- the device where throttle matters most.
         def run_block(fn, budget, count):
             """Run fn until budget seconds of ITS OWN time are spent. Returns (steps, seconds)."""
             b0, k = time.perf_counter(), 0
@@ -433,9 +511,9 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
                 fn()
                 k += 1
                 if (count + k) % 10 == 0:
-                    sync()
+                    sync(device)
                     marks.append((count + k, own + time.perf_counter() - b0))
-            sync()
+            sync(device)
             return k, time.perf_counter() - b0
 
         # The alternate gets alt_total seconds spread over the same number of blocks, so it is
@@ -476,15 +554,18 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     if bare_seconds > 0:
         for _ in range(max(2, warmup // 2)):     # the bare loop wants its own warmup
             bare_step()
-        if device.type == 'cuda':
-            torch.cuda.reset_peak_memory_stats()
+        sync(device)
     real = time_phase(one_step, seconds, 'a real training step, against the bare step',
                       alt_fn=bare_step if bare_seconds > 0 else None,
                       alt_total=bare_seconds, block=max(5.0, seconds / 9))
-    peak = (torch.cuda.max_memory_allocated() / 1024 ** 3) if device.type == 'cuda' else None
     bare = real['alt']
     dt_s, steps, early, late, tok_s = (real['took'], real['steps'], real['early'],
                                        real['late'], real['tok_s'])
+    # Reported on MPS too now, via #89's mem_held(). A row whose peak is blank is a row nobody
+    # can sanity-check, and the Mac was the machine that most needed checking: 20.1 GB against a
+    # 17.8 GB budget was sitting there in the driver the whole time it reported 286 tok/s.
+    held = mem_held(device)
+    peak = held / 1024 ** 3 if held else None
     # Compute capability and SM count identify the GENERATION, which is what actually predicts
     # whether bf16 exists and how the card will behave. A student reading "T4" has no way to know
     # it is a 2018 part; reading "7.5" against our "12.0" makes the gap obvious.
@@ -498,6 +579,12 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
          # comparable and nothing should ever median them together, which is why the field is
          # written explicitly rather than inferred from a date or a missing key.
          'method': 'realistic-loop',
+         # What was ASKED for, beside what it took. The overrun guard in test_board_numbers
+         # compares the two, and it used to compare against a hardcoded 180 -- which is right
+         # until somebody legitimately runs --seconds 600 to check whether three minutes reaches
+         # the settled rate. A test that reads the window off the row cannot be broken by using
+         # the flag the script advertises.
+         'asked_seconds': round(seconds, 1),
          'timed_seconds': round(dt_s, 1), 'timed_steps': steps,
          # The rate at the start against the rate at the end. 1.0 means the card held its clocks;
          # anything well above means the projection above is a boost number and the machine
@@ -578,8 +665,10 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, 
                           if c.get('micro', BATCH) < asked['micro']
                           or (c.get('micro', BATCH) <= asked['micro']
                               and c.get('ckpt') and not asked['ckpt'])]
+    # MemorySpill is a RuntimeError, so it is already inside the non-CUDA tuple -- named anyway,
+    # because the whole point of this ladder on a Mac is that nothing else will ever be raised.
     oom = (torch.cuda.OutOfMemoryError, MemorySpill) if device.type == 'cuda' \
-        else (RuntimeError,)
+        else (MemorySpill, RuntimeError)
     for cfg in attempts:
         try:
             return bench(preset, device, dev_name, steps, warmup, seconds=seconds,
@@ -589,8 +678,7 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, 
             # str() rather than the exception itself: e.__traceback__ pins bench()'s frame,
             # and with it the failed model, which would shrink every later attempt's memory.
             why = str(e) if isinstance(e, MemorySpill) else type(e).__name__
-            if device.type == 'cuda':
-                torch.cuda.empty_cache()
+            empty_cache(device)
             if cfg is attempts[-1]:
                 raise
             print(f'{preset:>10}: no room for {fit_label(cfg.get("micro"), cfg.get("ckpt", False))} '
@@ -668,6 +756,12 @@ def main():
         else:
             print(f'memory: {total/1024**3:.0f} GB total, {used_gb:.1f} GB held by our own CUDA '
                   f'context; no other process is computing on this card.')
+    elif device.type == 'mps':
+        # Unified memory has no free/total worth printing -- the GPU can always take more, from
+        # the rest of the machine. What matters is Metal's recommended working set, because
+        # crossing it is the failure this backend actually has, and it is silent.
+        print(f'memory: {torch.mps.recommended_max_memory() / 1024**3:.1f} GB recommended '
+              f'working set, shared with the OS (unified memory, no separate VRAM)')
     # Print the timing mode the loop actually uses. This line used to say "40 timed steps" from
     # the vestigial --steps flag while the loop timed a duration -- and a transcript that lies
     # about its own method is how burst numbers sneak back onto the figure.
@@ -697,8 +791,7 @@ def main():
             print(f'{preset:>10}: DOES NOT FIT -- {type(e).__name__}')
             rows.append({'preset': preset, 'device': dev_name, 'error': 'out of memory',
                          'note': a.note})
-            if device.type == 'cuda':
-                torch.cuda.empty_cache()
+            empty_cache(device)
             continue
         # How this machine compares to the box the project ran on, and what the whole term of
         # work would have cost here. A ratio is easier to reason about than a raw rate.

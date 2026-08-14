@@ -551,12 +551,19 @@ Colab cell.
 | Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
 | Google Colab — free tier (T4, fp16) | 54k tok/s | 21k tok/s | **13.4 h** |
+| **MacBook Pro** — M4 Pro, 24 GB unified, MPS | 16k tok/s† | 6.2k tok/s\*† | **45.6 h** |
 | — the same laptop with `--cpu`, GPU ignored | 1.2k tok/s | 0.5k tok/s | 23 days |
-| MacBook Pro — Apple Silicon, MPS | *to measure* | *to measure* | |
 
-\* The 98M model does not fit in 8 GB whole. This is the same 16,384-token step folded through
-gradient accumulation (micro-batch 64 × 2) — the next section is that story, and why the row is
-still the same experiment.
+\* The 98M model does not fit whole — not in the laptop's 8 GB, and not inside the 17.8 GB Metal
+recommends on a 24 GB Mac. Both rows are the same 16,384-token step folded through gradient
+accumulation (micro-batch 64 × 2) — the next section is that story, and why the row is still the
+same experiment.
+
+† The Mac runs **fp32** where every CUDA row is bf16 or fp16, so it is directional rather than
+exactly comparable. That is deliberate: a benchmark that silently changes precision between
+machines is comparing two different computations, and MPS has no autocast path we would trust to
+be the same one. Read the Mac against itself and against the CPU baseline, not against the A100
+to two significant figures.
 
 The Toothless figures are medians across 96 and 55 completed runs, not a short probe — sustained
 rates after the card is hot, which is the only kind worth quoting. A benchmark run while another
@@ -704,6 +711,45 @@ So the MacBook row in the table above is **not comparable to the CUDA rows**, an
 rather than quietly listing them side by side. It is there to answer "can I try this on my
 laptop?" — for which the answer is yes for the small model, and the honest cost is a number, not
 a shrug.
+
+**Measured, and the prediction held.** An M4 Pro with 24 GB sustains **16.3k tok/s** on the 33.8M
+model and **6.2k tok/s** on the 98M — 27× and 30× off the workstation, which is the bandwidth
+argument above arriving almost exactly where it said it would. One run is an overnight job on the
+small model and a two-night job on the large one. Neither number throttled: 0.98 and 1.01 across
+three minutes, so this chassis holds its pace in a way the mobile RTX did not quite.
+
+Those two ratios were 23× and 30× when this row landed, against a workstation reference that was
+the median of its real training runs. The reference is now the workstation running the same
+benchmark on an idle card, which is the only denominator that compares like with like. The 98M
+figure barely moved; the 33.8M one moved by a fifth, for the reason the next section is about —
+**the cheaper the step, the more of it is fixed overhead, and the more a measurement depends on
+which loop you timed.** Both Mac rows are still the old step-only loop and want re-running.
+
+**The interesting part is the memory, and it is the third time this project has been lied to by a
+machine that would not raise an error.** The first attempt on the 98M model reported **286
+tok/s** — a number that would have put the whole project at 3,975 days and said, in the largest
+type available, *do not try this on a Mac*. It was not a rate. It was four steps in 229 seconds,
+decaying 1,029 → 701 → 515 as it went, because the full 128-sequence batch wants **20.1 GB against
+the 17.8 GB Metal recommends** on this machine and unified memory has nothing to refuse with.
+There is no separate VRAM to overflow: the GPU simply takes the difference out of the same pool
+the operating system is using, and everything gets slower together.
+
+Folded through the same gradient accumulation the 8 GB laptop already needed, the model works in
+**16.2 GB at 6,210 tok/s** — the *same 16,384-token step*, and **21.7× the first reading**.
+
+The failure is worth naming because the shape of it keeps recurring and the surface details never
+repeat:
+
+| | what it claimed | what was true | why nothing errored |
+|---|---|---|---|
+| Colab T4 | 11.6k tok/s, 33× | 54k tok/s, 7.1× | `is_bf16_supported()` defaults to `including_emulation=True` |
+| Surface laptop | 5.1k tok/s | 31.8k tok/s | Windows pages VRAM over PCIe and calls it working |
+| MacBook Pro | 286 tok/s | 6.2k tok/s | unified memory has no OOM to raise |
+
+Three different platforms, three different mechanisms, one identical outcome: **a plausible number,
+no warning, and an answer wrong in the direction that discourages the reader.** The benchmark now
+carries a memory budget for every backend it supports and treats crossing it exactly like an
+out-of-memory — because on two of these three platforms, an out-of-memory is the *good* failure.
 
 ##### You do not need the workstation
 
@@ -2767,16 +2813,19 @@ check.
 | `runs/gradient_languages.json` | `prepare_gradient_languages.py` | which languages were prepared |
 | `runs/scaling_law.json` | `scaling_law.py` | the fitted data/compute surface |
 | `runs/claims_audit.json` | `claims_audit.py` | every comparative claim against its null |
-| `runs/hardware.json` *(not yet on disk)* | `bench_portable.py` | one run costed on each machine — NOT YET COLLECTED |
+| `runs/hardware.json` | `bench_portable.py` | one run costed on each machine — seven, one still open |
 
 `check_provenance.py` resolves every `runs/*.json` named in any report against what is on disk, and
 reports the other direction too: a record that exists and no report points at is an experiment that
 ran and never reached a reader. It exits non-zero on a dangling citation, so it belongs in the print
 gate beside `check_links.py` and `check_boards.py`.
 
-**One citation dangles on purpose.** `runs/hardware.json` is named by Week 1 and the Appendix and
-does not exist, because the measurements can only come from machines that are not this one. That is
-the blocked cell, and the check stops failing the moment the benchmark is run.
+**The one citation that used to dangle on purpose no longer does.** `runs/hardware.json` is named
+by Week 1 and the Appendix, and for weeks it did not exist, because the measurements could only
+come from machines that are not this one. Seven devices are in it now — the workstation, three
+Colab tiers, an 8 GB mobile RTX measured on mains and on battery, that laptop's own CPU, and a
+MacBook Pro. The row still open is the opposite of the original problem: a workstation reading
+taken on a card nothing else is holding.
 
 ---
 

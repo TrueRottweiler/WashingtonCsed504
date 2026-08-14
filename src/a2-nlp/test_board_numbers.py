@@ -465,6 +465,91 @@ class PortableBenchConstants(unittest.TestCase):
         self.assertNotIn('is_bf16_supported', body)
 
 
+class HardwareRows(unittest.TestCase):
+    """Every row on the hardware figure, checked against the one invariant they all share.
+
+    THREE MACHINES HAVE NOW RETURNED A PLAUSIBLE NUMBER THAT WAS NOT A RATE, and each did it by a
+    different mechanism nobody could have predicted from the other two: a T4 running bf16 in
+    software (33x low), a Windows laptop paging VRAM over PCIe and calling it working (6x low),
+    and a Mac taking its overflow out of the operating system's memory because unified memory has
+    no OOM to raise (22x low). All three produced a number, no warning, and an answer wrong in the
+    direction that tells a reader not to bother.
+
+    bench_portable.py now guards all three, and that is worth exactly nothing against the fourth.
+    So this checks something that does not depend on knowing the mechanism: the SHAPE of the two
+    presets against each other. A 98M model is a fixed multiple of work more than a 33.8M one, and
+    every machine here agrees on that multiple to within a quarter -- 2.07x on the workstation to
+    2.62x on the Mac, across an A100, a Blackwell, an L4, a T4, a mobile RTX on mains and on
+    battery, and a bare Intel CPU in the same fp32 path the Mac uses. It is a property of the two
+    models, not of the silicon.
+
+    So a row whose ratio leaves that band is not a slow machine. It is a broken measurement, and
+    this is the cheapest detector we have for one -- it was computable from data already on disk
+    the day the 286 tok/s row arrived.
+    """
+
+    BAND = (1.8, 3.2)          # observed 2.07-2.54 across seven machines; padded either side
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(HERE, 'runs', 'hardware.json')
+        if not os.path.exists(path):
+            raise unittest.SkipTest('runs/hardware.json not collected yet')
+        with open(path, encoding='utf-8') as fh:
+            cls.rows = [r for r in json.load(fh) if not r.get('error')]
+
+    def _by_machine(self):
+        by = {}
+        for r in self.rows:
+            key = (r['device'], 'battery' in (r.get('note') or '').lower())
+            # Same rule the figure uses: a timed row beats a burst row, never averaged.
+            by.setdefault(key, {}).setdefault(r['preset'], []).append(r)
+        return by
+
+    def test_the_two_presets_keep_their_ratio_on_every_machine(self):
+        for (device, batt), presets in self._by_machine().items():
+            if not {'poc', 'afriberta'} <= set(presets):
+                continue
+            with self.subTest(device=device, battery=batt):
+                rate = {}
+                for p in ('poc', 'afriberta'):
+                    got = [r for r in presets[p] if r.get('timed_seconds')] or presets[p]
+                    rate[p] = st.median(r['tokens_per_s'] for r in got)
+                ratio = rate['poc'] / rate['afriberta']
+                lo, hi = self.BAND
+                self.assertTrue(lo < ratio < hi,
+                                f'{device}: 33.8M is {ratio:.1f}x the 98M, outside {lo}-{hi}. '
+                                f'Every other machine sits near 2.3. This is what a measurement '
+                                f'taken while the machine was paging looks like -- check peak_gb '
+                                f'against the device budget before trusting the row.')
+
+    def test_a_sustained_row_reports_its_throttle(self):
+        """A timed row with no throttle ran too few steps to have one, which is itself the
+        signal: the Mac's 286 tok/s row managed four steps in 229 seconds and therefore carried
+        no first-third-against-last-third at all. The figure would have drawn it anyway."""
+        for r in self.rows:
+            if r.get('timed_seconds') and r['timed_steps'] >= 30:
+                with self.subTest(device=r['device'], preset=r['preset']):
+                    self.assertIsNotNone(r.get('throttle'))
+
+    def test_no_row_outstayed_its_own_timing_window(self):
+        """229 seconds inside a 180-second window means one step took 57 of them. The loop only
+        checks the clock between steps, so overrun is a direct read on a machine in distress.
+
+        Measured against the window the row ASKED for, not a constant. The first version compared
+        every row to 180 s, which is correct until somebody runs `--seconds 600` to check whether
+        three minutes actually reaches the settled rate -- a legitimate use of a documented flag
+        that failed the suite. Rows written before `asked_seconds` existed fall back to 180.
+        """
+        for r in self.rows:
+            if r.get('timed_seconds'):
+                asked = r.get('asked_seconds') or 180.0
+                with self.subTest(device=r['device'], preset=r['preset']):
+                    self.assertLess(r['timed_seconds'], asked * 1.10 + 5.0,
+                                    f"{r['device']} {r['preset']}: {r['timed_seconds']}s for a "
+                                    f"{asked:.0f}s window -- a single step took tens of seconds.")
+
+
 if __name__ == '__main__':
     print(f'ft_api/mlm_api: {"stubbed (no torch)" if _records.STUBBED else "real"}')
     unittest.main(verbosity=2)

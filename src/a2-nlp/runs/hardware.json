@@ -235,7 +235,8 @@
   "vs_workstation": 5.23,
   "project_hours_here": 773.3,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -259,7 +260,8 @@
   "vs_workstation": 5.93,
   "project_hours_here": 878.3,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -285,7 +287,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -311,7 +314,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -337,7 +341,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -363,7 +368,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -389,7 +395,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -415,7 +422,8 @@
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
   "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -437,7 +445,8 @@
   "vs_workstation": 5.08,
   "project_hours_here": 751.2,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -461,7 +470,8 @@
   "vs_workstation": 5.65,
   "project_hours_here": 836.5,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -483,7 +493,8 @@
   "vs_workstation": 6.8,
   "project_hours_here": 1006.2,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -507,7 +518,8 @@
   "vs_workstation": 7.73,
   "project_hours_here": 1143.8,
   "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -529,7 +541,8 @@
   "vs_workstation": 0.83,
   "project_hours_here": 123.2,
   "note": "Toothless, 1 card (index 0), idle, 180s",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -551,7 +564,8 @@
   "vs_workstation": 0.97,
   "project_hours_here": 143.8,
   "note": "Toothless, 1 card (index 0), idle, 180s",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -573,7 +587,8 @@
   "vs_workstation": 0.85,
   "project_hours_here": 125.3,
   "note": "Toothless, 1 card (index 0), idle, 600s",
-  "method": "bare-step"
+  "method": "bare-step",
+  "asked_seconds": 600.0
  },
  {
   "preset": "poc",
@@ -598,7 +613,8 @@
   "full_run_hours": 0.64,
   "vs_workstation": 0.86,
   "project_hours_here": 127.7,
-  "note": "Toothless, 1 card (index 0), idle, 180s"
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -623,6 +639,78 @@
   "full_run_hours": 1.52,
   "vs_workstation": 0.99,
   "project_hours_here": 146.3,
-  "note": "Toothless, 1 card (index 0), idle, 180s"
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "poc",
+  "device": "Apple arm64 (MPS)",
+  "compute_capability": null,
+  "sms": null,
+  "timed_seconds": 180.1,
+  "timed_steps": 186,
+  "tok_s_first_third": 16962,
+  "tok_s_last_third": 16890,
+  "throttle": 1.0,
+  "dtype": "torch.float32",
+  "params_m": 33.8,
+  "backbone_m": 25.6,
+  "tokens_per_s": 16917,
+  "peak_gb": null,
+  "batch": 128,
+  "full_run_hours": 16.81,
+  "vs_workstation": 22.57,
+  "project_hours_here": 3340.4,
+  "note": "MacBook Pro M4 Pro, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "poc",
+  "device": "Apple arm64 (MPS)",
+  "compute_capability": null,
+  "sms": null,
+  "timed_seconds": 180.8,
+  "timed_steps": 173,
+  "tok_s_first_third": 15569,
+  "tok_s_last_third": 15880,
+  "throttle": 0.98,
+  "dtype": "torch.float32",
+  "params_m": 33.8,
+  "backbone_m": 25.6,
+  "tokens_per_s": 15677,
+  "peak_gb": 12.17,
+  "batch": 128,
+  "full_run_hours": 18.14,
+  "vs_workstation": 24.36,
+  "project_hours_here": 3604.6,
+  "note": "MacBook Pro M4 Pro, 24 GB, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "afriberta",
+  "device": "Apple arm64 (MPS)",
+  "compute_capability": null,
+  "sms": null,
+  "timed_seconds": 182.0,
+  "timed_steps": 69,
+  "tok_s_first_third": 6274,
+  "tok_s_last_third": 6185,
+  "throttle": 1.01,
+  "dtype": "torch.float32",
+  "params_m": 98.1,
+  "backbone_m": 85.8,
+  "tokens_per_s": 6210,
+  "peak_gb": 16.22,
+  "batch": 128,
+  "full_run_hours": 45.81,
+  "micro_batch": 64,
+  "grad_accum": 2,
+  "vs_workstation": 29.68,
+  "project_hours_here": 4393.0,
+  "note": "MacBook Pro M4 Pro, 24 GB, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  }
 ]
