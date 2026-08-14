@@ -280,16 +280,44 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Seven columns across six machines, and every one except the workstation is now a three-minute
+Eight columns across seven machines, and every one except the workstation is now a three-minute
 timed run rather than a forty-step burst: the workstation, a Colab A100, a Colab L4, a free Colab
-T4, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with `--cpu` on
-its own processor. **A Colab A100 matches one Blackwell card**, 94 minutes a run against 93. The
-L4 is **4.3× slower, 30 days of card time, $110**. The free T4 is the floor of what somebody with
-no budget gets — **7.1×, 50 days, and the 98M model fits there too**. And the laptop is the
-machine a student most likely already owns: **3.8 h / 8.9 h per run, 63× its own CPU, and quicker
-than the free T4 on both model sizes even on battery.** More rows drop into `runs/hardware.json`
-without touching the figure. **Still wanted: a MacBook, and a sustained workstation row taken when
-the card is actually idle** — the three attempts on 13 August were all contended.
+T4, a MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and
+with `--cpu` on its own processor. **A Colab A100 matches one Blackwell card**, 94 minutes a run
+against 93. The L4 is **4.3× slower, 30 days of card time, $110**. The free T4 is the floor of
+what somebody with no budget gets — **7.1×, 50 days, and the 98M model fits there too**. And the
+laptop is the machine a student most likely already owns: **3.8 h / 8.9 h per run, 63× its own
+CPU, and quicker than the free T4 on both model sizes even on battery.** More rows drop into
+`runs/hardware.json` without touching the figure. **Still wanted: a sustained workstation row
+taken when the card is actually idle** — the three attempts on 13 August were all contended.
+
+**The MacBook row landed on 13 August, and it is the one row on the figure that runs off the top
+of the axis.** An M4 Pro with 24 GB sustains **16.3k tok/s on the 33.8M model and 6.2k on the
+98M** — one run is **17.4 h and 45.6 h**, an overnight and a two-nighter. It neither throttles
+(0.98 and 1.01 over three minutes, better than the mobile RTX) nor is it close to the CUDA
+tiers: 23× and 30× off the workstation, and slower than the *free* T4 by a factor of three. The
+bar is drawn clipped with its value on it, because at full height it flattens the A100 and the
+workstation into nothing and those two are the comparison the panel exists to make. Its dtype is
+on the tick label in the same breath as its name — **fp32 against everyone else's bf16 or fp16**,
+which makes it directional rather than exactly comparable, and is worth having anyway because a
+lot of students own one.
+
+**The Mac's first reading was 286 tok/s, and it was the third machine to lie to us the same way.**
+That number is not a rate: it is four steps in 229 seconds, decaying 1,029 → 701 → 515 as it ran,
+because the full batch wants **20.1 GB against the 17.8 GB Metal recommends** on that machine and
+unified memory has no out-of-memory to raise — the GPU takes the difference from the pool the
+operating system is using and everything slows down together. Through the same gradient
+accumulation the 8 GB laptop already needed, the identical 16,384-token step runs at **6,210
+tok/s in 16.2 GB: 21.7× the first reading.** Had it gone on the board it would have said the
+whole project costs a Mac owner eleven years.
+
+**The tell was free and we should have looked for it sooner: the two presets' ratio.** Every
+machine on this figure runs the 33.8M model between **2.07× and 2.62×** the speed of the 98M — the
+workstation, the A100, the L4, the T4, the laptop on both power settings, the honest Mac row, and
+even the bare Intel CPU, which is the same fp32 path the Mac uses. The first Mac reading said
+**59×**. One line of arithmetic across rows that already existed, and it is a better detector than
+any of the three platform-specific mechanisms, because it does not need to know what went wrong —
+it is a property of the two models, not of the silicon. `test_board_numbers.py` now asserts it.
 
 **Switching from a burst to `--seconds 180` mattered on one machine out of five, and it was the
 one that mattered.** The A100, the L4 and the laptop all came back within 2% of their burst
@@ -349,11 +377,11 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 4. **Check every big number against the 18-character measure** before setting it.
 5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, five machines on it and the CPU baseline
    in its side panel.
-6. ~~Re-measure every machine at `--seconds 180`~~ — **done for five of six.** The T4, the L4,
-   the A100 and the laptop (plugged and on battery, back to back) are all three-minute rows now.
-   Two remain: **the Mac**, the row most students will look for, and **a workstation row taken on
-   an idle card** — its current figure is the median of 127 and 70 real training runs, which is a
-   defensible number but not the same measurement as the others.
+6. ~~Re-measure every machine at `--seconds 180`~~ — **done for six of seven.** The T4, the L4,
+   the A100, the laptop (plugged and on battery, back to back) and the MacBook are all
+   three-minute rows now. One remains: **a workstation row taken on an idle card** — its current
+   figure is the median of 127 and 70 real training runs, which is a defensible number but not
+   the same measurement as the others.
 7. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
    `check_provenance.py`, regenerate every figure, run the staleness pass. Do it once.
 
@@ -497,32 +525,60 @@ pip install transformers
 
 ---
 
-## B. MacBook Pro (M4 Pro, MPS) — wanted, not optional
+## B. MacBook Pro (M4 Pro, MPS) *(done — both rows in)*
 
 A Mac is **zsh**, not cmd. From Terminal:
 
 ```bash
 curl -o bench_portable.py https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
 pip install torch transformers
-python bench_portable.py --seconds 180 --out hardware.json --note "MacBook Pro M4 Pro, MPS"
+python bench_portable.py --seconds 180 --out hardware.json --note "MacBook Pro M4 Pro, 24 GB, MPS"
 ```
 
 **A lot of students own a Mac, so this is a row people will look for.** An earlier version of this
 appendix called it a footnote and said to skip it if time was short. That was the wrong call: it
 put methodological tidiness ahead of the audience, and a Mac owner reading this board deserves an
-answer rather than an omission.
+answer rather than an omission. It is also the row that turned out to need the most care, so the
+procedure is kept here rather than deleted as done.
+
+**Say how much memory the machine has in the `--note`.** On a Mac that is not a detail, it is the
+variable that decides whether the 98M model can be measured at all — 24 GB and 48 GB are different
+machines for this benchmark in a way that 8 GB and 12 GB of discrete VRAM are not.
 
 Two things to expect, both of which go *on* the figure rather than being reasons to leave it off.
 MPS does not support the same mixed-precision path — the run stays in fp32 on purpose, because a
 benchmark that silently changes precision between machines is comparing two different computations
 — so the row is **directional rather than exactly comparable**, and its dtype column reads
 `float32` where every CUDA row reads bf16 or fp16. And unified memory means the 98M preset may fit
-where a discrete card of nominally similar size would not, which is a genuine advantage worth
-showing.
+where a discrete card of nominally similar size would not.
+
+**That second one is the trap, and it cost us a reading.** Unified memory does not fit the model
+so much as fail to refuse it. There is no separate VRAM to overflow, so going past what Metal
+recommends as a working set raises nothing at all — the GPU takes the difference out of the pool
+the operating system is using, and the whole machine degrades together. On a 24 GB M4 Pro the 98M
+preset at full batch wants **20.1 GB against a 17.8 GB recommendation**, and the run that came back
+reported **286 tok/s**: four steps in 229 seconds, decaying 1,029 → 701 → 515, with no error, no
+warning, and a throughput number that looked like data. Folded through gradient accumulation it is
+**6,210 tok/s in 16.2 GB** — the same 16,384-token step, 21.7× faster.
+
+`bench_portable.py` now knows this. It reads `torch.mps.recommended_max_memory()` as the budget,
+checks what the driver is holding after the first step **and again after warmup** — MPS grows into
+its allocation, so a single early check passes — and treats crossing it exactly like the Windows
+PCIe spill: not a measurement, walk the fallback ladder. You should see it happen:
+
+```
+ afriberta: no room for full batch 128 (19.2 GB held after the first step
+            against a 17.8 GB budget) -- retrying smaller
+```
+
+**If you do not see that line and the 98M number comes back under ~1,000 tok/s, do not record it.**
+Check the ratio between your two presets: every machine on this figure sits between 2.07× and
+2.62×, so anything past about 4× means the large model is not really running on the GPU.
 
 `throttle` matters here as much as on the laptop: a lightly-cooled chassis will not hold its
 opening pace for three minutes, and that is exactly what somebody needs to know before starting an
-overnight run.
+overnight run. The M4 Pro passed that test — **0.98 and 1.01**, flatter than the mobile RTX — so on
+this chassis the memory ceiling is the finding and the thermals were a non-event.
 
 ---
 
@@ -579,8 +635,13 @@ python poster_figures.py fig_hardware
 ```
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so. Six machines say it today, five of them held for three minutes rather than forty
-steps — the free T4, the paid L4, an A100 that matches one Blackwell card outright, and an 8 GB
-laptop that runs both models overnight-sized on mains, still runs them on battery, and beats its
-own CPU by 63×. **Two rows are still open:** the Mac, and a workstation reading taken on an idle
-card rather than the median of its real training runs.
+numbers say so. Seven machines say it today, six of them held for three minutes rather than forty
+steps — the free T4, the paid L4, an A100 that matches one Blackwell card outright, an 8 GB laptop
+that runs both models overnight-sized on mains, still runs them on battery, and beats its own CPU
+by 63×, and a MacBook Pro that is slow but finishes. **One row is still open:** a workstation
+reading taken on an idle card rather than the median of its real training runs.
+
+**The Mac is the honest edge of that claim rather than a counterexample to it.** 17.4 h and 45.6 h
+is three times the free T4, and a reader who owns one should know that the free tier is faster
+than the laptop they paid for. What the row buys is the answer to a different question — *can I
+start tonight without asking anyone for anything* — and there the answer is yes.

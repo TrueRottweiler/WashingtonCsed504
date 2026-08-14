@@ -1657,18 +1657,23 @@ def _workstation_hours_by_preset():
 def fig_hardware():
     """What one run costs on each machine, and whether you need the workstation.
 
-    Panel 1's figure, and the last blocked cell on the bottom board -- blocked because it is the
-    only number in the project that cannot be produced from this machine. It needs somebody to run
-    bench_portable.py somewhere else.
+    Panel 1's figure, and for weeks the last blocked cell on the bottom board -- blocked because
+    it is the only number in the project that cannot be produced from this machine. It needed
+    somebody to run bench_portable.py somewhere else, seven times.
 
-    Six machines so far: the workstation, a Colab A100, L4 and free T4, and the 8 GB laptop --
-    measured three ways, plugged in, on battery, and with --cpu on its own processor, which is
-    the pair (and now triple) that answers "is a small mobile GPU even worth using, and does it
-    need the wall". More rows (a MacBook) drop in without touching this function.
+    Seven machines: the workstation, a Colab A100, L4 and free T4, a MacBook Pro, and the 8 GB
+    laptop measured three ways -- plugged in, on battery, and with --cpu on its own processor,
+    which is the triple that answers "is a small mobile GPU even worth using, and does it need
+    the wall". More rows drop in without touching this function.
 
     Every row except the workstation's is a three-minute timed run; the workstation's stays the
     median of 127 and 70 real training runs until one can be taken on an idle card. Where a
     device has both a burst and a sustained row, the sustained one is later in the file and wins.
+
+    The Mac needed two things nothing else did: it is not a CUDA row, so "does it have a compute
+    capability" was the wrong question to ask about whether it is a GPU at all (it was being
+    filed as a CPU baseline and dropped), and at 45.6 h it is far enough off the other bars to
+    need the axis capped. Both are handled below and both are commented where they happen.
 
     The first T4 reading was 33x and said no. It was bf16 running in software on a card whose
     tensor cores do not have it; measured in fp16 the same card is 5.9x on a burst and 7.1x held
@@ -1726,8 +1731,16 @@ def fig_hardware():
             near = min(use, key=lambda r: abs(r['tokens_per_s'] - rate))
             machines[key][preset] = dict(near, tokens_per_s=round(rate), sittings=len(use),
                                          full_run_hours=TOKENS_PER_RUN / rate / 3600)
-    cpu_only = [k for k in order if not machines[k]['poc'].get('compute_capability')]
-    order = [k for k in order if machines[k]['poc'].get('compute_capability')]
+    # An accelerator row, or the bare processor? `compute_capability` answers that for CUDA and
+    # for nothing else -- Apple's MPS rows carry a null there, so keying off it alone filed the
+    # MacBook as a CPU baseline and dropped it off the bar panel without saying so. The row a
+    # student is most likely to look for, silently missing, because a NVIDIA-shaped field was
+    # read as "is this a GPU".
+    def is_accelerator(rec):
+        return bool(rec.get('compute_capability')) or '(MPS)' in rec['device']
+
+    cpu_only = [k for k in order if not is_accelerator(machines[k]['poc'])]
+    order = [k for k in order if is_accelerator(machines[k]['poc'])]
     # Fastest first, so the workstation anchors the left and the question "how far down can you
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
@@ -1737,27 +1750,69 @@ def fig_hardware():
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(20.0, 6.0),
                                   gridspec_kw={'width_ratios': [1.75, 1.0]})
 
+    # Two short lines each. The first line names the machine, the second carries the generation
+    # and the dtype -- which is the pair that tells a reader whether two bars are the same
+    # computation. Eight columns of these collided at the old widths, so the machine names lost
+    # their "Pro"/"laptop" suffixes rather than the technical line losing anything.
     short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'the workstation\nsm_120 · bf16',
-             'NVIDIA A100-SXM4-80GB': 'Colab A100, Pro\nsm_80 · bf16',
-             'NVIDIA L4': 'Colab L4, Pro\nsm_89 · bf16',
+             'NVIDIA A100-SXM4-80GB': 'Colab A100\nsm_80 · bf16',
+             'NVIDIA L4': 'Colab L4\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free\nsm_75 · fp16',
-             'NVIDIA RTX 2000 Ada Generation Laptop GPU': 'RTX 2000 Ada laptop\nsm_89 · 8 GB *',
+             'NVIDIA RTX 2000 Ada Generation Laptop GPU': 'RTX 2000 Ada\nsm_89 · 8 GB *',
              'NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)': 'same laptop\non battery',
+             # The dtype is on every tick label for a reason, and this is the row where it earns
+             # its place: fp32 against everyone else's bf16 or fp16, because MPS has no autocast
+             # path we would trust to be the same computation. The bar is honest and not exactly
+             # comparable, and the label has to say so where the bar is read.
+             'Apple arm64 (MPS)': 'MacBook Pro\nM4 Pro · fp32 † *',
              'Intel64 Family 6 Model 186 Stepping 2, GenuineIntel': 'the same laptop,\nCPU only'}
+
+    # A CAPPED AXIS, because the MacBook is 30x the A100 and the bars have to stay linear.
+    #
+    # This is the same problem the CPU rows have, one order of magnitude smaller, and it does not
+    # have the same answer. The CPU is kept off this panel because nobody is deciding whether to
+    # train on a CPU; a Mac is the machine a large share of this poster's readers actually own,
+    # so its bar belongs here even when the bar is bad news. But drawn to full height, 45.6 h
+    # puts the workstation and the A100 at 1.5% of the axis and destroys the comparison the panel
+    # exists to make -- the one between the tiers a student might rent.
+    #
+    # So the axis is capped just above the tallest bar that is not the Mac's 98M run, and that
+    # one bar is drawn clipped, hatched at the cut, and labelled with its real value. A reader
+    # loses nothing: the number is on the bar either way, and every bar that fits stays honestly
+    # proportional to every other. What they gain is being able to see that the T4 and the L4 are
+    # the same order of magnitude, which is the whole argument of the left panel.
+    vals_by_preset = {p: [machines[k][p]['full_run_hours'] for k in order]
+                      for p in ('poc', 'afriberta')}
+    tallest = max(v for vs in vals_by_preset.values() for v in vs)
+    fits = [v for vs in vals_by_preset.values() for v in vs if v < tallest]
+    cap = max(fits) * 1.30
+
     xs = range(len(order))
     for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
                                     (1, 'afriberta', C2, '98M model')):
-        vals = [machines[k][preset]['full_run_hours'] for k in order]
-        ax.bar([x + (i - 0.5) * 0.36 for x in xs], vals, 0.34, color=color, label=label,
-               zorder=3)
-        for x, v, k in zip(xs, vals, order):
+        vals = vals_by_preset[preset]
+        pos = [x + (i - 0.5) * 0.36 for x in xs]
+        ax.bar(pos, [min(v, cap) for v in vals], 0.34, color=color, label=label, zorder=3)
+        for x, v, k in zip(pos, vals, order):
             star = '*' if 'micro_batch' in machines[k][preset] else ''
-            ax.text(x + (i - 0.5) * 0.36, v + 0.25, f'{v:.1f} h{star}', ha='center',
-                    color=INK, fontsize=12, fontweight='bold')
+            if v > cap:
+                # The break: a hatched band across the top of the bar, so the eye is told the
+                # bar is cut rather than left to read the cap as the value.
+                ax.bar([x], [cap * 0.055], 0.34, bottom=cap * 0.945, color=color,
+                       hatch='///', edgecolor='white', linewidth=0, zorder=4)
+                # Set INSIDE the bar and low, rather than above it: the neighbouring 33.8M bar on
+                # this machine is nearly as tall as the cap, and its label was landing on top of
+                # this one -- "45.6 h" reading as "5.6 h", which is worse than not labelling it.
+                ax.text(x, cap * 0.45, f'{v:.1f} h{star}', ha='center', va='center',
+                        color='white', fontsize=12, fontweight='bold', zorder=5)
+                ax.text(x, cap * 1.005, 'off the scale', ha='center', color=INK2, fontsize=10.5)
+            else:
+                ax.text(x, v + cap * 0.014, f'{v:.1f} h{star}', ha='center',
+                        color=INK, fontsize=12, fontweight='bold')
     ax.set_xticks(list(xs))
-    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=11)
+    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=10.5)
     ax.set_ylabel('hours for one 62,500-step run')
-    ax.set_ylim(0, max(machines[k]['afriberta']['full_run_hours'] for k in order) * 1.28)
+    ax.set_ylim(0, cap * 1.06)
     ax.legend(loc='upper left')
     ax.set_title('One run, on each machine', pad=30, loc='left')
     ax.text(0, 1.04, 'same experiment, same token budget', transform=ax.transAxes,
@@ -1863,17 +1918,20 @@ def fig_hardware():
                  color=INK2, fontsize=11.5, va='bottom')
 
 
-    fig.text(0.5, -0.175,
+    fig.text(0.5, -0.30,
              "Measured by bench_portable.py, three minutes per model per machine — except the "
              "workstation, whose rate is the median of 127 and 70 real training runs because "
              "every\nbenchmark sitting on it so far was taken while another job held the card. "
              "Machines measured more than once show the median. The T4's first reading was 33× "
              "and said no:\ntorch.cuda.is_bf16_supported() defaults to including_emulation=True, "
              "so a card without bf16 tensor cores ran it in software. Every row carries its "
-             "dtype for that reason.\n* The 98M model does not fit whole in 8 GB — the laptop "
-             "runs it as the same 16,384-token step via gradient accumulation (micro-batch "
-             "64 × 2), which is the configuration\nthe row records. Rows still wanted: a MacBook, "
-             "and the workstation on an idle card.",
+             "dtype for that reason.\n* The 98M model does not fit whole in 8 GB, or inside the "
+             "17.8 GB Metal recommends on a 24 GB Mac — both run it as the same 16,384-token "
+             "step via gradient accumulation\n(micro-batch 64 × 2), which is the configuration "
+             "the row records. † The Mac holds fp32 where every CUDA row is bf16 or fp16, so it "
+             "is directional rather than exactly\ncomparable — measured in it anyway, because "
+             "silently changing precision between machines compares two different computations. "
+             "One row still wanted: the workstation\non an idle card.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 
