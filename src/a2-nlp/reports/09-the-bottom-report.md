@@ -550,7 +550,7 @@ Colab cell.
 | Google Colab — paid tier (L4, bf16) | 88k tok/s | 36k tok/s | **7.9 h** |
 | Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
-| Google Colab — free tier (T4, fp16) | 54k tok/s | 21k tok/s | **13.4 h** |
+| Google Colab — free tier (T4, fp16) | 53k tok/s | 21k tok/s | **13.3 h** |
 | **MacBook Pro** — M4 Pro, 24 GB unified, MPS | 17k tok/s† | 6.6k tok/s\*† | **43.1 h** |
 | — the same laptop with `--cpu`, GPU ignored | 1.2k tok/s | 0.5k tok/s | 23 days |
 
@@ -575,17 +575,26 @@ about. Every other row is a **three-minute timed run** (`--seconds 180`), and ea
 the one that matters.** Forty steps is 1.3 seconds of work on a cold card, so we expected the
 burst numbers to be flattering everywhere. The A100, the L4 and the laptop all came back within
 2% of their burst readings and none of them decayed measurably across the three minutes. The free
-T4 came back **19% lower on the 33.8M model and 22% lower on the 98M** — and its own throttle was
-only 1.07, so it did not slow down much *during* the run that produced the lower number.
+T4 came back **19% lower on the 33.8M model and 22% lower on the 98M**.
 
-That combination is worth being careful about, because **we cannot yet tell which of two things it
-is.** Either the T4 is uniquely sensitive to the method — the only card here whose opening steps
-flatter it by a fifth — or free-tier sessions simply differ by that much, since the burst and the
-timed reading were taken in different Colab sessions and a free runtime shares its host. The two
-explanations are confounded in our data because the two readings differ in *both* respects. One
-more three-minute sitting on a fresh T4 separates them, and it is the row that most deserves it:
-it belongs to the student with no budget and no alternative. Until then, read the T4 as one
-sitting rather than a constant.
+Two explanations fitted that equally well and our data could not separate them, because the burst
+and the timed reading differed in *both* respects: they used different methods **and** came from
+different Colab sessions on a card that shares a host. So we sat the T4 down three times.
+
+**The sessions are not the story. The card is.** Three fresh free-tier runtimes agreed to **1.8%**
+on the 33.8M model and **0.5%** on the 98M — making the free tier one of the most repeatable
+machines on this table, which is the opposite of what "shared host" predicts. What the burst was
+catching is that **the T4 throttles, and only on the small model**: its within-run decay measured
+**1.19, 1.20 and 1.22** on the 33.8M preset, opening near 60k tok/s and closing near 50k every
+time, while the 98M preset sat at **0.98–0.99** and did not decay at all.
+
+That asymmetry is the interesting part. A 70 W passively-cooled card can hold the duty cycle the
+expensive model asks for and cannot hold the one the cheap model asks for — so the machine that
+looks fastest in the first twenty seconds is the machine that falls furthest, and only on the
+configuration a beginner is most likely to run first. **Of the seven machines here, the T4 is the
+only one where the first number you see is not the number you get**, and it is the one belonging
+to the student with no budget and no alternative. Its `throttle` column said so from the first
+timed sitting; we needed three to believe it was the card rather than the queue.
 
 And the `--cpu` row is the same laptop with its GPU switched off: the **63×** between those two
 rows is what the GPU a student already owns is worth. (That row is still a forty-step burst; a

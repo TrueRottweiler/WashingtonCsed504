@@ -526,17 +526,41 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         say(f'{preset:>10}: timing {label} for {run_for:.0f}s ...')
         marks, n, own, next_report = [], 0, 0.0, TICK
         alt_n, alt_own = 0, 0.0
+        def alt_turn():
+            """One block of the alternate loop, which never writes the throttle marks."""
+            nonlocal alt_n, alt_own, marks
+            saved, marks = marks, []
+            k, took = run_block(alt_fn, alt_block, alt_n)
+            alt_n, alt_own, marks = alt_n + k, alt_own + took, saved
+
+        # WHICH LOOP LEADS THE CYCLE ALTERNATES, AND ON A DECAYING CARD THAT IS THE WHOLE BALLGAME.
+        #
+        # Interleaving was supposed to cancel drift, and it does cancel drift BETWEEN cycles. What
+        # the first version did not cancel was drift WITHIN one: the alternate always ran second,
+        # so on a card whose clocks fall it was always sampled a few seconds later and a little
+        # cooler. The T4 sheds 20% across three minutes -- throttle 1.19 to 1.22 over three
+        # sittings -- and the bias showed up unmistakably as `bare_over_real` of 0.99: the
+        # stripped-down step, which does strictly less work, reading SLOWER than the loop that
+        # builds and masks a batch on top of it. An impossible number is a gift; a plausible one
+        # would have gone on the board.
+        #
+        # Leading with the alternate on odd cycles puts both loops at the same average point in
+        # the thermal history. Everything measured before this fix on a machine with throttle
+        # near 1.0 is unaffected -- the workstation and the Mac -- and the T4's own rows read
+        # about 1% optimistic on the 33.8M preset until they are taken again.
+        cycle = 0
         while own < run_for:
+            if alt_fn is not None and cycle % 2 and own > 0:
+                alt_turn()
             k, took_k = run_block(step_fn, min(block if alt_fn else run_for, run_for - own), n)
             n, own = n + k, own + took_k
             if own >= next_report:
                 say(f'{"":>10}  {own:5.0f}s / {run_for:.0f}s   {n:6,} steps'
                     f'   {n * BATCH * SEQ / own:9,.0f} tok/s so far')
                 next_report += TICK
-            if alt_fn is not None and own < run_for:
-                saved, marks = marks, []          # the alternate does not write the throttle
-                k, took_k = run_block(alt_fn, alt_block, alt_n)
-                alt_n, alt_own, marks = alt_n + k, alt_own + took_k, saved
+            if alt_fn is not None and not cycle % 2 and own < run_for:
+                alt_turn()
+            cycle += 1
 
         # First third against last third, from the marks, so the throttle needs no second run.
         # `own` time throughout, so interleaving does not leak into it.
