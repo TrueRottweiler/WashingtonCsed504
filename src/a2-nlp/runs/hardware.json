@@ -17,11 +17,12 @@
   "usd_per_compute_unit": 0.0999,
   "note": "Colab A100, Pro tier",
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step"
  },
  {
   "preset": "poc",
-  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
   "compute_capability": "12.0",
   "sms": 188,
   "dtype": "torch.bfloat16",
@@ -33,7 +34,9 @@
   "full_run_hours": 0.75,
   "vs_workstation": 1.0,
   "project_hours_here": 148.0,
-  "note": "the workstation, sustained median over 127 real runs"
+  "note": "the workstation, sustained median over 127 real runs",
+  "method": "real-run median",
+  "real_runs": 127
  },
  {
   "preset": "afriberta",
@@ -53,11 +56,12 @@
   "usd_per_compute_unit": 0.0999,
   "note": "Colab A100, Pro tier",
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step"
  },
  {
   "preset": "afriberta",
-  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
   "compute_capability": "12.0",
   "sms": 188,
   "dtype": "torch.bfloat16",
@@ -69,7 +73,9 @@
   "full_run_hours": 1.54,
   "vs_workstation": 1.0,
   "project_hours_here": 148.0,
-  "note": "the workstation, sustained median over 70 real runs"
+  "note": "the workstation, sustained median over 70 real runs",
+  "method": "real-run median",
+  "real_runs": 70
  },
  {
   "preset": "poc",
@@ -85,7 +91,8 @@
   "full_run_hours": 3.24,
   "vs_workstation": 4.35,
   "project_hours_here": 643.6,
-  "note": "Colab L4, Pro tier"
+  "note": "Colab L4, Pro tier",
+  "method": "bare-step"
  },
  {
   "preset": "poc",
@@ -101,7 +108,8 @@
   "full_run_hours": 3.76,
   "vs_workstation": 5.05,
   "project_hours_here": 747.6,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
+  "method": "bare-step"
  },
  {
   "preset": "poc",
@@ -117,7 +125,8 @@
   "full_run_hours": 4.4,
   "vs_workstation": 5.91,
   "project_hours_here": 874.0,
-  "note": "Colab T4 (free tier)"
+  "note": "Colab T4 (free tier)",
+  "method": "bare-step"
  },
  {
   "preset": "afriberta",
@@ -133,7 +142,8 @@
   "full_run_hours": 7.28,
   "vs_workstation": 4.72,
   "project_hours_here": 698.6,
-  "note": "Colab L4, Pro tier"
+  "note": "Colab L4, Pro tier",
+  "method": "bare-step"
  },
  {
   "preset": "afriberta",
@@ -151,7 +161,8 @@
   "grad_accum": 2,
   "vs_workstation": 5.71,
   "project_hours_here": 845.5,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in; full batch spills past 8 GB, folded by gradient accumulation"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in; full batch spills past 8 GB, folded by gradient accumulation",
+  "method": "bare-step"
  },
  {
   "preset": "afriberta",
@@ -167,7 +178,8 @@
   "full_run_hours": 10.92,
   "vs_workstation": 7.08,
   "project_hours_here": 1047.0,
-  "note": "Colab T4 (free tier)"
+  "note": "Colab T4 (free tier)",
+  "method": "bare-step"
  },
  {
   "preset": "poc",
@@ -183,7 +195,8 @@
   "full_run_hours": 241.18,
   "vs_workstation": 323.85,
   "project_hours_here": 47929.5,
-  "note": "Surface Studio Laptop, CPU only, plugged in"
+  "note": "Surface Studio Laptop, CPU only, plugged in",
+  "method": "bare-step"
  },
  {
   "preset": "afriberta",
@@ -199,7 +212,8 @@
   "full_run_hours": 551.17,
   "vs_workstation": 357.23,
   "project_hours_here": 52869.6,
-  "note": "Surface Studio Laptop, CPU only, plugged in"
+  "note": "Surface Studio Laptop, CPU only, plugged in",
+  "method": "bare-step"
  },
  {
   "preset": "poc",
@@ -220,7 +234,9 @@
   "full_run_hours": 3.89,
   "vs_workstation": 5.23,
   "project_hours_here": 773.3,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -243,7 +259,9 @@
   "grad_accum": 2,
   "vs_workstation": 5.93,
   "project_hours_here": 878.3,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -268,7 +286,9 @@
   "compute_units_per_hour": 1.54,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -293,7 +313,9 @@
   "compute_units_per_hour": 1.54,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -318,7 +340,9 @@
   "compute_units_per_hour": 6.77,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -343,7 +367,9 @@
   "compute_units_per_hour": 6.77,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -368,7 +394,9 @@
   "compute_units_per_hour": 1.07,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -393,7 +421,9 @@
   "compute_units_per_hour": 1.07,
   "usd_per_compute_unit": 0.0999,
   "billing_observed": "2026-08-13",
-  "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part."
+  "billing_caveat": "Read on a Pro account, which burns units even on the T4; the free tier hands out the same card for $0 with usage caps, so the figure's $0 is the free-tier story. Colab compute-unit rates vary with tier pricing and demand; this is one reading, not a constant. The ratio between tiers is the durable part.",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -414,7 +444,9 @@
   "full_run_hours": 3.78,
   "vs_workstation": 5.08,
   "project_hours_here": 751.2,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -437,7 +469,9 @@
   "grad_accum": 2,
   "vs_workstation": 5.65,
   "project_hours_here": 836.5,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, plugged in",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -458,7 +492,9 @@
   "full_run_hours": 5.06,
   "vs_workstation": 6.8,
   "project_hours_here": 1006.2,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -481,7 +517,130 @@
   "grad_accum": 2,
   "vs_workstation": 7.73,
   "project_hours_here": 1143.8,
-  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery"
+  "note": "Surface Studio Laptop, RTX 2000 Ada Mobile, on battery",
+  "method": "bare-step",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "poc",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "compute_capability": "12.0",
+  "sms": 188,
+  "timed_seconds": 180.1,
+  "timed_steps": 5040,
+  "tok_s_first_third": 471366,
+  "tok_s_last_third": 448721,
+  "throttle": 1.05,
+  "dtype": "torch.bfloat16",
+  "params_m": 33.8,
+  "backbone_m": 25.6,
+  "tokens_per_s": 458587,
+  "peak_gb": 5.65,
+  "batch": 128,
+  "full_run_hours": 0.62,
+  "vs_workstation": 0.83,
+  "project_hours_here": 123.2,
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "method": "bare-step",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "afriberta",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "compute_capability": "12.0",
+  "sms": 188,
+  "timed_seconds": 180.2,
+  "timed_steps": 2087,
+  "tok_s_first_third": 189708,
+  "tok_s_last_third": 189913,
+  "throttle": 1.0,
+  "dtype": "torch.bfloat16",
+  "params_m": 98.1,
+  "backbone_m": 85.8,
+  "tokens_per_s": 189773,
+  "peak_gb": 9.86,
+  "batch": 128,
+  "full_run_hours": 1.5,
+  "vs_workstation": 0.97,
+  "project_hours_here": 143.8,
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "method": "bare-step",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "poc",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "compute_capability": "12.0",
+  "sms": 188,
+  "timed_seconds": 600.1,
+  "timed_steps": 16520,
+  "tok_s_first_third": 456407,
+  "tok_s_last_third": 448247,
+  "throttle": 1.02,
+  "dtype": "torch.bfloat16",
+  "params_m": 33.8,
+  "backbone_m": 25.6,
+  "tokens_per_s": 451047,
+  "peak_gb": 5.65,
+  "batch": 128,
+  "full_run_hours": 0.63,
+  "vs_workstation": 0.85,
+  "project_hours_here": 125.3,
+  "note": "Toothless, 1 card (index 0), idle, 600s",
+  "method": "bare-step",
+  "asked_seconds": 600.0
+ },
+ {
+  "preset": "poc",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "compute_capability": "12.0",
+  "sms": 188,
+  "method": "realistic-loop",
+  "timed_seconds": 180.0,
+  "timed_steps": 4862,
+  "tok_s_first_third": 456675,
+  "tok_s_last_third": 435120,
+  "throttle": 1.05,
+  "dtype": "torch.bfloat16",
+  "params_m": 33.8,
+  "backbone_m": 25.6,
+  "tokens_per_s": 442510,
+  "peak_gb": 5.77,
+  "tok_s_bare": 454544,
+  "bare_seconds": 54.1,
+  "bare_over_real": 1.027,
+  "batch": 128,
+  "full_run_hours": 0.64,
+  "vs_workstation": 0.86,
+  "project_hours_here": 127.7,
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "asked_seconds": 180.0
+ },
+ {
+  "preset": "afriberta",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "compute_capability": "12.0",
+  "sms": 188,
+  "method": "realistic-loop",
+  "timed_seconds": 180.1,
+  "timed_steps": 2050,
+  "tok_s_first_third": 186228,
+  "tok_s_last_third": 186714,
+  "throttle": 1.0,
+  "dtype": "torch.bfloat16",
+  "params_m": 98.1,
+  "backbone_m": 85.8,
+  "tokens_per_s": 186534,
+  "peak_gb": 9.98,
+  "tok_s_bare": 190198,
+  "bare_seconds": 55.1,
+  "bare_over_real": 1.02,
+  "batch": 128,
+  "full_run_hours": 1.52,
+  "vs_workstation": 0.99,
+  "project_hours_here": 146.3,
+  "note": "Toothless, 1 card (index 0), idle, 180s",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -502,7 +661,9 @@
   "full_run_hours": 16.81,
   "vs_workstation": 22.57,
   "project_hours_here": 3340.4,
-  "note": "MacBook Pro M4 Pro, MPS"
+  "note": "MacBook Pro M4 Pro, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "poc",
@@ -523,7 +684,9 @@
   "full_run_hours": 18.14,
   "vs_workstation": 24.36,
   "project_hours_here": 3604.6,
-  "note": "MacBook Pro M4 Pro, 24 GB, MPS"
+  "note": "MacBook Pro M4 Pro, 24 GB, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  },
  {
   "preset": "afriberta",
@@ -546,6 +709,8 @@
   "grad_accum": 2,
   "vs_workstation": 29.68,
   "project_hours_here": 4393.0,
-  "note": "MacBook Pro M4 Pro, 24 GB, MPS"
+  "note": "MacBook Pro M4 Pro, 24 GB, MPS",
+  "method": "bare-step",
+  "asked_seconds": 180.0
  }
 ]

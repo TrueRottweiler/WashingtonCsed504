@@ -394,18 +394,64 @@ class PortableBenchConstants(unittest.TestCase):
                                    f'the records say {hours:.1f}. A Colab row is projected from '
                                    f'this, so the drift reaches a student.')
 
-    def test_reference_throughputs_match_the_records(self):
-        import statistics as _st
-        by = {}
-        for r in mlm_api.results('*'):
-            if r.get('tokens_per_s') and r.get('preset'):
-                by.setdefault(r['preset'], []).append(r['tokens_per_s'])
+    def _real_run_rates(self, preset):
+        """Completed runs at the shape the benchmark builds -- 16k vocabulary, batch 128.
+
+        The filter matters. The `poc` label also covers the XLM-R-vocabulary arm, whose 250k
+        output head is 5.1x the compute per step and which runs at 76k tok/s; seven of those
+        sitting in a median of throughput would be comparing two different experiments.
+        """
+        want = 33.8 if preset == 'poc' else 98.1
+        return sorted(r['tokens_per_s'] for r in mlm_api.results('*')
+                      if r.get('tokens_per_s') and r.get('preset') == preset
+                      and r.get('batch') == 128 and abs(r['params'] / 1e6 - want) < 0.3)
+
+    def test_reference_throughputs_match_the_benchmark_row(self):
+        """REF_TOK_S is this script on an idle card, so it must equal the row that measured it.
+
+        It used to be the median of real runs, which made every "Nx the workstation" ratio a
+        benchmark divided by a non-benchmark. The denominator is now the same measurement as
+        every numerator.
+        """
+        rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+        ws = {r['preset']: r for r in rows if 'PRO 6000' in r['device']
+              and r.get('method') == 'realistic-loop'}
+        self.assertEqual(set(ws), set(self.bp.REF_TOK_S),
+                         'no realistic-loop workstation row for every preset in REF_TOK_S')
         for preset, expected in self.bp.REF_TOK_S.items():
             with self.subTest(preset=preset):
-                median = _st.median(by[preset])
-                self.assertAlmostEqual(expected / median, 1.0, delta=0.05,
+                self.assertAlmostEqual(expected / ws[preset]['tokens_per_s'], 1.0, delta=0.05,
                                        msg=f'{preset}: constant {expected:,}, '
-                                           f'records {median:,.0f}')
+                                           f'hardware.json {ws[preset]["tokens_per_s"]:,}')
+
+    def test_the_benchmark_predicts_a_real_run_that_gets_the_machine(self):
+        """The validation the old constant never had: does the ceiling match a good real run?
+
+        p90 rather than the median on purpose. The benchmark measures a machine with nothing
+        else on it, and that is what a p90 run got. The median is 0.86 of it on `poc` and 0.98
+        on `afriberta`, and the difference between those two is 9-minute runs against 93-minute
+        ones -- dispersion, not bias. If this test ever fails, the benchmark has stopped
+        describing the loop the factory runs, which is the whole claim.
+        """
+        for preset, ceiling in self.bp.REF_TOK_S.items():
+            with self.subTest(preset=preset):
+                rates = self._real_run_rates(preset)
+                p90 = rates[min(len(rates) - 1, int(round((len(rates) - 1) * 0.90)))]
+                self.assertAlmostEqual(ceiling / p90, 1.0, delta=0.06,
+                                       msg=f'{preset}: benchmark {ceiling:,} against a p90 real '
+                                           f'run of {p90:,} over {len(rates)} runs')
+
+    def test_realistic_fraction_matches_the_records(self):
+        """The shortfall we publish beside the ratio has to be the shortfall the records show."""
+        import statistics as _st
+        for preset, frac in self.bp.REALISTIC_FRACTION.items():
+            with self.subTest(preset=preset):
+                median = _st.median(self._real_run_rates(preset))
+                actual = median / self.bp.REF_TOK_S[preset]
+                self.assertAlmostEqual(frac, actual, delta=0.03,
+                                       msg=f'{preset}: REALISTIC_FRACTION says {frac}, the '
+                                           f'records say {actual:.3f} '
+                                           f'({median:,.0f} / {self.bp.REF_TOK_S[preset]:,})')
 
     def test_bf16_is_gated_on_the_hardware_not_the_library(self):
         """The T4 defect: is_bf16_supported() defaults to including_emulation=True."""
@@ -488,13 +534,20 @@ class HardwareRows(unittest.TestCase):
 
     def test_no_row_outstayed_its_own_timing_window(self):
         """229 seconds inside a 180-second window means one step took 57 of them. The loop only
-        checks the clock between steps, so overrun is a direct read on a machine in distress."""
+        checks the clock between steps, so overrun is a direct read on a machine in distress.
+
+        Measured against the window the row ASKED for, not a constant. The first version compared
+        every row to 180 s, which is correct until somebody runs `--seconds 600` to check whether
+        three minutes actually reaches the settled rate -- a legitimate use of a documented flag
+        that failed the suite. Rows written before `asked_seconds` existed fall back to 180.
+        """
         for r in self.rows:
             if r.get('timed_seconds'):
+                asked = r.get('asked_seconds') or 180.0
                 with self.subTest(device=r['device'], preset=r['preset']):
-                    self.assertLess(r['timed_seconds'], 200.0,
+                    self.assertLess(r['timed_seconds'], asked * 1.10 + 5.0,
                                     f"{r['device']} {r['preset']}: {r['timed_seconds']}s for a "
-                                    f"180s window -- a single step took tens of seconds.")
+                                    f"{asked:.0f}s window -- a single step took tens of seconds.")
 
 
 if __name__ == '__main__':

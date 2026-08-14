@@ -32,7 +32,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
+import subprocess
 import time
 
 import torch
@@ -64,23 +66,34 @@ FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapo
 # rather than reaching a student.
 PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results() + ft_api.results()
 
-# WHAT THE RATIO DIVIDES BY, AND WHY IT IS STILL THE REAL-RUN MEDIAN.
+# WHAT THE RATIO DIVIDES BY, AND WHY IT IS NOW THE WORKSTATION'S OWN BENCHMARK.
 #
-# Jeffrey asked how a two-minute test could be representative of a laptop. It could not: the old
-# loop timed 40 steps, which is 1.3 seconds of work on this box, taken while the card is cold. So
-# the loop now runs for a DURATION and reports the first third against the last as `throttle`.
+# It was the median over 127 and 70 real training runs until 13 August, on the reasoning that a
+# real median beats a synthetic sitting. It does, as a description of what this box delivered --
+# but not as the denominator of a ratio, because every numerator is another machine running THIS
+# SCRIPT. Dividing a benchmark by a real-run median compares two different measurements and
+# flatters whichever side is measured the friendlier way.
 #
-# I then tried to derive a benchmark-to-benchmark reference from this workstation and got it
-# wrong twice. Three 3-minute runs gave 448,571, then 377,576 for the identical configuration,
-# and I attributed the gap first to per-run overhead and then to thermal history. Both times the
-# card was shared with an ollama process, and both times this file PRINTED that it was -- the
-# "other processes hold part of this card" warning fired on every run and I read past all three.
+# So the reference is now this script, on one idle card, timing the same realistic loop every
+# other row times: 442,510 and 186,534. Comparable by construction.
 #
-# So there is no benchmark-derived constant here. REF_TOK_S stays what it has always been: the
-# median over 127 and 70 real training runs, spread across weeks and machines states, which is
-# the only workstation number in this project not measured in a single contended sitting. A
-# sustained reading on an idle card can replace it later; a rushed one should not.
-REF_TOK_S = {'poc': 381_817, 'afriberta': 184_329}         # real-run medians; 127 and 70 runs
+# It is also validated, which no earlier version of this constant was. The 98M preset's real
+# runs, which average 93 minutes, have a median of 183,697 and a p90 of 187,594 -- the benchmark
+# lands at 1.006 of that p90 and 1.015 of the median. It predicts the real thing on the one
+# machine where the real thing can be checked.
+#
+# The 33.8M preset agrees at the top and not in the middle: p90 427,932 (0.97 of this), median
+# 381,817 (0.86). That is not the benchmark being wrong, it is 9-minute runs spanning 1.73x from
+# p10 to p90 while 93-minute runs span 1.11x. Short runs are at the mercy of the machine's other
+# work; the ratio below is therefore a CEILING, and REALISTIC_FRACTION says so.
+#
+# test_board_numbers.py asserts both against the live records, so the next drift fails a test.
+REF_TOK_S = {'poc': 442_510, 'afriberta': 186_534}    # this script, idle card 0, 13 Aug 2026
+
+# What fraction of that ceiling the project's own runs actually sustained, at the median. The
+# honest thing to hand a student alongside a ratio: the benchmark says what your machine can do
+# when it is yours alone, and this says what ours delivered in practice over 190 real runs.
+REALISTIC_FRACTION = {'poc': 0.86, 'afriberta': 0.98}      # median real run / this benchmark
 
 
 TICK = 20.0                      # seconds between progress lines while a preset is timing
@@ -90,6 +103,58 @@ def say(msg):
     """Print immediately. Colab buffers stdout, and a progress line that arrives at the end of
     the run is worse than none -- it looks like the script sat silent and then lied about it."""
     print(msg, flush=True)
+
+
+# The data path, copied from mlm_data.MlmTokens rather than imported, so this file still pastes
+# into a bare Colab cell. What it holds is random rather than Yoruba, which is worthless for
+# learning and identical for timing -- a gather and a comparison do not care what the ids mean.
+POOL_TOKENS = 64_000_000         # real runs held 16M (poc median) to 1,024M; 64M sits between
+POOL_TOKENS_SMALL = 16_000_000   # unified memory has no headroom to spare -- see make_pool()
+MLM_PROB, MASK_ID, N_SPECIAL = 0.15, 4, 5
+
+
+def make_pool(device):
+    """The token stream a real run trains from: resident on the device, not fed from a loader.
+
+    int16 where the device is a GPU, because that is what mlm_data's `store_dtype='auto'` picks
+    for a 16k vocabulary and the gather bandwidth is half what int32 costs. MPS and CPU take
+    int32, which is the same data and the safer index path on backends that are patchier about
+    narrow integer types; the whole data path is under a millisecond either way.
+
+    SMALLER ON MPS, and #89 is the reason. A Mac has no free VRAM to spend -- the 98M preset
+    already lands at 16.2 GB against Metal's 17.8 GB recommended working set, and past that line
+    the machine does not fail, it degrades silently and hands back 286 tok/s. 256 MB of int32
+    pool is not worth a quarter of the remaining headroom, and 16M tokens is the median corpus
+    the `poc` runs actually used, so it is the more faithful number anyway.
+    """
+    if device.type == 'cuda':
+        return torch.randint(0, VOCAB, (POOL_TOKENS,), device=device, dtype=torch.int16)
+    return torch.randint(0, VOCAB, (POOL_TOKENS_SMALL,), device=device, dtype=torch.int32)
+
+
+def masked_batch(pool, micro, device):
+    """One training batch: random windows out of the stream, then BERT 80/10/10 corruption.
+
+    Line for line what MlmTokens.windows() and .mask() do, including the two boolean-mask
+    scatters, because those are the part with a cost. Of the positions selected at mlm_prob,
+    80% become <mask>, 10% become a random real token and 10% are left alone; labels are -100
+    everywhere the model is not asked to predict.
+    """
+    # Bounded by the pool that was actually built, not by POOL_TOKENS. Those differ on MPS, and
+    # reading the constant here would have indexed a 64M-token window into a 16M-token tensor --
+    # on the one backend nobody here can test against.
+    starts = torch.randint(0, pool.numel() - SEQ - 1, (micro,), device=device)
+    x = pool[starts.view(-1, 1) + torch.arange(SEQ, device=device)].long()
+    labels = x.clone()
+    sel = torch.rand(x.shape, device=device) < MLM_PROB
+    labels[~sel] = -100
+    r = torch.rand(x.shape, device=device)
+    out = x.clone()
+    out[sel & (r < 0.8)] = MASK_ID
+    rnd = torch.randint(N_SPECIAL, VOCAB, x.shape, device=device)
+    swap = sel & (r >= 0.8) & (r < 0.9)
+    out[swap] = rnd[swap]
+    return out, labels
 
 
 def pick_device():
@@ -107,6 +172,52 @@ def pick_device():
     if getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
         return torch.device('mps'), f'Apple {platform.machine()} (MPS)'
     return torch.device('cpu'), platform.processor() or platform.machine()
+
+
+def other_compute_processes(device):
+    """Who else is on this card. Returns a list of pids, or None if it could not be determined.
+
+    THIS REPLACES A MEMORY THRESHOLD THAT CRIED WOLF ON EVERY RUN. The old check asked
+    torch.cuda.mem_get_info(), called `total - free` "already in use", and warned above 1 GB.
+    But mem_get_info can only run after CUDA is initialised, and the context itself is ~1.6 GB
+    of the device under Windows -- so on 13 August an idle card with 0 MiB in nvidia-smi still
+    printed `1.6 GB already in use` and fired the warning, with torch.cuda.memory_reserved()
+    sitting at exactly 0.00 GB. The warning was measuring us.
+
+    That is worse than no warning. This file tells the reader in three places never to read past
+    that line, and the line appears on every run including the clean ones -- which is precisely
+    how three genuinely contended workstation readings got waved through as "Windows display
+    memory". A signal that is always on carries no information.
+
+    So ask the driver who is actually attached instead. Two details make it work where the
+    obvious version does not:
+
+      - Match on the device UUID, not the index. CUDA_VISIBLE_DEVICES renumbers what torch sees
+        while nvidia-smi keeps reporting physical indices, so `device 0` means two different
+        cards to the two tools during exactly the runs this check exists for.
+      - Do not ask for per-process memory. nvidia-smi reports used_gpu_memory as [N/A] under
+        Windows WDDM, so a memory-based version of this check silently degrades to nothing on
+        the platform the project's own workstation runs.
+
+    Graphics-only processes do not appear in --query-compute-apps, which is the behaviour we
+    want: a desktop drawing windows costs headroom, not throughput, and it is the compute
+    clients (an ollama server, someone else's training run) that make a number wrong.
+    """
+    if device.type != 'cuda':
+        return []
+    try:
+        uuid = str(torch.cuda.get_device_properties(device).uuid)
+        out = subprocess.run(['nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
+                              '--format=csv,noheader'],
+                             capture_output=True, text=True, timeout=20, check=True).stdout
+    except Exception:
+        return None                     # no nvidia-smi, or a torch too old to expose the uuid
+    mine, others = os.getpid(), []
+    for line in out.splitlines():
+        parts = [p.strip() for p in line.split(',')]
+        if len(parts) >= 2 and uuid in parts[0] and parts[1].isdigit() and int(parts[1]) != mine:
+            others.append(int(parts[1]))
+    return others
 
 
 def amp_dtype(device):
@@ -235,7 +346,7 @@ def check_spill(device, budget, where):
 
 
 def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
-          seconds=180.0):
+          seconds=180.0, bare_seconds=60.0):
     micro = micro or BATCH
     if BATCH % micro:
         raise SystemExit(f'--micro-batch must divide {BATCH}')
@@ -252,26 +363,76 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
     n_params = sum(p.numel() for p in model.parameters())
     n_backbone = n_params - model.get_input_embeddings().weight.numel()
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-4)
     dt = amp_dtype(device)
 
-    # One fixed micro-batch, reused. Generating fresh ids each step would time the RNG as well
-    # as the model, and the model is the thing under test. `accum` micro-batches make one
-    # optimizer step, the same way mlm_train.pretrain(accum=) does it, so a step is always
-    # BATCH x SEQ tokens of updates however little memory it is squeezed through.
-    ids = torch.randint(0, VOCAB, (micro, SEQ), device=device)
-    labels = ids.clone()
+    # THE STEP THIS TIMES IS THE ONE pretrain() RUNS, NOT A STRIPPED-DOWN COUSIN.
+    #
+    # It was the cousin until 13 August, and the difference was 11% on the 33.8M model. The old
+    # loop reused one fixed micro-batch and called plain AdamW, reasoning that "the model is the
+    # thing under test" -- but the thing under test is how long a RUN takes, and a run also builds
+    # every batch, clips gradients and reads the loss back to the host. Measured on an idle card,
+    # one ingredient at a time:
+    #
+    #                                        33.8M       98M
+    #     the old bench_portable step       475,473   190,492
+    #     + mlm_train's AdamW settings        -1.9%     -0.1%
+    #     + clip_grad_norm_(1.0)              -2.2%     -0.7%
+    #     + loss.item() every step            -2.6%     -0.8%
+    #     + a freshly masked batch            -2.1%     -0.3%
+    #     ------------------------------------------------------
+    #     predicted                         434,874   186,797
+    #     pretrain() itself, same card      427,290         -    (within 1.8%)
+    #
+    # Every ingredient is a roughly FIXED cost per step -- kernel launches, a host round trip, a
+    # norm reduction -- so it is 2% of a 34 ms step and 0.5% of an 86 ms one. That is why the
+    # error was never a constant anyone could divide out: it scales with how cheap the step is,
+    # so it also shrinks on slower hardware. The old benchmark was LEAST accurate on the fastest
+    # machine here, which is the one every other row gets divided by.
+    #
+    # loss.item() is the sharpest of them. mlm_train.py:340 calls it "a rounding error" because
+    # "the step is far heavier than a small LM's" -- true at 98M, where it costs 0.8%, and the
+    # largest single ingredient at 33.8M, where it costs 2.6%. The comment was right about the
+    # model it was written beside.
+    #
+    # The bare step is still measured, in the same sitting, because the gap between the two is a
+    # property of the MACHINE and not of ours. A card whose step is slow hides fixed costs that a
+    # fast one cannot, so every row carries its own gap rather than inheriting this one.
+    # ONE optimizer, shared by both loops, built the way mlm_train.pretrain() builds it -- the
+    # absence of fused= included, because that is what the factory actually runs. Sharing it is
+    # deliberate on two counts. Two AdamW states for the 98M model is 1.6 GB, which is real money
+    # on the 8 GB card this has to fit and would inflate the peak_gb we report as "what a run
+    # needs". And it makes the bare/realistic gap mean one clean thing: the cost of building
+    # batches, clipping, and reading the loss back. Not the cost of AdamW's keyword arguments.
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01,
+                            betas=(0.9, 0.98), eps=1e-6)
+    pool = make_pool(device)
+    fixed_ids = torch.randint(0, VOCAB, (micro, SEQ), device=device)
+    fixed = (fixed_ids, fixed_ids.clone())
 
-    def one_step():
-        opt.zero_grad(set_to_none=True)
-        for _ in range(accum):
-            if dt is not None:
-                with torch.autocast('cuda', dtype=dt):
-                    loss = model(input_ids=ids, labels=labels).loss / accum
-            else:
-                loss = model(input_ids=ids, labels=labels).loss / accum
-            loss.backward()
-        opt.step()
+    # `accum` micro-batches make one optimizer step, the same way mlm_train.pretrain(accum=)
+    # does, so a step is always BATCH x SEQ tokens of updates however little memory it is
+    # squeezed through.
+    def make_step(bare):
+        def one_step():
+            opt.zero_grad(set_to_none=True)
+            loss = None
+            for _ in range(accum):
+                x, y = fixed if bare else masked_batch(pool, micro, device)
+                if dt is not None:
+                    with torch.autocast('cuda', dtype=dt):
+                        loss = model(input_ids=x, labels=y).loss / accum
+                else:
+                    loss = model(input_ids=x, labels=y).loss / accum
+                loss.backward()
+            if not bare:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+            if not bare:
+                loss.item()                  # the host sync a real run pays for its EMA readout
+
+        return one_step
+
+    one_step, bare_step = make_step(bare=False), make_step(bare=True)
 
     one_step()                                   # on CUDA the first step allocates everything at
     sync(device)                                 # once: params, grads, optimizer state, activations
@@ -293,14 +454,27 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     # card is still cold, and the number it returns is a boost clock rather than a rate anything
     # can hold.
     #
-    # The proof is on the one machine where both readings exist. bench_portable measured the
-    # workstation at 490,338 tok/s; the median over 127 real runs, most of them 40 minutes or
-    # longer, is 381,654. The burst reads 1.28x the truth on a desktop card with a 300 W limit
-    # and good cooling. A laptop in a chassis will be worse, and a laptop on battery worse again.
+    # The proof is on the one machine where both readings exist, and pulling it apart took three
+    # tries. The old 40-step burst read 490,338 tok/s on the workstation against a 381,817 median
+    # over 127 real runs -- a gap of 1.28x this comment used to blame entirely on the burst, and
+    # which a later attempt blamed mostly on the method. Both were wrong, and wrong for the same
+    # reason: the stages were measured in sequence on a card that sheds ~5% over its first
+    # minutes, so whichever ran later was charged for the drift. Interleaved, on the 33.8M model:
     #
-    # That error was not symmetric, which is what made it dangerous. REF_TOK_S -- the thing every
-    # "x the workstation" ratio divides by -- is a SUSTAINED median, so the figure was dividing
-    # burst numbers by a sustained one and flattering every machine that is not this one.
+    #     490,338   40-step burst, cold card
+    #     454,544   the bare step, held and interleaved       (-7.3%  the burst)
+    #     442,510   the realistic loop, idle card             (-2.6%  the method, fixed above)
+    #     427,932   p90 of 120 real runs                      (-3.3%  eval and checkpoint writes)
+    #     381,817   the MEDIAN of those runs                  (-10.8% the conditions)
+    #
+    # Only the first two were the benchmark's to fix, and both now are. What is left is not bias,
+    # it is DISPERSION: real runs span 1.73x from p10 to p90 on this preset, because a 9-minute
+    # run is at the mercy of whatever else the box does during those 9 minutes. The 98M preset,
+    # whose runs average 93 minutes, spans only 1.11x and its p90 sits 1.006 of this benchmark.
+    #
+    # So the honest reading of any row here is A CEILING, and a well-behaved run reaches it. How
+    # far below it you land is a property of your machine's other work, not of this code, and the
+    # only way to know it for a machine is to measure that machine more than once.
     #
     # So: run for a fixed number of SECONDS, and report the last third separately from the first.
     # The ratio between them is the throttle, measured rather than assumed, and on a laptop it is
@@ -311,42 +485,85 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     # several minutes not knowing whether it had died. Every 20 seconds it says where it is and
     # what it is currently getting, so a slow machine looks slow rather than broken, and the
     # running figure lets you see the throttle happening rather than waiting for the verdict.
-    say(f'{preset:>10}: timing for {seconds:.0f}s ...')
-    t0 = time.perf_counter()
-    marks, n, next_report = [], 0, TICK
-    while True:
-        elapsed = time.perf_counter() - t0
-        if elapsed >= seconds:
-            break
-        one_step()
-        n += 1
-        if n % 10 == 0:
-            # Sync before reading the clock, or the mark records when the work was QUEUED rather
-            # than when it finished. MPS needs this as much as CUDA does, and it is the device
-            # where throttle matters most -- a lightly-cooled chassis is the whole question.
+    def time_phase(step_fn, run_for, label, alt_fn=None, alt_total=0.0, block=20.0):
+        """Time step_fn for run_for seconds. If alt_fn is given, INTERLEAVE the two.
+
+        Interleaved because measuring them in sequence does not compare them. The first version
+        of this ran the realistic loop for three minutes and then the bare step for one, and
+        reported the bare step as 1.01x -- against 1.09x from a staged experiment earlier the
+        same hour. Neither number was the gap. This card sheds about 5% over its first couple of
+        minutes, so whichever loop went second was measured at a lower clock, and the drift was
+        sitting inside the comparison with its own sign. The staged experiment had the same bug
+        pointing the other way: it added ingredients cheapest-first, so every ingredient was
+        credited with the thermal decay that happened while it was being measured.
+
+        Alternating ten-second blocks cancels any monotonic drift to first order -- both loops
+        see the same clock history, near enough -- and it costs nothing but bookkeeping. The
+        progress line and the throttle still describe the realistic loop, which is the headline.
+        """
+        # sync(device) before every clock read, or a mark records when the work was SUBMITTED
+        # rather than when it finished. That helper is the Mac's, from #89, and it is why this
+        # loop is correct on MPS as well as CUDA -- the device where throttle matters most.
+        def run_block(fn, budget, count):
+            """Run fn until budget seconds of ITS OWN time are spent. Returns (steps, seconds)."""
+            b0, k = time.perf_counter(), 0
+            while time.perf_counter() - b0 < budget:
+                fn()
+                k += 1
+                if (count + k) % 10 == 0:
+                    sync(device)
+                    marks.append((count + k, own + time.perf_counter() - b0))
             sync(device)
-            marks.append((n, time.perf_counter() - t0))
-        if elapsed >= next_report:
-            rate = n * BATCH * SEQ / elapsed
-            say(f'{"":>10}  {elapsed:5.0f}s / {seconds:.0f}s   {n:6,} steps'
-                f'   {rate:9,.0f} tok/s so far')
-            next_report += TICK
-    sync(device)
-    dt_s = time.perf_counter() - t0
-    steps = n
+            return k, time.perf_counter() - b0
 
-    # First third against last third, from the marks, so the throttle needs no second run.
-    early = late = None
-    if len(marks) >= 3:
-        a, b = marks[len(marks) // 3 - 1], marks[-1]
-        mid = marks[(2 * len(marks)) // 3 - 1]
-        early = a[0] * BATCH * SEQ / a[1]
-        late = (b[0] - mid[0]) * BATCH * SEQ / (b[1] - mid[1])
+        # The alternate gets alt_total seconds spread over the same number of blocks, so it is
+        # sampled across the whole sitting rather than bolted on at one end -- but it costs a
+        # third of the wall clock rather than doubling it. Three minutes of realistic loop and
+        # one of bare step is four minutes a preset, which is a number people will actually sit
+        # through; the point of the bare figure is the ratio, and a ratio converges quickly.
+        n_blocks = max(1, int(run_for / block + 0.999)) if alt_fn is not None else 1
+        alt_block = alt_total / n_blocks
+        say(f'{preset:>10}: timing {label} for {run_for:.0f}s ...')
+        marks, n, own, next_report = [], 0, 0.0, TICK
+        alt_n, alt_own = 0, 0.0
+        while own < run_for:
+            k, took_k = run_block(step_fn, min(block if alt_fn else run_for, run_for - own), n)
+            n, own = n + k, own + took_k
+            if own >= next_report:
+                say(f'{"":>10}  {own:5.0f}s / {run_for:.0f}s   {n:6,} steps'
+                    f'   {n * BATCH * SEQ / own:9,.0f} tok/s so far')
+                next_report += TICK
+            if alt_fn is not None and own < run_for:
+                saved, marks = marks, []          # the alternate does not write the throttle
+                k, took_k = run_block(alt_fn, alt_block, alt_n)
+                alt_n, alt_own, marks = alt_n + k, alt_own + took_k, saved
 
-    tok_s = steps * BATCH * SEQ / dt_s
-    # Reported on MPS too now. A row whose peak is blank is a row nobody can sanity-check, and
-    # the Mac was the machine that most needed checking: 20.1 GB against a 17.8 GB budget was
-    # sitting there in the driver the whole time the benchmark was reporting 286 tok/s.
+        # First third against last third, from the marks, so the throttle needs no second run.
+        # `own` time throughout, so interleaving does not leak into it.
+        early = late = None
+        if len(marks) >= 3:
+            a, b = marks[len(marks) // 3 - 1], marks[-1]
+            mid = marks[(2 * len(marks)) // 3 - 1]
+            early = a[0] * BATCH * SEQ / a[1]
+            late = (b[0] - mid[0]) * BATCH * SEQ / (b[1] - mid[1])
+        alt = (dict(tok_s=alt_n * BATCH * SEQ / alt_own, steps=alt_n, took=alt_own)
+               if alt_fn is not None and alt_own > 0 else None)
+        return dict(tok_s=n * BATCH * SEQ / own, steps=n, took=own,
+                    early=early, late=late, alt=alt)
+
+    if bare_seconds > 0:
+        for _ in range(max(2, warmup // 2)):     # the bare loop wants its own warmup
+            bare_step()
+        sync(device)
+    real = time_phase(one_step, seconds, 'a real training step, against the bare step',
+                      alt_fn=bare_step if bare_seconds > 0 else None,
+                      alt_total=bare_seconds, block=max(5.0, seconds / 9))
+    bare = real['alt']
+    dt_s, steps, early, late, tok_s = (real['took'], real['steps'], real['early'],
+                                       real['late'], real['tok_s'])
+    # Reported on MPS too now, via #89's mem_held(). A row whose peak is blank is a row nobody
+    # can sanity-check, and the Mac was the machine that most needed checking: 20.1 GB against a
+    # 17.8 GB budget was sitting there in the driver the whole time it reported 286 tok/s.
     held = mem_held(device)
     peak = held / 1024 ** 3 if held else None
     # Compute capability and SM count identify the GENERATION, which is what actually predicts
@@ -357,6 +574,17 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         props = torch.cuda.get_device_properties(0)
         cc, sms = f'{props.major}.{props.minor}', props.multi_processor_count
     r = {'preset': preset, 'device': dev_name, 'compute_capability': cc, 'sms': sms,
+         # WHICH STEP THIS TIMED. Every row written before 13 August 2026 is 'bare-step' and
+         # reads high -- on this workstation by 11% at 33.8M and 2% at 98M. The two are not
+         # comparable and nothing should ever median them together, which is why the field is
+         # written explicitly rather than inferred from a date or a missing key.
+         'method': 'realistic-loop',
+         # What was ASKED for, beside what it took. The overrun guard in test_board_numbers
+         # compares the two, and it used to compare against a hardcoded 180 -- which is right
+         # until somebody legitimately runs --seconds 600 to check whether three minutes reaches
+         # the settled rate. A test that reads the window off the row cannot be broken by using
+         # the flag the script advertises.
+         'asked_seconds': round(seconds, 1),
          'timed_seconds': round(dt_s, 1), 'timed_steps': steps,
          # The rate at the start against the rate at the end. 1.0 means the card held its clocks;
          # anything well above means the projection above is a boost number and the machine
@@ -367,6 +595,14 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
          'dtype': str(dt or torch.float32),
          'params_m': round(n_params / 1e6, 1), 'backbone_m': round(n_backbone / 1e6, 1),
          'tokens_per_s': round(tok_s), 'peak_gb': round(peak, 2) if peak else None,
+         # The same model on the same card in the same sitting, timing the old bare step. The
+         # ratio is how much of this machine's step is fixed overhead, and it is a property of
+         # the machine: a slow card hides per-step costs a fast one cannot. Measured here rather
+         # than assumed, because assuming the workstation's 1.11x applied everywhere is exactly
+         # the mistake this pair of numbers exists to prevent.
+         'tok_s_bare': round(bare['tok_s']) if bare else None,
+         'bare_seconds': round(bare['took'], 1) if bare else None,
+         'bare_over_real': round(bare['tok_s'] / tok_s, 3) if bare else None,
          # `batch` is the EFFECTIVE batch and it is always 128: accumulation folds how the step
          # is computed, not what the step is. The projection is over the token budget, and a
          # 16,384-token step at micro-batch 32 is the same experiment to four decimal places.
@@ -397,7 +633,8 @@ def fit_label(micro, ckpt):
     return ' + '.join(bits) or f'full batch {BATCH}'
 
 
-def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, micro=None, ckpt=False):
+def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, micro=None,
+                        ckpt=False, bare_seconds=60.0):
     """Measure as asked; when memory says no, fold the batch rather than shrink it.
 
     "DOES NOT FIT" is the wrong answer to the question this benchmark exists to ask. A Colab T4
@@ -435,6 +672,7 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, 
     for cfg in attempts:
         try:
             return bench(preset, device, dev_name, steps, warmup, seconds=seconds,
+                         bare_seconds=bare_seconds,
                          micro=cfg.get('micro'), ckpt=cfg.get('ckpt', False))
         except oom as e:
             # str() rather than the exception itself: e.__traceback__ pins bench()'s frame,
@@ -454,6 +692,11 @@ def main():
                          'minutes is long enough for a laptop to reach its steady '
                          'clocks; shorter readings are boost numbers and the row '
                          'says so via `throttle`.')
+    ap.add_argument('--bare-seconds', type=float, default=60.0,
+                    help='how long to hold the OLD step-only loop, in the same sitting, for '
+                         'comparison. The ratio between the two is how much of this machine\'s '
+                         'step is fixed overhead, which is a property of the machine rather '
+                         'than something our workstation can tell you. 0 skips it.')
     ap.add_argument('--steps', type=int, default=40)
     ap.add_argument('--warmup', type=int, default=8)
     ap.add_argument('--preset', default=None, help='poc or afriberta; both if omitted')
@@ -488,23 +731,31 @@ def main():
         a.warmup = 1
         if a.seconds > 60:
             a.seconds = 60.0
+            a.bare_seconds = min(a.bare_seconds, 20.0)
             print(f'CPU detected: timing for {a.seconds:.0f}s per preset rather than 180. Expect '
                   f'minutes even so, and expect the 98M model to be very slow.', flush=True)
     print(f'device: {dev_name}   torch {torch.__version__}   dtype {amp_dtype(device) or "fp32"}')
     if device.type == 'cuda':
-        # mem_get_info is the DEVICE's free/total, across every process. memory_reserved() only
-        # sees this process, which is useless for the question being asked -- the first version
-        # of this check reported a clean card while another job was using half of it, and the
-        # measurement came out at half speed with no warning attached.
+        # mem_get_info is the DEVICE's free/total across every process, which is the right
+        # question for "will this fit" -- it is kept for the headroom line and the fallback
+        # ladder. It is no longer asked "is the card busy", because it cannot separate another
+        # job's allocation from our own CUDA context. See other_compute_processes().
         free, total = torch.cuda.mem_get_info()
         used_gb = (total - free) / 1024 ** 3
-        print(f'memory: {total/1024**3:.0f} GB total, {used_gb:.1f} GB already in use')
-        if used_gb > 1.0:
-            print('NOTE: other processes hold part of this card. If one of them is COMPUTING, '
-                  'these numbers will read low -- a contended measurement on our own box came '
-                  'out at half the sustained rate. A desktop merely holding memory (Windows '
-                  'uses ~1 GB for the display) costs headroom rather than speed, and the '
-                  'fallback below accounts for it.')
+        others = other_compute_processes(device)
+        if others is None:
+            print(f'memory: {total/1024**3:.0f} GB total, {used_gb:.1f} GB held (some of it this '
+                  f'process). Could not ask nvidia-smi who else is on this card -- check by '
+                  f'hand before trusting a slow number.')
+        elif others:
+            print(f'memory: {total/1024**3:.0f} GB total, {used_gb:.1f} GB held')
+            print(f'NOTE: {len(others)} other process(es) are computing on this card '
+                  f'(pid {", ".join(str(p) for p in others)}). THESE NUMBERS WILL READ LOW -- a '
+                  f'contended measurement on our own box came out at half the sustained rate, '
+                  f'and was then used to build two wrong explanations. Stop them and re-run.')
+        else:
+            print(f'memory: {total/1024**3:.0f} GB total, {used_gb:.1f} GB held by our own CUDA '
+                  f'context; no other process is computing on this card.')
     elif device.type == 'mps':
         # Unified memory has no free/total worth printing -- the GPU can always take more, from
         # the rest of the machine. What matters is Metal's recommended working set, because
@@ -527,12 +778,12 @@ def main():
         try:
             if a.no_fallback:
                 r = bench(preset, device, dev_name, a.steps, a.warmup,
-                          seconds=a.seconds, micro=a.micro_batch,
-                          ckpt=a.checkpointing)
+                          seconds=a.seconds, bare_seconds=a.bare_seconds,
+                          micro=a.micro_batch, ckpt=a.checkpointing)
             else:
                 r = bench_with_fallback(preset, device, dev_name, a.steps, a.warmup,
-                                        seconds=a.seconds, micro=a.micro_batch,
-                                        ckpt=a.checkpointing)
+                                        seconds=a.seconds, bare_seconds=a.bare_seconds,
+                                        micro=a.micro_batch, ckpt=a.checkpointing)
         except ((torch.cuda.OutOfMemoryError, MemorySpill)
                 if device.type == 'cuda' else RuntimeError) as e:
             # Not a failure of the benchmark. "It does not fit" is one of the answers a student
@@ -555,6 +806,11 @@ def main():
         print(f"{preset:>10}: {r['params_m']:>5}M params ({r['backbone_m']}M backbone)  "
               f"{r['tokens_per_s']:>8,} tok/s  "
               f"peak {r['peak_gb'] if r['peak_gb'] else '--'} GB{how}")
+        if r.get('tok_s_bare'):
+            print(f"{'':>10}  the bare step alone was {r['tok_s_bare']:,} tok/s -- "
+                  f"{r['bare_over_real']:.2f}x. That difference is what building batches, "
+                  f"clipping and\n{'':>10}  reading the loss back cost this machine, and it is "
+                  f"the part a step-only benchmark leaves out.")
         print(f"{'':>10}  one 62,500-step run: {r['full_run_hours']:.2f} h"
               f"   |  {ratio:.1f}x the workstation"
               f"   |  the whole {PROJECT_GPU_HOURS:.0f}-GPU-hour project: "

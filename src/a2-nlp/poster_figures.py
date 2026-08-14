@@ -1708,12 +1708,27 @@ def fig_hardware():
     # apart, and quoting whichever landed last in the file means appending a row silently redraws
     # the figure. Hours come from that median rather than off one row, so the bar and the table
     # beside it cannot disagree.
+    # THREE KINDS OF ROW LIVE HERE NOW, AND MEDIANING ACROSS THEM WOULD BE THE BUG THIS FIGURE
+    # KEEPS FINDING IN OTHER PEOPLE'S NUMBERS.
+    #
+    #   realistic-loop   the step mlm_train.pretrain() runs. What every row should eventually be.
+    #   bare-step        the old step-only loop. Reads high, by 3% on the workstation and by an
+    #                    amount nobody has measured on any other machine.
+    #   real-run median  not a benchmark: the median over 127 and 70 completed training runs.
+    #
+    # A machine takes the best method it has and DISCARDS the others -- never an average. The
+    # real-run column is keyed apart on purpose rather than competing, because Jeffrey asked for
+    # both workstation columns on the figure: the benchmark says what an idle card does, the real
+    # runs say what a term of work actually delivered, and the gap between them is the point.
+    METHOD_RANK = {'realistic-loop': 0, 'bare-step': 1}
     buckets, order = {}, []
     for r in rows:
         # A battery sitting is the same silicon telling a different story, so it is keyed
         # apart -- otherwise the plugged laptop and the battery laptop average into a machine
         # that does not exist, at a rate neither of them ran at.
         key = r['device'] + (' (battery)' if 'battery' in (r.get('note') or '').lower() else '')
+        if r.get('method') == 'real-run median':
+            key += ' (real runs)'
         if key not in buckets:
             buckets[key] = {}
             order.append(key)
@@ -1723,13 +1738,18 @@ def fig_hardware():
     for key, presets in buckets.items():
         machines[key] = {}
         for preset, got in presets.items():
-            use = [r for r in got if r.get('timed_seconds')] or got
-            rate = st.median(r['tokens_per_s'] for r in use)
+            method = min((r.get('method', 'bare-step') for r in got),
+                         key=lambda m: METHOD_RANK.get(m, 2))
+            use = [r for r in got if r.get('method', 'bare-step') == method]
+            use = [r for r in use if r.get('timed_seconds')] or use
+            rates = sorted(r['tokens_per_s'] for r in use)
+            rate = st.median(rates)
             # The rest of the record comes from the sitting nearest that median, so dtype, peak
             # memory and the micro-batch the row records all still describe one real run rather
             # than a composite of several.
             near = min(use, key=lambda r: abs(r['tokens_per_s'] - rate))
             machines[key][preset] = dict(near, tokens_per_s=round(rate), sittings=len(use),
+                                         method=method, lo=rates[0], hi=rates[-1],
                                          full_run_hours=TOKENS_PER_RUN / rate / 3600)
     # An accelerator row, or the bare processor? `compute_capability` answers that for CUDA and
     # for nothing else -- Apple's MPS rows carry a null there, so keying off it alone filed the
@@ -1747,14 +1767,21 @@ def fig_hardware():
 
     # Seven columns' worth of two-line tick labels need more rail than five did -- at 17.0 the
     # battery column made "Colab A100, Pro" and "the workstation" set as one run-on word.
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(20.0, 6.0),
-                                  gridspec_kw={'width_ratios': [1.75, 1.0]})
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(23.5, 6.0),
+                                  gridspec_kw={'width_ratios': [2.15, 1.0]})
 
     # Two short lines each. The first line names the machine, the second carries the generation
     # and the dtype -- which is the pair that tells a reader whether two bars are the same
     # computation. Eight columns of these collided at the old widths, so the machine names lost
     # their "Pro"/"laptop" suffixes rather than the technical line losing anything.
-    short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'the workstation\nsm_120 · bf16',
+    WS = 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition'
+    short = {WS: 'the workstation\nsm_120 · bf16',
+             # Not a benchmark. 127 and 70 completed training runs on the same card, which is the
+             # only column here that knows what a term of work actually costs rather than what an
+             # idle machine can do. The gap to the column beside it is 0.86x at 33.8M and 0.98x
+             # at 98M -- dispersion, not bias: 9-minute runs span 1.73x from p10 to p90 while
+             # 93-minute runs span 1.11x.
+             WS + ' (real runs)': 'the same box,\n190 real runs',
              'NVIDIA A100-SXM4-80GB': 'Colab A100\nsm_80 · bf16',
              'NVIDIA L4': 'Colab L4\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free\nsm_75 · fp16',
@@ -1810,7 +1837,13 @@ def fig_hardware():
                 ax.text(x, v + cap * 0.014, f'{v:.1f} h{star}', ha='center',
                         color=INK, fontsize=12, fontweight='bold')
     ax.set_xticks(list(xs))
-    ax.set_xticklabels([short.get(k, k) for k in order], fontsize=10.5)
+    # A column measured with the old step-only loop is marked, because the alternative is a
+    # figure that looks finished while half its bars were taken a different way. The mark comes
+    # off the row's own `method` field rather than a list kept here, so it clears itself the
+    # moment a machine is re-measured and nobody has to remember to delete it.
+    stale = [k for k in order if machines[k]['poc'].get('method') == 'bare-step']
+    ax.set_xticklabels([short.get(k, k) + (' ‡' if k in stale else '') for k in order],
+                       fontsize=10.0)
     ax.set_ylabel('hours for one 62,500-step run')
     ax.set_ylim(0, cap * 1.06)
     ax.legend(loc='upper left')
@@ -1838,8 +1871,16 @@ def fig_hardware():
     # and the table did not. Billing fields ride on the rows, read off the usage page the day
     # of the sitting; a paid tier whose rows lack them shows an em dash rather than a guess.
     def tier(name, device, fixed=None):
+        # Named lookup with a named failure. This was a bare machines[device], and #88 renamed
+        # the workstation's device string across every row in runs/hardware.json to what torch
+        # actually reports -- so the two PRs were individually fine and jointly a KeyError on
+        # the cost table, which the Mac caught while checking whether they could co-exist. A
+        # missing machine now says which one and what is available.
+        if device not in machines:
+            raise KeyError(f'fig_hardware: no rows for {device!r}. runs/hardware.json has '
+                           f'{sorted(machines)}')
         m = machines[device]
-        return {'name': name, 'fixed': fixed,
+        return {'name': name, 'fixed': fixed, 'device': device,
                 'rate': {p: m[p]['tokens_per_s'] for p in ('poc', 'afriberta')},
                 'hours': m['poc']['full_run_hours'],
                 'uph': m['poc'].get('compute_units_per_hour'),
@@ -1848,7 +1889,7 @@ def fig_hardware():
     tiers = [tier('Colab T4, free', 'Tesla T4', fixed='$0'),
              tier('Colab L4, Pro', 'NVIDIA L4'),
              tier('Colab A100, Pro', 'NVIDIA A100-SXM4-80GB'),
-             tier('the workstation', 'NVIDIA RTX PRO 6000 Blackwell Max-Q', fixed='$24,000')]
+             tier('the workstation', WS, fixed='$24,000')]
     ws_rate = tiers[-1]['rate']
 
     ax2.text(0, 0.95, 'CAN YOU DO THIS WITHOUT THE WORKSTATION?', color=MUTED, fontsize=11.5,
@@ -1859,12 +1900,15 @@ def fig_hardware():
 
     cols = (0.0, 0.54, 0.75, 0.99)
     for lbl, x in (('one run', cols[1]), ('project', cols[2]), ('to rent', cols[3])):
-        ax2.text(x, 0.685, lbl, color=MUTED, fontsize=10.5, ha='right', fontweight='bold')
-    ax2.plot([0, 1.0], [0.655, 0.655], color=GRID, lw=1.2)
+        ax2.text(x, 0.700, lbl, color=MUTED, fontsize=10.5, ha='right', fontweight='bold')
+    ax2.plot([0, 1.0], [0.670, 0.670], color=GRID, lw=1.2)
 
     costs = {}
     for n, t in enumerate(tiers):
-        y = 0.575 - n * 0.088
+        # Lifted and tightened to buy room underneath. Four hand-placed prose blocks now sit
+        # below this table and the lowest of them, the provisional warning, only exists while
+        # some machine is still on the old loop -- so the panel has to hold its worst case.
+        y = 0.595 - n * 0.079
         hrs = t['project_hours'] = sum(WS_HOURS[k] * ws_rate[k] / t['rate'][k] for k in WS_HOURS)
         if not t['fixed'] and t['uph'] and t['usd']:
             costs[t['name']] = hrs * t['uph'] * t['usd']
@@ -1892,16 +1936,29 @@ def fig_hardware():
         # made the two tiers look like a wash. They are not: the faster tier is also the cheaper
         # one, which is a sharper claim and the one the dollars beside it actually show.
         work = l4['project_hours'] / a100['project_hours']
+        # Raised from 0.085 to clear the provisional warning below it, which is two lines the
+        # panel did not budget for. Everything in ax2 is hand-placed in axes coordinates, so a
+        # block that grows silently overwrites its neighbour rather than pushing it.
         # Both dollar signs are escaped. Matplotlib reads a PAIR of $ as a mathtext span, so
         # "$100 against $110" rendered as italic "100against110" -- the money vanished and the
         # sentence still looked like a sentence. The single-$ strings elsewhere in this panel
         # survive by accident of being odd-numbered; these do not.
-        ax2.text(0, 0.085,
+        ax2.text(0, 0.20,
                  f"The A100 costs {a100['uph'] / l4['uph']:.1f}× the L4 per hour and returns "
                  f"{work:.1f}× the work, so the whole\n"
                  f"project is \\${costs[a100['name']]:,.0f} against "
                  f"\\${costs[l4['name']]:,.0f} — you buy {work:.1f}× the speed, not the bill.",
                  color=INK, fontsize=11.5, va='bottom', linespacing=1.6)
+    # The provisional warning has to sit HERE, next to the dollars, not only in the caption.
+    # Every tier in this table is still a bare-step reading divided by a realistic-loop
+    # workstation, which is the same mixing-of-methods this figure was just corrected for --
+    # pointing the other way, and flattering the tiers. It clears itself when `stale` empties.
+    tiers_stale = [t for t in tiers if machines[t['device']]['poc'].get('method') == 'bare-step']
+    if tiers_stale:
+        ax2.text(0, 0.095,
+                 'PROVISIONAL — the Colab rows are still the old step-only loop, measured\n'
+                 'against a re-measured workstation. Expect these days and dollars to rise.',
+                 color=C2, fontsize=10, va='bottom', linespacing=1.6)
     ax2.text(0, 0.0,
              'Compute-unit rates move with pricing and demand — read 13 Aug 2026 at $9.99\n'
              'per 100 units. One reading, not a constant. The ratio is the durable part.',
@@ -1912,26 +1969,31 @@ def fig_hardware():
     lap = machines.get('NVIDIA RTX 2000 Ada Generation Laptop GPU')
     cpu = next((machines[k] for k in machines if 'Intel' in k or 'AMD' in k), None)
     if lap and cpu:
-        ax2.text(0, 0.205,
+        ax2.text(0, 0.30,
                  f"The same laptop with its GPU ignored is "
                  f"{lap['poc']['tokens_per_s'] / cpu['poc']['tokens_per_s']:.0f}× slower again.",
                  color=INK2, fontsize=11.5, va='bottom')
 
 
-    fig.text(0.5, -0.30,
-             "Measured by bench_portable.py, three minutes per model per machine — except the "
-             "workstation, whose rate is the median of 127 and 70 real training runs because "
-             "every\nbenchmark sitting on it so far was taken while another job held the card. "
-             "Machines measured more than once show the median. The T4's first reading was 33× "
-             "and said no:\ntorch.cuda.is_bf16_supported() defaults to including_emulation=True, "
-             "so a card without bf16 tensor cores ran it in software. Every row carries its "
-             "dtype for that reason.\n* The 98M model does not fit whole in 8 GB, or inside the "
-             "17.8 GB Metal recommends on a 24 GB Mac — both run it as the same 16,384-token "
-             "step via gradient accumulation\n(micro-batch 64 × 2), which is the configuration "
-             "the row records. † The Mac holds fp32 where every CUDA row is bf16 or fp16, so it "
-             "is directional rather than exactly\ncomparable — measured in it anyway, because "
-             "silently changing precision between machines compares two different computations. "
-             "One row still wanted: the workstation\non an idle card.",
+    fig.text(0.5, -0.40,
+             "Measured by bench_portable.py, three minutes per model per machine, timing the "
+             "step mlm_train.pretrain() actually runs — batches built and masked on-device, "
+             "gradients\nclipped, the loss read back every step. ‡ marks a column still on the "
+             "old step-only loop, which omits all three and reads high: by 3% on the workstation, "
+             "by an amount\nnobody has measured elsewhere, and most on whichever machine has the "
+             "cheapest step. Those columns want re-running. Machines measured more than once "
+             "show the median.\nRead every bar as a CEILING. Against this project's own 190 "
+             "training runs the benchmark matches a run that gets the machine to itself — 1.006 "
+             "of the 98M preset's p90 — while\nthe median 33.8M run reached 0.86 of it. That is "
+             "dispersion, not bias: 9-minute runs span 1.73× from p10 to p90, 93-minute runs "
+             "1.11×. The 'real runs' column is that median.\nThe T4's first reading was 33× and "
+             "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True, so a "
+             "card without bf16 tensor cores ran it in software —\nhence the dtype on every "
+             "label. * The 98M model does not fit whole in 8 GB, or inside the 17.8 GB Metal "
+             "recommends on a 24 GB Mac; both run the same 16,384-token step\nvia gradient "
+             "accumulation. † The Mac holds fp32 where every CUDA row is bf16 or fp16, so it is "
+             "directional rather than exactly comparable — measured anyway, because silently\n"
+             "changing precision between machines compares two different computations.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 

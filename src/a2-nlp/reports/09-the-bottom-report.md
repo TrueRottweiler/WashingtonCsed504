@@ -713,10 +713,17 @@ laptop?" — for which the answer is yes for the small model, and the honest cos
 a shrug.
 
 **Measured, and the prediction held.** An M4 Pro with 24 GB sustains **16.3k tok/s** on the 33.8M
-model and **6.2k tok/s** on the 98M — 23× and 30× off the workstation, which is the bandwidth
+model and **6.2k tok/s** on the 98M — 27× and 30× off the workstation, which is the bandwidth
 argument above arriving almost exactly where it said it would. One run is an overnight job on the
 small model and a two-night job on the large one. Neither number throttled: 0.98 and 1.01 across
 three minutes, so this chassis holds its pace in a way the mobile RTX did not quite.
+
+Those two ratios were 23× and 30× when this row landed, against a workstation reference that was
+the median of its real training runs. The reference is now the workstation running the same
+benchmark on an idle card, which is the only denominator that compares like with like. The 98M
+figure barely moved; the 33.8M one moved by a fifth, for the reason the next section is about —
+**the cheaper the step, the more of it is fixed overhead, and the more a measurement depends on
+which loop you timed.** Both Mac rows are still the old step-only loop and want re-running.
 
 **The interesting part is the memory, and it is the third time this project has been lied to by a
 machine that would not raise an error.** The first attempt on the 98M model reported **286
