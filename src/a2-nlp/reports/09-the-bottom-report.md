@@ -551,7 +551,7 @@ Colab cell.
 | Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
 | Google Colab — free tier (T4, fp16) | 54k tok/s | 21k tok/s | **13.4 h** |
-| **MacBook Pro** — M4 Pro, 24 GB unified, MPS | 16k tok/s† | 6.2k tok/s\*† | **45.6 h** |
+| **MacBook Pro** — M4 Pro, 24 GB unified, MPS | 17k tok/s† | 6.6k tok/s\*† | **43.1 h** |
 | — the same laptop with `--cpu`, GPU ignored | 1.2k tok/s | 0.5k tok/s | 23 days |
 
 \* The 98M model does not fit whole — not in the laptop's 8 GB, and not inside the 17.8 GB Metal
@@ -712,18 +712,38 @@ rather than quietly listing them side by side. It is there to answer "can I try 
 laptop?" — for which the answer is yes for the small model, and the honest cost is a number, not
 a shrug.
 
-**Measured, and the prediction held.** An M4 Pro with 24 GB sustains **16.3k tok/s** on the 33.8M
-model and **6.2k tok/s** on the 98M — 27× and 30× off the workstation, which is the bandwidth
+**Measured, and the prediction held.** An M4 Pro with 24 GB sustains **16.8k tok/s** on the 33.8M
+model and **6.6k tok/s** on the 98M — **26× and 28×** off the workstation, which is the bandwidth
 argument above arriving almost exactly where it said it would. One run is an overnight job on the
-small model and a two-night job on the large one. Neither number throttled: 0.98 and 1.01 across
+small model and a two-night job on the large one. Neither number throttled: 1.00 and 1.01 across
 three minutes, so this chassis holds its pace in a way the mobile RTX did not quite.
 
-Those two ratios were 23× and 30× when this row landed, against a workstation reference that was
-the median of its real training runs. The reference is now the workstation running the same
-benchmark on an idle card, which is the only denominator that compares like with like. The 98M
-figure barely moved; the 33.8M one moved by a fifth, for the reason the next section is about —
-**the cheaper the step, the more of it is fixed overhead, and the more a measurement depends on
-which loop you timed.** Both Mac rows are still the old step-only loop and want re-running.
+**Two sittings, 0.80% apart on the 33.8M model and 0.15% on the 98M.** That is the first genuine
+error bar any machine on this table has, and it is a tighter one than we expected — tighter than
+the workstation's own real training runs manage, which is not a contradiction but the same point
+seen twice: a laptop nobody else is using is a more repeatable machine than a shared workstation.
+
+##### The Mac was a prediction, and it is the reason to trust the rest
+
+The benchmark changed on 14 August to time the step `pretrain()` actually runs rather than a
+stripped-down cousin, and the difference on the workstation was **2.7%**. The account offered for
+that number made a falsifiable claim: the extra work — building and masking a batch, clipping,
+reading the loss back — is small and roughly *per step*, so it should cost a machine less the more
+expensive that machine's step already is. An M4 Pro's step is **26× dearer** than a Blackwell's,
+so the same overhead should nearly vanish.
+
+**It did.** The Mac's own bare-against-realistic ratio came back at **1.007 and 1.004**, against
+the workstation's 1.027 and 1.020. That is the prediction confirmed on hardware, a vendor and a
+precision this project does not otherwise share.
+
+**One part of the account was too strong, and the same measurement corrects it.** "Fixed per step"
+is not right. In absolute terms the overhead is *larger* on the Mac — 6.4 ms against 0.98 ms on
+the 33.8M model — because part of it is device work that a slower device does more slowly. What
+makes the ratio fall is that the overhead grew **6.5×** while the step grew **26×**. It is
+sub-proportional to the machine, not independent of it, and the honest phrasing is that the fixed
+part is only the host round-trip while the masking and the gradient-norm scale with the hardware
+and with the model. The prediction was right; the mechanism behind it was half right, and it took
+a second machine to say which half.
 
 **The interesting part is the memory, and it is the third time this project has been lied to by a
 machine that would not raise an error.** The first attempt on the 98M model reported **286

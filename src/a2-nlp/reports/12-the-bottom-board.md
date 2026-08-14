@@ -296,7 +296,8 @@ figure.
 > **Read the whole table as provisional, and this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **Only the workstation has been re-measured.** Every other column
+> the loss read back every step. **The workstation and the MacBook have been re-measured; the
+> Colab tiers and the laptop have not.** Every remaining column
 > is still the old loop, which reads high, and the figure marks each of them `‡`. So the ratios
 > above divide an old-method numerator by a new-method denominator and flatter every machine that
 > is not this one. **They will get worse, not better, when the re-runs land.** The cost table on
@@ -309,13 +310,12 @@ training runs: it sits at **1.006 of the 98M preset's p90** over 70 real runs. T
 time any number on this figure has been checked against the thing it claims to predict.
 
 **The MacBook row landed on 13 August, and it is the one row on the figure that runs off the top
-of the axis.** An M4 Pro with 24 GB sustains **16.3k tok/s on the 33.8M model and 6.2k on the
-98M** — one run is **17.4 h and 45.6 h**, an overnight and a two-nighter. It neither throttles
-(0.98 and 1.01 over three minutes, better than the mobile RTX) nor is it close to the CUDA
-tiers: **27× and 30×** off the workstation, and slower than the *free* T4 by a factor of three.
-Those read 23× and 30× when the row landed; the denominator has since become the workstation
-running the same benchmark rather than the median of its real runs, which is the only comparison
-that divides like by like. The
+of the axis.** An M4 Pro with 24 GB sustains **16.8k tok/s on the 33.8M model and 6.6k on the
+98M** — one run is **16.9 h and 43.1 h**, an overnight and a two-nighter. It neither throttles
+(1.00 and 1.01 over three minutes, better than the mobile RTX) nor is it close to the CUDA
+tiers: **26× and 28×** off the workstation, and slower than the *free* T4 by a factor of three.
+Two sittings landed **0.80% and 0.15% apart**, which is the tightest repeatability on the figure
+and the first honest error bar any machine here has. The
 bar is drawn clipped with its value on it, because at full height it flattens the A100 and the
 workstation into nothing and those two are the comparison the panel exists to make. Its dtype is
 on the tick label in the same breath as its name — **fp32 against everyone else's bf16 or fp16**,
@@ -400,10 +400,11 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
 6b. **Re-measure every machine against the realistic loop.** Eight minutes each, `--seconds 180
-   --bare-seconds 60`, which are the defaults. Only the workstation is done. In priority order —
-   **T4 × 3** (free tier, shares a host, its range is a finding), **Mac × 2** (also the test of
-   whether the fixed-cost account generalises), **L4 × 2**, **A100 × 2**, **laptop × 2 plugged +
-   1 on battery**. A second sitting per machine is what lets the figure draw a spread at all.
+   --bare-seconds 60`, which are the defaults. ~~Workstation~~ and ~~Mac × 2~~ are done — the Mac
+   confirmed the prediction that made the method change worth doing, at 1.007 and 1.004. What is
+   left, in priority order: **T4 × 3** (free tier, shares a host, its range is a finding),
+   **L4 × 2**, **A100 × 2**, **laptop × 2 plugged + 1 on battery**. A second sitting per machine
+   is what lets the figure draw a spread at all — the two Mac sittings came back 0.80% apart.
 7. **Re-render `fig_hardware` and re-set the strip's cost block**, which is the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
@@ -570,14 +571,19 @@ pip install transformers
 
 ---
 
-## B. MacBook Pro (M4 Pro, MPS) *(needs re-running: 2 sittings)*
+## B. MacBook Pro (M4 Pro, MPS) *(done — two realistic-loop sittings)*
 
-Its rows are the old step-only loop. Worth doing early for a reason beyond completeness: **the Mac
-is the test of why the method change mattered.** The overheads the new loop adds are roughly fixed
-per step, so they cost a machine less the dearer its step is — 3% on the workstation. An M4 Pro's
-step is twenty-seven times more expensive, so `bare_over_real` should come back **near 1.00**. If
-it does, the mechanism is confirmed on hardware that is not ours. If it comes back above 1.03,
-something in the account is wrong and worth knowing about before the board prints.
+**This row was run as a prediction and it came back right.** The new loop's overhead should cost a
+machine less the dearer its step already is — 2.7% on the workstation, and an M4 Pro's step is 26×
+dearer, so `bare_over_real` was expected **near 1.00**. Measured: **1.007 and 1.004**. The
+mechanism holds on a different vendor, a different precision and a different memory architecture.
+
+It also corrected the half of the account that was too strong. The overhead is not *fixed*: in
+absolute terms it is 6.4 ms here against 0.98 ms on the workstation. It grew 6.5× while the step
+grew 26×, so it is sub-proportional to the machine rather than independent of it. Only the host
+round-trip is really fixed; the masking and the gradient-norm scale with the hardware.
+
+Two sittings landed 0.80% and 0.15% apart — the tightest repeatability on the figure.
 
 A Mac is **zsh**, not cmd. From Terminal:
 
@@ -695,14 +701,18 @@ a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-si
 still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
 finishes.
 
-**Six of the seven are still measured the old way.** Only the workstation times the loop
-`pretrain()` runs, so every ratio on the figure currently divides an old-method numerator by a
-new-method denominator — which flatters the other machines. The claim survives that comfortably:
-the correction on this workstation was 3%, and the gaps here are five- and eight- and
-twenty-seven-fold. But the *digits* will move, so re-run everything before the board prints, and
-do not set the strip's cost block until they have.
+**Five of the seven are still measured the old way** — the four Colab and laptop columns and the
+laptop's CPU baseline. The workstation and the Mac time the loop `pretrain()` runs, so those five
+ratios still divide an old-method numerator by a new-method denominator, which flatters them.
 
-**The Mac is the honest edge of that claim rather than a counterexample to it.** 17.4 h and 45.6 h
+**How much they will move is now measured rather than guessed, and it is small.** The correction
+is 2.7% on the workstation and 0.7% on the Mac, and it shrinks as the step gets dearer — so the
+T4, the L4 and the mobile RTX, all of which have steps between those two, should land between
+those two figures. Against gaps of five-, eight- and twenty-sixfold that changes nothing about the
+claim. Re-run them anyway, because a board that says 8.2× when the number is 8.4× is wrong in the
+one way this project has spent a fortnight arguing nobody should be.
+
+**The Mac is the honest edge of that claim rather than a counterexample to it.** 16.9 h and 43.1 h
 is three times the free T4, and a reader who owns one should know that the free tier is faster
 than the laptop they paid for. What the row buys is the answer to a different question — *can I
 start tonight without asking anyone for anything* — and there the answer is yes.

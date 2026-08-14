@@ -1104,6 +1104,29 @@ def residual_permutation(a, b):
     return hits / total, hits, total, 2 / math.comb(len(pool), n)
 
 
+def _hardware_rate(rows):
+    """The one rate a pile of sittings for one machine and preset reduces to.
+
+    THE ORDER OF THESE THREE RULES IS THE WHOLE FUNCTION. A realistic-loop row beats a bare-step
+    one and they are never blended, because they time different work -- the bare step omits
+    batch-building, clipping and the host sync, and reads 2.7% high here and 0.7% high on a Mac.
+    A timed row beats a burst. Only then, the median across comparable sittings.
+
+    Written once and called from three places on purpose. fig_cost and fig_hardware each had
+    their own copy for a day, and the two disagreed by $1.08 immediately -- one medianed all four
+    of the A100's rows, the other picked the best method first. Two numbers for one machine, from
+    one file, three inches apart on the same board.
+    """
+    rank = {'realistic-loop': 0, 'bare-step': 1}
+    method = min((r.get('method', 'bare-step') for r in rows), key=lambda m: rank.get(m, 2))
+    use = [r for r in rows if r.get('method', 'bare-step') == method]
+    use = [r for r in use if r.get('timed_seconds')] or use
+    rates = sorted(r['tokens_per_s'] for r in use)
+    return dict(rate=st.median(rates), method=method, sittings=len(use),
+                lo=rates[0], hi=rates[-1],
+                near=min(use, key=lambda r: abs(r['tokens_per_s'] - st.median(rates))))
+
+
 def _rent_the_project():
     """What the cheapest measured Colab tier would charge for this project's whole term of work.
 
@@ -1112,11 +1135,9 @@ def _rent_the_project():
     scale identically across the two. A tier whose rows carry no billing fields is skipped rather
     than guessed at.
 
-    Deliberately the same arithmetic fig_hardware's cost table runs, and deliberately NOT shared
-    code with it today: fig_hardware is being edited on another machine as this is written, and a
-    refactor that collides is worth less than a duplicate that does not. test_board_numbers
-    asserts the two agree, which is the guarantee that actually matters -- and when the Mac's
-    branch lands, fig_hardware should call this.
+    The same arithmetic fig_hardware's cost table runs, and now the same code: both reduce their
+    sittings through _hardware_rate(). test_board_numbers still asserts they agree, because the
+    guarantee is worth keeping even once the duplication is gone.
     """
     rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
     ws_hours = _workstation_hours_by_preset()
@@ -1126,23 +1147,11 @@ def _rent_the_project():
             best.setdefault(r['device'], {}).setdefault(r['preset'], []).append(r)
     ws = {r['preset']: r for r in rows
           if 'PRO 6000' in r['device'] and r.get('method') == 'realistic-loop'}
-    # The same selection fig_hardware makes, and it has to be: a realistic-loop row beats a
-    # bare-step one, a timed row beats a burst, and only then the median. Medianing all four of
-    # the A100's rows instead put $105.92 here against the $107 on the figure -- two numbers for
-    # one machine, from one file, three inches apart on the same board.
-    rank = {'realistic-loop': 0, 'bare-step': 1}
-
-    def pick(got):
-        method = min((x.get('method', 'bare-step') for x in got), key=lambda m: rank.get(m, 2))
-        use = [x for x in got if x.get('method', 'bare-step') == method]
-        return st.median(x['tokens_per_s'] for x in ([u for u in use if u.get('timed_seconds')]
-                                                     or use))
-
     quotes = []
     for presets in best.values():
         if not all(p in presets for p in ws_hours):
             continue
-        rate = {p: pick(presets[p]) for p in ws_hours}
+        rate = {p: _hardware_rate(presets[p])['rate'] for p in ws_hours}
         hrs = sum(ws_hours[p] * ws[p]['tokens_per_s'] / rate[p] for p in ws_hours)
         one = presets[next(iter(ws_hours))][0]
         quotes.append(hrs * one['compute_units_per_hour'] * one['usd_per_compute_unit'])
@@ -1790,7 +1799,6 @@ def fig_hardware():
     # real-run column is keyed apart on purpose rather than competing, because Jeffrey asked for
     # both workstation columns on the figure: the benchmark says what an idle card does, the real
     # runs say what a term of work actually delivered, and the gap between them is the point.
-    METHOD_RANK = {'realistic-loop': 0, 'bare-step': 1}
     buckets, order = {}, []
     for r in rows:
         # A battery sitting is the same silicon telling a different story, so it is keyed
@@ -1808,19 +1816,14 @@ def fig_hardware():
     for key, presets in buckets.items():
         machines[key] = {}
         for preset, got in presets.items():
-            method = min((r.get('method', 'bare-step') for r in got),
-                         key=lambda m: METHOD_RANK.get(m, 2))
-            use = [r for r in got if r.get('method', 'bare-step') == method]
-            use = [r for r in use if r.get('timed_seconds')] or use
-            rates = sorted(r['tokens_per_s'] for r in use)
-            rate = st.median(rates)
-            # The rest of the record comes from the sitting nearest that median, so dtype, peak
-            # memory and the micro-batch the row records all still describe one real run rather
-            # than a composite of several.
-            near = min(use, key=lambda r: abs(r['tokens_per_s'] - rate))
-            machines[key][preset] = dict(near, tokens_per_s=round(rate), sittings=len(use),
-                                         method=method, lo=rates[0], hi=rates[-1],
-                                         full_run_hours=TOKENS_PER_RUN / rate / 3600)
+            # _hardware_rate carries the selection rules; the rest of the record comes from the
+            # sitting nearest the median it picked, so dtype, peak memory and the micro-batch the
+            # row records all still describe one real run rather than a composite of several.
+            r = _hardware_rate(got)
+            machines[key][preset] = dict(r['near'], tokens_per_s=round(r['rate']),
+                                         sittings=r['sittings'], method=r['method'],
+                                         lo=r['lo'], hi=r['hi'],
+                                         full_run_hours=TOKENS_PER_RUN / r['rate'] / 3600)
     # An accelerator row, or the bare processor? `compute_capability` answers that for CUDA and
     # for nothing else -- Apple's MPS rows carry a null there, so keying off it alone filed the
     # MacBook as a CPU baseline and dropped it off the bar panel without saying so. The row a
@@ -2049,9 +2052,10 @@ def fig_hardware():
              "Measured by bench_portable.py, three minutes per model per machine, timing the "
              "step mlm_train.pretrain() actually runs — batches built and masked on-device, "
              "gradients\nclipped, the loss read back every step. ‡ marks a column still on the "
-             "old step-only loop, which omits all three and reads high: by 3% on the workstation, "
-             "by an amount\nnobody has measured elsewhere, and most on whichever machine has the "
-             "cheapest step. Those columns want re-running. Machines measured more than once "
+             "old step-only loop, which omits all three and reads high — 2.7% on the workstation,"
+             " and 0.7% on a Mac\nwhose step is 26× dearer. The overhead grows with the machine as well, "
+             "but far more slowly than the step does. Those columns want re-running. "
+             "Machines measured more than once "
              "show the median.\nRead every bar as a CEILING. Against this project's own 190 "
              "training runs the benchmark matches a run that gets the machine to itself — 1.006 "
              "of the 98M preset's p90 — while\nthe median 33.8M run reached 0.86 of it. That is "
