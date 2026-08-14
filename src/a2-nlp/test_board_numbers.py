@@ -465,6 +465,82 @@ class PortableBenchConstants(unittest.TestCase):
         self.assertNotIn('is_bf16_supported', body)
 
 
+class CostFigureAgreesWithTheCell(unittest.TestCase):
+    """Figure 06 and the strip block it sits inside have to quote the same project.
+
+    They did not. The board's cost cell read "148 GPU-hours, 71 kWh, $7, $107 on an A100" in
+    18 pt type, and the figure printed three inches below it in the same cell said 83 GPU-hours,
+    $4.30, $250 to rent and 105 trained models -- the 83.3 constant bench_portable.py already
+    carries a paragraph about, still baked into a figure nobody had re-rendered since it drifted.
+
+    Every one of those numbers is now computed in fig_cost rather than typed, so this asserts the
+    computation rather than the digits: whatever the records say, the figure and the cell agree.
+    Skipped where matplotlib is missing, because the point of this file is that it runs anywhere.
+    """
+
+    def setUp(self):
+        try:
+            import bench_portable
+            import poster_figures
+        except Exception as e:                    # matplotlib or torch absent on a bare laptop
+            raise unittest.SkipTest(f'unavailable: {e}')
+        self.pf, self.bp = poster_figures, bench_portable
+
+    def test_gpu_hours_match_bench_portable(self):
+        hours = sum(self.pf._workstation_hours_by_preset().values())
+        self.assertAlmostEqual(hours, self.bp.PROJECT_GPU_HOURS, delta=5.0,
+                               msg=f'fig_cost would draw {hours:.1f} GPU-hours; '
+                                   f'bench_portable says {self.bp.PROJECT_GPU_HOURS}')
+
+    def test_rent_agrees_with_the_hardware_figure(self):
+        """The two figures compute this separately today, on purpose -- so pin them together.
+
+        fig_hardware's cost table and fig_cost's middle dot are the same claim in two panels of
+        the same board. A shared helper would be tidier and is the right end state; a test is
+        what makes the duplicate safe until then.
+        """
+        rows = json.load(open(os.path.join(RUNS, 'hardware.json'), encoding='utf-8'))
+        ws_hours = self.pf._workstation_hours_by_preset()
+        ws = {r['preset']: r for r in rows
+              if 'PRO 6000' in r['device'] and r.get('method') == 'realistic-loop'}
+        rank = {'realistic-loop': 0, 'bare-step': 1}
+        best = None
+        for device in {r['device'] for r in rows if r.get('compute_units_per_hour')}:
+            rate, one = {}, None
+            for p in ws_hours:
+                got = [r for r in rows if r['device'] == device and r['preset'] == p
+                       and r.get('compute_units_per_hour')]
+                if not got:
+                    break
+                m = min((x.get('method', 'bare-step') for x in got),
+                        key=lambda z: rank.get(z, 2))
+                use = [x for x in got if x.get('method', 'bare-step') == m]
+                use = [x for x in use if x.get('timed_seconds')] or use
+                rate[p] = st.median(x['tokens_per_s'] for x in use)
+                one = use[0]
+            if len(rate) != len(ws_hours):
+                continue
+            hrs = sum(ws_hours[p] * ws[p]['tokens_per_s'] / rate[p] for p in ws_hours)
+            usd = hrs * one['compute_units_per_hour'] * one['usd_per_compute_unit']
+            best = usd if best is None else min(best, usd)
+        self.assertIsNotNone(best, 'no tier carries billing fields')
+        self.assertAlmostEqual(self.pf._rent_the_project(), best, delta=1.0,
+                               msg='fig_cost and fig_hardware disagree about renting the project')
+
+    def test_model_count_matches_report_09(self):
+        """The figure titles itself "What N trained models cost". Report 09's cost table states
+        the same N in a row of its own, and the two are written by different hands."""
+        import re
+        drawn = len([r for r in mlm_api.results('*') if r.get('seconds')])
+        text = open(os.path.join(HERE, 'reports', '09-the-bottom-report.md'),
+                    encoding='utf-8').read()
+        stated = re.search(r'\|\s*Models pretrained\s*\|\s*([\d,]+)\s*\|', text)
+        self.assertIsNotNone(stated, 'report 09 no longer states a pretrained-model count')
+        self.assertEqual(drawn, int(stated.group(1).replace(',', '')),
+                         f'fig_cost would title itself with {drawn}; report 09 says '
+                         f'{stated.group(1)}')
+
+
 class HardwareRows(unittest.TestCase):
     """Every row on the hardware figure, checked against the one invariant they all share.
 

@@ -2384,7 +2384,7 @@ Everything below is measured from the run records, not estimated.
 | Storage: prepared text | 5.1 GB |
 | Storage: model checkpoints and logs | 166 GB |
 
-69 kilowatt-hours is roughly two months of a domestic fridge. **The entire
+71 kilowatt-hours is roughly two months of a domestic fridge. **The entire
 computational output of this project cost about $7 of electricity.** That is worth
 sitting with, because it contradicts the impression most people have of what machine learning
 costs — and the reason is that these are small models. The same tooling pointed at a
