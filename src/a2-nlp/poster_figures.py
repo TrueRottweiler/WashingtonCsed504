@@ -1681,7 +1681,10 @@ def fig_hardware():
     WS_HOURS = _workstation_hours_by_preset()
     machines, order = {}, []
     for r in rows:
-        key = r['device']
+        # A battery sitting is the same silicon telling a different story, so it is keyed
+        # apart -- otherwise last-row-wins silently replaces the plugged laptop with the
+        # battery reading and the figure never says which one it is showing.
+        key = r['device'] + (' (battery)' if 'battery' in (r.get('note') or '').lower() else '')
         if key not in machines:
             machines[key] = {}
             order.append(key)
@@ -1692,8 +1695,9 @@ def fig_hardware():
     # go" reads left to right.
     order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
 
-    # Six machines' worth of two-line tick labels need more rail than two did.
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(17.0, 6.0),
+    # Seven columns' worth of two-line tick labels need more rail than five did -- at 17.0 the
+    # battery column made "Colab A100, Pro" and "the workstation" set as one run-on word.
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(20.0, 6.0),
                                   gridspec_kw={'width_ratios': [1.75, 1.0]})
 
     short = {'NVIDIA RTX PRO 6000 Blackwell Max-Q': 'the workstation\nsm_120 · bf16',
@@ -1701,6 +1705,7 @@ def fig_hardware():
              'NVIDIA L4': 'Colab L4, Pro\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free\nsm_75 · fp16',
              'NVIDIA RTX 2000 Ada Generation Laptop GPU': 'RTX 2000 Ada laptop\nsm_89 · 8 GB *',
+             'NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)': 'same laptop\non battery',
              'Intel64 Family 6 Model 186 Stepping 2, GenuineIntel': 'the same laptop,\nCPU only'}
     xs = range(len(order))
     for i, preset, color, label in ((0, 'poc', C1, '33.8M model'),
@@ -1814,8 +1819,7 @@ def fig_hardware():
              "so a card without bf16 tensor cores ran it in software. Every row carries its "
              "dtype for that reason. * The 98M model does not fit whole in 8 GB — the laptop runs "
              "it\nas the same 16,384-token step via gradient accumulation (micro-batch 64 × 2), "
-             "which is the configuration the row records. Rows still wanted: the laptop on "
-             "battery, and a MacBook.",
+             "which is the configuration the row records. Row still wanted: a MacBook.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 
