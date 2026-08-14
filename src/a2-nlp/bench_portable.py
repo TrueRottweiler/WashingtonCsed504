@@ -122,7 +122,10 @@ def amp_dtype(device):
 
     A Colab T4 measured **11,566 tok/s that way, against 381,817 on the workstation -- 33x**, and
     reported the whole project as 114 days. Re-run with this fix the same card gives **64,644
-    tok/s, 5.9x**, and 36 days. Nothing errored and nothing warned; the benchmark simply produced
+    tok/s, 5.9x**, and 36 days. (Both of those are the old 40-step burst. Held for three minutes
+    the same card gives 54,144 -- 7.1x and 50 days -- which is the number the figure now quotes;
+    the T4 is the only tier where the two methods disagree by more than 2%.) Nothing errored and
+    nothing warned; the benchmark simply produced
     a number wrong by 5.6x, in the direction that would have killed the board's central claim --
     which is that you do not need the workstation.
 
@@ -342,7 +345,9 @@ def bench_with_fallback(preset, device, dev_name, steps, warmup, seconds=180.0, 
 
     Measured on the 8 GB card: full batch spills at a peak of 9.1 GB, micro-batch 64 x 2 fits
     at 5.98 GB and 32,267 tok/s, and 32 x 4 measures within 2% of that -- accumulation depth is
-    nearly free. Checkpointing is the last resort, not the first. The row records what it took,
+    nearly free. (Those three are 40-step bursts, compared against each other. Held for three
+    minutes the same 64 x 2 configuration gives 31,836, and 23,850 with the mains unplugged.)
+    Checkpointing is the last resort, not the first. The row records what it took,
     because a throughput number without its configuration is not reproducible.
     """
     asked = dict(micro=micro or BATCH, ckpt=ckpt)

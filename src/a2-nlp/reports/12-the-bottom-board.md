@@ -226,12 +226,12 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab and it is **$104 on an
-> L4 or $99 on an A100** — the A100 costs 4.4× per hour and returns 4.5× the throughput, so the
-> tier changes the wait (28 days against 6) and not the bill. Free T4: 41 days, $0. **You buy
+> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$110 on an L4,
+> $100 on an A100.** The A100 costs 4.4× per hour and returns 4.8× the work, so the faster tier
+> is also the cheaper one — what changes is **30 days against 6**. Free T4: 50 days, $0. **You buy
 > latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
-*63 words*
+*66 words · `runs/hardware.json`*
 
 ### What we do not claim
 
@@ -280,21 +280,37 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Six rows across five machines: the workstation, a free Colab T4, a paid Colab L4, a paid Colab
-A100, and the 8 GB Surface Studio Laptop — that last one measured twice, on its GPU and with
-`--cpu` on its own processor. The T4
-is the *floor* of what a student with no budget gets — **5.9× slower, 4.4 hours for one run, 36
-days of card time for the whole project, and the 98M model fits too** — the L4 is the paid tier
-at **4.3× and 27 days**, and the laptop is the machine a student most likely already owns:
-**3.8 h / 8.8 h per run, 64× faster than its own CPU, and quicker than the free T4 on both model
-sizes.** More rows drop into `runs/hardware.json` without touching the figure. **Still wanted: a MacBook,
-and the laptop on battery** — and every existing row wants re-measuring at `--seconds 180`, because
-all of them were taken with the old 40-step burst.
+Seven columns across six machines, and every one except the workstation is now a three-minute
+timed run rather than a forty-step burst: the workstation, a Colab A100, a Colab L4, a free Colab
+T4, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with `--cpu` on
+its own processor. **A Colab A100 matches one Blackwell card**, 94 minutes a run against 93. The
+L4 is **4.3× slower, 30 days of card time, $110**. The free T4 is the floor of what somebody with
+no budget gets — **7.1×, 50 days, and the 98M model fits there too**. And the laptop is the
+machine a student most likely already owns: **3.8 h / 8.9 h per run, 63× its own CPU, and quicker
+than the free T4 on both model sizes even on battery.** More rows drop into `runs/hardware.json`
+without touching the figure. **Still wanted: a MacBook, and a sustained workstation row taken when
+the card is actually idle** — the three attempts on 13 August were all contended.
+
+**Switching from a burst to `--seconds 180` mattered on one machine out of five, and it was the
+one that mattered.** The A100, the L4 and the laptop all came back within 2% of their burst
+readings, and none of them decayed measurably across the three minutes. The free T4 came back
+**19% lower on the 33.8M model and 22% lower on the 98M**, while its own within-run throttle read
+1.07. **We cannot yet say which effect that is.** The burst and the timed reading came from
+different Colab sessions, so "the method flatters this card by a fifth" and "free-tier sessions
+differ by a fifth" are confounded. One more sitting separates them, and it is the row belonging to
+the student with no alternative. Until then it is one sitting, not a constant.
+
+**Unplugging the laptop costs a quarter of it: 24% on the 33.8M model, 25% on the 98M**, run
+back-to-back so the battery reading started warm and got no cold-start flattery. 8.9 hours becomes
+11.9. That is much the larger of the two effects — three minutes of held load cost this chassis
+under 2%, and the wall socket cost it a quarter — so on a mobile card the power policy is the
+finding and the thermals were only the assumption.
 
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
 so a card whose tensor cores have no bf16 answered yes and ran it in software. 11,566 tok/s against
-64,644 once it was measured in fp16. It also reported the 98M model as not fitting in 15 GB, which
+64,644 once it was measured in fp16 — both bursts; sustained the card holds 54,144, which is the
+number on the figure. It also reported the 98M model as not fitting in 15 GB, which
 was the same cause: in fp16 it fits at batch 128 with 9.85 GB. Nothing errored and nothing warned,
 and both readings looked equally plausible on the page. **Every row on the figure carries its dtype
 for that reason.**
@@ -305,7 +321,7 @@ and the benchmark "worked" at 5,075 tok/s — the PCIe bus wearing a GPU costume
 card's honest rate. On Linux the same run is an OutOfMemoryError. The fix was already in the
 factory: gradient accumulation (`mlm_train.pretrain(accum=)`, now mirrored by `bench_portable.py`)
 folds the same 16,384-token step into micro-batches — identical update math, the batch never stops
-being 128 — and the model trains in **5.98 GB at 32,267 tok/s**. The script now treats an
+being 128 — and the model trains in **5.98 GB at 31,836 tok/s** sustained. The script now treats an
 allocation past free memory exactly like an OOM, walks the fallback ladder, and **the row records
 the configuration it took**, because a rate without one is not reproducible. Report 09 carries the
 full story under *"The 8 GB story: we needed 10 GB and had 8."*
@@ -333,10 +349,11 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 4. **Check every big number against the 18-character measure** before setting it.
 5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, five machines on it and the CPU baseline
    in its side panel.
-6. **Re-measure every machine at `--seconds 180`.** Every row currently on the figure was taken
-   with the old 40-step burst, which is 1.3 s of work on the workstation and reads a boost clock.
-   Colab is three minutes a tier; the laptop is three plugged and three on battery, back to back
-   so the second starts warm; the Mac is the row most students will look for.
+6. ~~Re-measure every machine at `--seconds 180`~~ — **done for five of six.** The T4, the L4,
+   the A100 and the laptop (plugged and on battery, back to back) are all three-minute rows now.
+   Two remain: **the Mac**, the row most students will look for, and **a workstation row taken on
+   an idle card** — its current figure is the median of 127 and 70 real training runs, which is a
+   defensible number but not the same measurement as the others.
 7. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
    `check_provenance.py`, regenerate every figure, run the staleness pass. Do it once.
 
@@ -407,7 +424,11 @@ PowerShell — the commands below are cmd syntax and will not work in a bash she
 conda activate uw-csed504
 ```
 
-### A1. Toothless — the workstation
+### A1. Toothless — the workstation *(still open)*
+
+The one machine on the figure without a benchmark row of its own. Three attempts on 13 August were
+all taken while ollama held the card, so the figure quotes the median of 127 and 70 real training
+runs instead. Run this whenever both cards are genuinely free.
 
 ```bat
 cd /d O:\Sources\GitHub\TrueRottweiler\WashingtonCsed504\src\a2-nlp
@@ -424,10 +445,12 @@ python bench_portable.py --seconds 180 --out runs\hardware.json --note "Toothles
 One card deliberately: the figure compares *a card*, and a two-card number is not comparable to a
 MacBook. `set CUDA_VISIBLE_DEVICES=0` lasts for that prompt session only.
 
-### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB
+### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB *(done — both rows in)*
 
 The most important row on the figure, because it is the machine a student is most likely to own.
-It does not need the repository — the script is self-contained.
+It does not need the repository — the script is self-contained. Kept here because it is the
+procedure the battery finding rests on, and because anyone reproducing it needs the back-to-back
+ordering below rather than two runs taken whenever.
 
 ```bat
 conda activate uw-csed504
@@ -505,8 +528,16 @@ overnight run.
 
 ## C. Google Colab — the tier ladder
 
-Now measured rather than remembered: **$104 on an L4, $99 on an A100** for the whole project,
-against a guessed "$120". Re-run all three for the sustained numbers.
+All three tiers are measured, and now at `--seconds 180`: **$110 on an L4, $100 on an A100** for
+the whole project, against a guessed "$120" before any of it was run.
+
+**The T4 is the one worth another sitting, and it is the only one.** It is the tier whose timed
+reading came back farthest from its burst — 19–22% lower, where nothing else moved by 2% — but
+those two readings were taken in different sessions on a card that shares a host, so the method
+and the session are confounded. **Run the T4 once more on a fresh runtime**, at `--seconds 180`.
+If it lands near 54k the method was the story; if it lands somewhere else again, free-tier
+variance is, and the figure should quote a median with a range. Either answer is worth having.
+The paid tiers agreed with their bursts to within 2%, so one sitting each is honest.
 
 ```python
 !wget -q https://raw.githubusercontent.com/TrueRottweiler/WashingtonCsed504/main/src/a2-nlp/bench_portable.py
@@ -548,6 +579,8 @@ python poster_figures.py fig_hardware
 ```
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so. Five machines say it today — the free T4, the paid L4 and A100, and an 8 GB laptop
-that runs both models overnight-sized and beats its own CPU by 64×. What is missing is the Mac,
-the battery run, and sustained re-readings of every row that is currently a burst number.
+numbers say so. Six machines say it today, five of them held for three minutes rather than forty
+steps — the free T4, the paid L4, an A100 that matches one Blackwell card outright, and an 8 GB
+laptop that runs both models overnight-sized on mains, still runs them on battery, and beats its
+own CPU by 63×. **Two rows are still open:** the Mac, and a workstation reading taken on an idle
+card rather than the median of its real training runs.

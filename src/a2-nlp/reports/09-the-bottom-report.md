@@ -545,11 +545,13 @@ Colab cell.
 
 | machine | 33.8M model | 98M model | one 62,500-step run (98M) |
 |---|---|---|---|
+| Google Colab — paid tier (A100-SXM4-80GB, bf16) | 391k tok/s | 182k tok/s | **94 min** |
 | **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
-| Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB | 76k tok/s | 32k tok/s\* | **8.8 h** |
+| Google Colab — paid tier (L4, bf16) | 88k tok/s | 36k tok/s | **7.9 h** |
+| Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
+| — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
+| Google Colab — free tier (T4, fp16) | 54k tok/s | 21k tok/s | **13.4 h** |
 | — the same laptop with `--cpu`, GPU ignored | 1.2k tok/s | 0.5k tok/s | 23 days |
-| Google Colab — free tier (T4, fp16) | 65k tok/s | 26k tok/s | **10.9 h** |
-| Google Colab — paid tier (L4, bf16) | 88k tok/s | 39k tok/s | **7.3 h** |
 | MacBook Pro — Apple Silicon, MPS | *to measure* | *to measure* | |
 
 \* The 98M model does not fit in 8 GB whole. This is the same 16,384-token step folded through
@@ -557,12 +559,30 @@ gradient accumulation (micro-batch 64 × 2) — the next section is that story, 
 still the same experiment.
 
 The Toothless figures are medians across 96 and 55 completed runs, not a short probe — sustained
-rates after the card is hot, which is the only kind worth quoting. A twenty-step benchmark on a
-cold card reads about 10% high, and a benchmark run while another job holds the same card reads
-about **half**, which is a mistake we made and the script now warns about. The laptop and Colab
-rows are forty-step probes, so read them as the ceiling of what a night will sustain. And the
-`--cpu` row is the same laptop with its GPU switched off: the **64×** between those two rows is
-what the GPU a student already owns is worth.
+rates after the card is hot, which is the only kind worth quoting. A benchmark run while another
+job holds the same card reads about **half**, which is a mistake we made and the script now warns
+about. Every other row is a **three-minute timed run** (`--seconds 180`), and each reports
+`throttle`: its first third of that run against its last.
+
+**Changing from a forty-step burst to three minutes mattered on exactly one machine, and it was
+the one that matters.** Forty steps is 1.3 seconds of work on a cold card, so we expected the
+burst numbers to be flattering everywhere. The A100, the L4 and the laptop all came back within
+2% of their burst readings and none of them decayed measurably across the three minutes. The free
+T4 came back **19% lower on the 33.8M model and 22% lower on the 98M** — and its own throttle was
+only 1.07, so it did not slow down much *during* the run that produced the lower number.
+
+That combination is worth being careful about, because **we cannot yet tell which of two things it
+is.** Either the T4 is uniquely sensitive to the method — the only card here whose opening steps
+flatter it by a fifth — or free-tier sessions simply differ by that much, since the burst and the
+timed reading were taken in different Colab sessions and a free runtime shares its host. The two
+explanations are confounded in our data because the two readings differ in *both* respects. One
+more three-minute sitting on a fresh T4 separates them, and it is the row that most deserves it:
+it belongs to the student with no budget and no alternative. Until then, read the T4 as one
+sitting rather than a constant.
+
+And the `--cpu` row is the same laptop with its GPU switched off: the **63×** between those two
+rows is what the GPU a student already owns is worth. (That row is still a forty-step burst; a
+CPU has no boost clock to flatter it, and 551 hours does not need three decimal places.)
 
 ##### The 8 GB story: we needed 10 GB and had 8
 
@@ -587,16 +607,26 @@ micro-batches of 64 with the loss averaged between them — identical update, id
 the batch never stops being 128, and the project's unit (tokens of updates) does not move.
 This is not even a new knob: `mlm_train.pretrain()` has carried `accum=` since the workstation
 needed effective batches bigger than memory. Pointed the other way, it folds a 10 GB training
-run into **5.98 GB at 32,267 tok/s** — and micro-batch 32 × 4 measures within 2% of that, so
-the folding itself is nearly free. Activation checkpointing (recompute the forward pass,
+run into **5.98 GB at 31,836 tok/s** held over three minutes — and micro-batch 32 × 4 measured
+within 2% of the same configuration's burst reading, so the folding itself is nearly free. Activation checkpointing (recompute the forward pass,
 roughly a third slower) waits behind it in the fallback ladder; the 98M model never needed it.
 
 **What that buys a student with a gaming laptop, measured and plugged in:** the 33.8M model at
-3.8 hours a run and the 98M at 8.8 — one pretraining run per night, either size, on a card that
+3.8 hours a run and the 98M at 8.9 — one pretraining run per night, either size, on a card that
 sells inside consumer laptops. The same machine without its GPU is 241 hours for the *small*
 model: the difference between "one model per night" and "one model per fortnight, if nothing
 sleeps." A month of nights runs the small-model half of this study; patience, it turns out,
 changes quite a lot.
+
+**"Plugged in" is doing more work in that sentence than the thermals are.** We ran the pair
+back-to-back — mains first, then the cable out and straight into the second run, so the battery
+reading started on a warm card and got none of the cold-start flattery. Unplugged, the same
+laptop holds **24% less** on the 33.8M model and **25% less** on the 98M: 3.8 hours becomes 5.1,
+and 8.9 becomes 11.9. That is the difference between one 98M model per night and one 98M model
+per night *only if you start before ten*. It is also, by a wide margin, the larger of the two
+effects we went looking for — three minutes of sustained load costs this chassis under 2%, and
+the wall socket costs it a quarter. On a mobile card the power policy is the finding; the
+thermals were the thing we assumed.
 
 **What an 8 GB card genuinely cannot do**, so the paragraph above does not oversell:
 
@@ -684,17 +714,27 @@ cards is the number that makes a reader decide this work is not available to the
 148.0 GPU-hours — is reproducible on a Colab subscription. Working from measured throughput and
 Colab's published compute-unit rates:
 
-| where | the whole project | inside a $500 budget? |
-|---|---|---|
-| Colab A100 | ~100 GPU-hours, ~$120 | **yes, at a quarter of it** |
-| Colab L4 | ~185 GPU-hours, ~$220 | **yes** |
-| Colab T4 (free tier's card) | ~460 GPU-hours, ~$550 | marginally not — but every experiment that matters fits |
+| where | the whole project, on that card | elapsed | to rent |
+|---|---|---|---|
+| Colab A100 | ~149 GPU-hours | **6 days** | **~$100** |
+| Colab L4 | ~718 GPU-hours | **30 days** | **~$110** |
+| Colab T4 (free tier's card) | ~1,193 GPU-hours | **50 days** | **$0**, in sessions that end |
 
-Those rows are estimates until `colab_reproduce.ipynb` returns real numbers; that notebook
-retrains the exact headline model on Colab and computes the table from what it measures rather
-than from a guess.
+**These rows are measured now, not estimated.** Each machine ran `bench_portable.py --seconds 180`
+on both model shapes, and the project's own 148.0 GPU-hours were rescaled by the ratio of that
+machine's throughput to the workstation's — separately per model size, because the 98M model is
+the more expensive half and the tiers do not scale identically across the two. The compute-unit
+rates are the other half of the arithmetic and a benchmark cannot see them: **6.77 units/hour on
+the A100 and 1.54 on the L4, read off the Colab usage page on 13 August 2026 at $9.99 per 100
+units.** They move with pricing and demand, which is why the durable claim below is a ratio and
+not a price.
 
-**Against $24,000 of cards, $120 is two hundred times cheaper.** The workstation bought us
+**The A100 is 4.4× the L4's hourly rate and roughly 4.8× its throughput on this workload, so the
+faster tier is not the more expensive one** — $100 against $110 for the same work, five times
+sooner. Paying more per hour bought fewer hours. That is the whole "you buy latency, not access"
+argument arriving from a direction we did not plan.
+
+**Against $24,000 of cards, $100 is two hundred and forty times cheaper.** The workstation bought us
 *latency* — an answer in ninety minutes rather than tomorrow — and cell 2 argues that latency is
 what let the project find its own mistakes. It did not buy access to the science. A student with a
 subscription and patience can run every experiment on this board.
@@ -707,15 +747,15 @@ students: **plug your laptop in and let it train while you sleep.**
 Eight hours a night, five nights a week, is **40 GPU-hours a month for free** — on hardware you
 already own and are not using between midnight and eight. Our entire project was 148.0 GPU-hours.
 "Four or five times a laptop's disadvantage" was this sentence's guess before we measured; the
-measured answer is 5.1×, and the small-model half of this study is a month of nights. The 98M
-model, folded through gradient accumulation because it does not fit in 8 GB whole, is 8.8 hours
-a run — precisely one model per night.
+measured answer is 5.2×, and the small-model half of this study is a month of nights. The 98M
+model, folded through gradient accumulation because it does not fit in 8 GB whole, is 8.9 hours
+a run — precisely one model per night, and 11.9 if you forget the cable.
 
 | route | money | elapsed | what you need |
 |---|---|---|---|
-| buy the workstation | ~$24,000 | ~5 nights | the money |
-| rent Colab | ~$120–220 | a few weeks of sessions | a subscription and patience with queues |
-| **your own laptop, overnight** | **$0** | **~a month of nights** | a power cable and a queue that survives being left alone |
+| buy the workstation | ~$24,000 | ~6 days | the money |
+| rent Colab | ~$100 on an A100, ~$110 on an L4 | 6 days / 30 days | a subscription and patience with queues |
+| **your own laptop, overnight** | **$0** | **~34 days of card time** | a power cable and a queue that survives being left alone |
 
 That last column is the point, and it is where this whole board turns out to be about something
 other than two expensive cards.
@@ -735,11 +775,16 @@ Someone with two Blackwell cards can get away without any of that. They will not
 the next morning. On a laptop over a month, a silent failure on night three is discovered on night
 thirty — which is the difference between a study and nothing.
 
-**Three practical notes for the overnight route.** Keep it plugged in: our own a1-cv measurements
-found a 17% swing from thermal boost behavior, and a battery-throttled night is not comparable to
-a mains one. Disable sleep, not just the screen. And expect sustained throughput to sit below any
-short benchmark, because a laptop chassis cannot hold peak clocks for eight hours — which is
-another reason the honest number is the one measured over a real run rather than over forty steps.
+**Three practical notes for the overnight route.** Keep it plugged in — and this one we measured
+on the machine rather than borrowing it: unplugged, the same laptop returns **24% less** on the
+33.8M model and **25% less** on the 98M, which turns an 8.9-hour run into an 11.9-hour one. An
+earlier draft cited a 17% thermal swing from our own a1-cv work as the reason; the real number is
+larger, it is a power policy rather than a temperature, and it is now this project's own. Disable
+sleep, not just the screen. And the thing we expected to matter did not: three minutes of held
+load cost this chassis under 2% against its opening pace, so on this laptop the honest number and
+the quick one were nearly the same. That is not true everywhere — the free Colab T4 read 19–22%
+high on the same shortcut — which is the argument for measuring rather than for any particular
+rule of thumb about laptops.
 
 Three caveats, because this is the number people will quote:
 
