@@ -151,7 +151,7 @@ three answers are *no*.
 
 **Big number:** `9` / `functions` · **Figure:** `19-the-interface.svg`
 
-> **Nine functions**, nothing else to import, on fourteen thousand lines they never open. Three
+> **Nine functions**, nothing else to import, on sixteen thousand lines they never open. Three
 > things it had to be — callable, shareable, runnable on one card — and a fourth we got wrong.
 > Leon read the documentation and asked whether there was an interface he should be using. There
 > was. **A tool nobody can find does not exist**, and nobody files a bug to tell you.
