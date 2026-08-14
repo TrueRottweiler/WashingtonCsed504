@@ -545,9 +545,9 @@ Colab cell.
 
 | machine | 33.8M model | 98M model | one 62,500-step run (98M) |
 |---|---|---|---|
-| Google Colab — paid tier (A100-SXM4-80GB, bf16) | 391k tok/s | 182k tok/s | **94 min** |
+| Google Colab — paid tier (A100-SXM4-80GB, bf16) | 372k tok/s | 177k tok/s | **96 min** |
 | **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
-| Google Colab — paid tier (L4, bf16) | 88k tok/s | 36k tok/s | **7.9 h** |
+| Google Colab — paid tier (L4, bf16) | 90k tok/s | 38k tok/s | **7.5 h** |
 | Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
 | Google Colab — free tier (T4, fp16) | 53k tok/s | 21k tok/s | **13.3 h** |
@@ -748,11 +748,33 @@ precision this project does not otherwise share.
 **One part of the account was too strong, and the same measurement corrects it.** "Fixed per step"
 is not right. In absolute terms the overhead is *larger* on the Mac — 6.4 ms against 0.98 ms on
 the 33.8M model — because part of it is device work that a slower device does more slowly. What
-makes the ratio fall is that the overhead grew **6.5×** while the step grew **26×**. It is
-sub-proportional to the machine, not independent of it, and the honest phrasing is that the fixed
-part is only the host round-trip while the masking and the gradient-norm scale with the hardware
-and with the model. The prediction was right; the mechanism behind it was half right, and it took
-a second machine to say which half.
+makes the ratio fall is that the overhead grew **6.5×** while the step grew **26×**: it is
+sub-proportional to the machine, not independent of it.
+
+##### And then the A100 broke the rule outright
+
+The tidy version — *the dearer the step, the smaller the overhead's share* — survived four
+machines and died on the fifth. Measured across the whole table, per step on the 33.8M model:
+
+| machine | step | overhead | share |
+|---|---|---|---|
+| the workstation | 37.0 ms | 0.98 ms | 2.6% |
+| **Colab A100** | **44.1 ms** | **2.22 ms** | **5.0%** |
+| Colab L4 | 182.5 ms | 1.42 ms | 0.8% |
+| MacBook M4 Pro | 977.7 ms | 6.38 ms | 0.7% |
+
+The A100's step is 19% *dearer* than the workstation's and its overhead is **2.3× larger**, so
+its share is double. The absolute cost runs from 1.0 ms to 6.4 ms across these machines and does
+not track the card's speed in any usable way — an L4 whose step is four times an A100's pays
+*less* per step, not more.
+
+We have not isolated why, and this report is not going to guess. The parts of that overhead are a
+host round-trip, a gradient-norm over every parameter tensor, and a handful of small masking
+kernels; which of them dominates plainly differs by architecture and by host, and separating them
+needs a profiler rather than an argument. **The honest form of the claim is the measurement and
+not the rule: between 0.7% and 5.0%, a property of the machine, and you find out by running it.**
+That is why the benchmark reports the bare step alongside the real one on every machine rather
+than applying a correction factor derived from ours.
 
 **The interesting part is the memory, and it is the third time this project has been lied to by a
 machine that would not raise an error.** The first attempt on the 98M model reported **286
@@ -791,25 +813,31 @@ Colab's published compute-unit rates:
 
 | where | the whole project, on that card | elapsed | to rent |
 |---|---|---|---|
-| Colab A100 | ~149 GPU-hours | **6 days** | **~$100** |
-| Colab L4 | ~718 GPU-hours | **30 days** | **~$110** |
-| Colab T4 (free tier's card) | ~1,193 GPU-hours | **50 days** | **$0**, in sessions that end |
+| Colab A100 | ~163 GPU-hours | **7 days** | **~$110** |
+| Colab L4 | ~727 GPU-hours | **30 days** | **~$112** |
+| Colab T4 (free tier's card) | ~1,269 GPU-hours | **53 days** | **$0**, in sessions that end |
 
-**These rows are measured now, not estimated.** Each machine ran `bench_portable.py --seconds 180`
-on both model shapes, and the project's own 148.0 GPU-hours were rescaled by the ratio of that
-machine's throughput to the workstation's — separately per model size, because the 98M model is
-the more expensive half and the tiers do not scale identically across the two. The compute-unit
+**These rows are measured now, not estimated, and every tier has been sat down at least twice.**
+Each machine ran `bench_portable.py --seconds 180` on both model shapes — the T4 three times, the
+L4 and the A100 twice each — and the project's own 148.0 GPU-hours were rescaled by the ratio of
+that machine's throughput to the workstation's, separately per model size, because the 98M model
+is the more expensive half and the tiers do not scale identically across the two. The compute-unit
 rates are the other half of the arithmetic and a benchmark cannot see them: **6.77 units/hour on
 the A100 and 1.54 on the L4, read off the Colab usage page on 13 August 2026 at $9.99 per 100
 units.** They move with pricing and demand, which is why the durable claim below is a ratio and
 not a price.
 
-**The A100 is 4.4× the L4's hourly rate and roughly 4.8× its throughput on this workload, so the
-faster tier is not the more expensive one** — $100 against $110 for the same work, five times
-sooner. Paying more per hour bought fewer hours. That is the whole "you buy latency, not access"
-argument arriving from a direction we did not plan.
+**The A100 is 4.4× the L4's hourly rate and 4.5× its throughput on this workload, so the same
+project lands at the same price on either tier** — $110 against $112, within 2%, one of them five
+times sooner. That is "you buy latency, not access" stated in dollars.
 
-**Against $24,000 of cards, $100 is two hundred and forty times cheaper.** The workstation bought us
+It is worth recording that this sentence has been through three versions. On burst readings it
+said the tiers were "within 5%"; when the workstation alone was re-measured it said the faster
+tier was 9% *cheaper*; now that all three tiers are measured the same way it says 2%, which is the
+same claim the earliest version made and the first time every number in it came from one method.
+The middle version was the confident one.
+
+**Against $24,000 of cards, $110 is two hundred and twenty times cheaper.** The workstation bought us
 *latency* — an answer in ninety minutes rather than tomorrow — and cell 2 argues that latency is
 what let the project find its own mistakes. It did not buy access to the science. A student with a
 subscription and patience can run every experiment on this board.
@@ -829,7 +857,7 @@ a run — precisely one model per night, and 11.9 if you forget the cable.
 | route | money | elapsed | what you need |
 |---|---|---|---|
 | buy the workstation | ~$24,000 | ~6 days | the money |
-| rent Colab | ~$100 on an A100, ~$110 on an L4 | 6 days / 30 days | a subscription and patience with queues |
+| rent Colab | ~$110 on an A100, ~$112 on an L4 | 7 days / 30 days | a subscription and patience with queues |
 | **your own laptop, overnight** | **$0** | **~34 days of card time** | a power cable and a queue that survives being left alone |
 
 That last column is the point, and it is where this whole board turns out to be about something
