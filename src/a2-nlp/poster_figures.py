@@ -2032,11 +2032,17 @@ def fig_hardware():
     # Every tier in this table is still a bare-step reading divided by a realistic-loop
     # workstation, which is the same mixing-of-methods this figure was just corrected for --
     # pointing the other way, and flattering the tiers. It clears itself when `stale` empties.
-    tiers_stale = [t for t in tiers if machines[t['device']]['poc'].get('method') == 'bare-step']
+    # Names the tiers that are actually stale rather than saying "the Colab rows". It said the
+    # latter while the T4 and the L4 were already re-measured, which is a warning that has
+    # started lying in the safe direction -- still the wrong direction for a warning.
+    tiers_stale = [t for t in tiers if machines[t['device']]['poc'].get('method') == 'bare-step'
+                   and not t['fixed']]
     if tiers_stale:
+        who = ' and '.join(t['name'].replace('Colab ', '').replace(', Pro', '')
+                           for t in tiers_stale)
         ax2.text(0, 0.095,
-                 'PROVISIONAL — the Colab rows are still the old step-only loop, measured\n'
-                 'against a re-measured workstation. Expect these days and dollars to rise.',
+                 f'PROVISIONAL — the {who} row is still the old step-only loop, measured\n'
+                 f'against a re-measured workstation. Re-run before trusting its dollars.',
                  color=C2, fontsize=10, va='bottom', linespacing=1.6)
     ax2.text(0, 0.0,
              'Compute-unit rates move with pricing and demand — read 13 Aug 2026 at $9.99\n'

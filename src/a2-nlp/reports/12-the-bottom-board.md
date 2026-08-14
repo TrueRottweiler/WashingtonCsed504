@@ -226,9 +226,9 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$117 on an L4,
-> $107 on an A100.** The A100 costs 4.4× per hour and returns 4.8× the work, so the faster tier
-> is also the cheaper one — what changes is **32 days against 7**. Free T4: 53 days, $0. **You buy
+> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$112 on an L4,
+> $107 on an A100.** The A100 costs 4.4× per hour and returns 4.6× the work, so the faster tier
+> is also the cheaper one — what changes is **30 days against 7**. Free T4: 53 days, $0. **You buy
 > latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
 *66 words · `runs/hardware.json`*
@@ -287,7 +287,7 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 Eight columns across seven machines: the workstation, a Colab A100, a Colab L4, a free Colab T4, a
 MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with
 `--cpu` on its own processor. **A Colab A100 very nearly matches one Blackwell card.** The L4 is
-**5.0× slower, 32 days of card time, $117**. The free T4 is the floor of what somebody with no
+**4.9× slower, 30 days of card time, $112**. The free T4 is the floor of what somebody with no
 budget gets — **8.3×, 53 days, and the 98M model fits there too**. The laptop a student most
 likely already owns runs **3.8 h / 8.9 h per run, 63× its own CPU, and beats the free T4 on both
 model sizes even on battery.** More rows drop into `runs/hardware.json` without touching the
@@ -296,17 +296,19 @@ figure.
 > **Read the whole table as provisional, and this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **The workstation, the MacBook and the free T4 are re-measured;
-> the L4, the A100 and the laptop are not.** Those three are still the old loop, which reads
-> high, and the figure marks each of them `‡`. So their ratios divide an old-method numerator by
-> a new-method denominator and flatter them. **They will get worse, not better, when the re-runs
-> land** — the cost table says PROVISIONAL for that reason, and the L4 and A100 are exactly the
-> two rows its dollars come from.
+> the loss read back every step. **The workstation, the MacBook, the free T4 and the L4 are
+> re-measured; the A100 and the laptop are not.** Those two are still the old loop and the figure
+> marks them `‡`.
 >
-> **How much worse is now bounded rather than guessed.** The correction measured 2.7% on the
-> workstation, 0.7% on the Mac and about 1% on the T4, and it shrinks as the step gets dearer. The
-> three outstanding machines all have steps inside that range, so expect one to two percent, not a
-> revision.
+> **I predicted the re-measured rows would all get worse. Five of the six got better.** The
+> method correction is real and small — 2.7% on the workstation, 0.8% on the L4, 0.6% on the Mac
+> — but the old and new readings also come from *different sittings*, and that difference is the
+> larger term: the L4's 98M row moved **+5.9%** and the Mac's the same, while the T4's 33.8M row
+> moved −1.8%. Which way a row lands is set by which sitting you caught, not by the method.
+>
+> That is the third time this table has taught the same lesson. The benchmark's own error is
+> small and knowable; the machine's variation between sittings is larger and only measurable by
+> sitting down twice. **Anything measured once is a point estimate wearing a decimal place.**
 
 **The workstation row is no longer the open one — it is the only closed one.** Measured on an idle
 card at **442,510 tok/s** (33.8M) and **186,534** (98M), and validated against the project's own
@@ -668,10 +670,16 @@ this chassis the memory ceiling is the finding and the thermals were a non-event
 
 ---
 
-## C. Google Colab — the tier ladder *(T4 done ×3; L4 and A100 still need two each)*
+## C. Google Colab — the tier ladder *(T4 ×3 and L4 ×2 done; A100 still needs two)*
 
-The L4 and A100 rows are still the old step-only loop, and they are where the strip block's
-dollars come from — so **$117 on an L4 and $107 on an A100** remain provisional until re-taken.
+The A100 is the last old-loop row here, and it is half of where the strip block's dollars come
+from — so **$107 on an A100** remains provisional until re-taken. The L4 is measured: **$112**.
+
+**Attach the compute-unit rate by hand when you record a paid tier.** The benchmark cannot see
+it, so a fresh row arrives without `compute_units_per_hour` and `usd_per_compute_unit`. Left off,
+the cost table silently falls back to whatever older row still carries them — which on 14 August
+would have quoted the L4's price from a bare-step sitting while drawing its bar from a realistic
+one. `test_board_numbers` now fails if a paid tier's selected row has no billing fields.
 
 **The T4 is done, three times, and it settled an open question.** It was run three times because
 its readings had disagreed by a fifth and two explanations were confounded: the method, or the
@@ -728,16 +736,17 @@ a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-si
 still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
 finishes.
 
-**Three of the seven are still measured the old way** — the L4, the A100 and the laptop on both
-power settings. The workstation, the Mac and the free T4 time the loop `pretrain()` runs, so only
-those three ratios still divide an old-method numerator by a new-method denominator.
+**Two of the seven are still measured the old way** — the A100, and the laptop on both power
+settings. The workstation, the Mac, the free T4 and the L4 time the loop `pretrain()` runs.
 
-**How much they will move is measured rather than guessed, and it is small.** The correction came
-in at 2.7% on the workstation, 0.7% on the Mac and about 1% on the T4, and it shrinks as the step
-gets dearer. The three that remain all have steps inside that range. Against gaps of five-, eight-
-and twenty-sixfold, that changes nothing about the claim — but re-run them anyway, because a board
-that prints 5.0× when the number is 5.1× is wrong in the one way this project has spent a
-fortnight arguing nobody should be.
+**How much a re-run moves a row is now measured, and it is not what I predicted.** The method
+correction is small and one-directional — 0.6% to 2.7%, always making a machine look slower — but
+between-sitting variation is larger and has no direction at all. Across six re-measured rows the
+net change ran from **−2.7% to +5.9%**, and five of the six came out *faster* than their old
+readings rather than slower. The L4's whole cost fell from $117 to $112 on that account.
+
+So re-run the A100 to have it measured the same way as everything else, not because its number is
+suspect. And read every remaining single-sitting row as a point estimate.
 
 **The Mac is the honest edge of that claim rather than a counterexample to it.** 16.9 h and 43.1 h
 is three times the free T4, and a reader who owns one should know that the free tier is faster

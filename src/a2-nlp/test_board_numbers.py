@@ -527,6 +527,32 @@ class CostFigureAgreesWithTheCell(unittest.TestCase):
         self.assertAlmostEqual(self.pf._rent_the_project(), best, delta=1.0,
                                msg='fig_cost and fig_hardware disagree about renting the project')
 
+    def test_a_paid_tier_carries_billing_on_the_row_the_figure_picks(self):
+        """A tier priced from one sitting and drawn from another is two machines on one line.
+
+        The benchmark cannot see a compute-unit rate -- it comes off the Colab usage page -- so a
+        freshly measured paid tier arrives without one and it has to be attached by hand. Left
+        off, nothing errors: _rent_the_project skips rows with no billing and quietly prices the
+        tier from whatever OLDER row still carries them. On 14 August that would have quoted the
+        L4 from a bare-step sitting while its bar came from a realistic-loop one.
+
+        So: whichever row the figure actually selects for a tier that has billing anywhere must
+        carry billing itself.
+        """
+        rows = json.load(open(os.path.join(RUNS, 'hardware.json'), encoding='utf-8'))
+        priced = {r['device'] for r in rows if r.get('compute_units_per_hour')}
+        for device in sorted(priced):
+            for preset in ('poc', 'afriberta'):
+                got = [r for r in rows if r['device'] == device and r['preset'] == preset]
+                if not got:
+                    continue
+                with self.subTest(device=device, preset=preset):
+                    chosen = self.pf._hardware_rate(got)['near']
+                    self.assertTrue(chosen.get('compute_units_per_hour'),
+                                    f'{device} {preset}: the figure selects a '
+                                    f'{chosen.get("method")} row with no compute-unit rate, so '
+                                    f'its price would come from a different sitting than its bar')
+
     def test_model_count_matches_report_09(self):
         """The figure titles itself "What N trained models cost". Report 09's cost table states
         the same N in a row of its own, and the two are written by different hands."""
