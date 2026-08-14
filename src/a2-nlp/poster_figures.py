@@ -415,12 +415,32 @@ def fig_cost():
 
     Dots on a log axis, not bars. The values span four orders of magnitude, so the axis has to
     be logarithmic -- but a bar encodes its value as a LENGTH from a baseline, and on a log axis
-    that length is a lie: $4.30 against $20,000 is 4,650x and the bars looked about 4x apart.
+    that length is a lie: $7 against $24,000 is 3,400x and the bars looked about 4x apart.
     A dot makes no promise about length; only its position carries the number.
+
+    EVERY NUMBER HERE WAS HAND-TYPED UNTIL 14 AUGUST, AND EVERY ONE OF THEM HAD GONE STALE.
+    The figure said 83 GPU-hours, $4.30, $250 to rent and 105 trained models. The project is
+    148.0 GPU-hours, ~$7, $107 to rent and 197 models -- so the board's cost cell was quoting
+    "148 GPU-hours, 71 kWh, $7, $107 on an A100" in type directly above a figure that said 83,
+    $4.30 and $250. One cell, two answers, and the same 83.3 constant bench_portable.py already
+    carries a paragraph about.
+
+    So it computes. Hours and model count come from the live records; the rent comes from
+    runs/hardware.json by the same arithmetic fig_hardware uses. Only the two physical constants
+    below are typed, and they are the two nobody can derive from a run record.
     """
-    items = [('Electricity\nfor 83 GPU-hours', 4.30, C3),
-             ('Renting the same\ntime in the cloud', 250, C1),
-             ('Buying the\nworkstation', 20000, C2)]
+    # Measured at the wall over the project, not from card TDP: 71 kWh across 148.0 GPU-hours is
+    # 0.48 kW, which includes cooling and the rest of the machine. Report 09 carries the full
+    # accounting. These are the only hand-entered numbers left in this figure, and they are
+    # properties of a building rather than of a run.
+    WALL_KW, USD_PER_KWH = 71.0 / 148.0, 7.0 / 71.0
+
+    hours = sum(_workstation_hours_by_preset().values())
+    models = len([r for r in f.results('*') if r.get('seconds')])
+    power = hours * WALL_KW * USD_PER_KWH
+    items = [(f'Electricity\nfor {hours:.0f} GPU-hours', power, C3),
+             ('Renting the same\ntime in the cloud', _rent_the_project(), C1),
+             ('Buying the\nworkstation', 24000, C2)]
     fig, ax = plt.subplots(figsize=(9.5, 4.6))
     for i, (label, v, color) in enumerate(items):
         y = len(items) - 1 - i
@@ -442,8 +462,9 @@ def fig_cost():
     ax.set_ylim(-0.7, len(items) - 0.3)
     ax.set_xlabel('each gridline is ten times the one before it')
     ax.grid(axis='y', visible=False)
-    ax.set_title('What 105 trained models cost', pad=26, loc='left')
-    ax.text(0, 1.03, 'Renting wins below 9,300 GPU-hours of work. This project used 83.',
+    ax.set_title(f'What {models} trained models cost', pad=26, loc='left')
+    ax.text(0, 1.03, f'Renting wins below 9,300 GPU-hours of work. This project used '
+                     f'{hours:.0f}.',
             transform=ax.transAxes, ha='left', va='bottom', color=INK2, fontsize=12.5)
     save(fig, '06-what-it-cost')
 
@@ -1083,6 +1104,51 @@ def residual_permutation(a, b):
     return hits / total, hits, total, 2 / math.comb(len(pool), n)
 
 
+def _rent_the_project():
+    """What the cheapest measured Colab tier would charge for this project's whole term of work.
+
+    Rescales the project's own card time by each tier's throughput against the workstation's,
+    separately per model shape because the 98M half is the expensive half and the tiers do not
+    scale identically across the two. A tier whose rows carry no billing fields is skipped rather
+    than guessed at.
+
+    Deliberately the same arithmetic fig_hardware's cost table runs, and deliberately NOT shared
+    code with it today: fig_hardware is being edited on another machine as this is written, and a
+    refactor that collides is worth less than a duplicate that does not. test_board_numbers
+    asserts the two agree, which is the guarantee that actually matters -- and when the Mac's
+    branch lands, fig_hardware should call this.
+    """
+    rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    ws_hours = _workstation_hours_by_preset()
+    best = {}
+    for r in rows:
+        if r.get('compute_units_per_hour') and r.get('usd_per_compute_unit'):
+            best.setdefault(r['device'], {}).setdefault(r['preset'], []).append(r)
+    ws = {r['preset']: r for r in rows
+          if 'PRO 6000' in r['device'] and r.get('method') == 'realistic-loop'}
+    # The same selection fig_hardware makes, and it has to be: a realistic-loop row beats a
+    # bare-step one, a timed row beats a burst, and only then the median. Medianing all four of
+    # the A100's rows instead put $105.92 here against the $107 on the figure -- two numbers for
+    # one machine, from one file, three inches apart on the same board.
+    rank = {'realistic-loop': 0, 'bare-step': 1}
+
+    def pick(got):
+        method = min((x.get('method', 'bare-step') for x in got), key=lambda m: rank.get(m, 2))
+        use = [x for x in got if x.get('method', 'bare-step') == method]
+        return st.median(x['tokens_per_s'] for x in ([u for u in use if u.get('timed_seconds')]
+                                                     or use))
+
+    quotes = []
+    for presets in best.values():
+        if not all(p in presets for p in ws_hours):
+            continue
+        rate = {p: pick(presets[p]) for p in ws_hours}
+        hrs = sum(ws_hours[p] * ws[p]['tokens_per_s'] / rate[p] for p in ws_hours)
+        one = presets[next(iter(ws_hours))][0]
+        quotes.append(hrs * one['compute_units_per_hour'] * one['usd_per_compute_unit'])
+    return min(quotes)
+
+
 def _downstream_spread():
     """One sentence on whether the same variance gap appears downstream, computed not recalled.
 
@@ -1538,7 +1604,7 @@ def fig_board_layout():
     # number, title, big number, figure (None = type only), words of body
     CELLS = [
         ('1', 'What does a run cost,\nand in what unit?', '62,500 steps\n= 1.024B tokens',
-         'hardware — BLOCKED', 55),
+         'fig 21', 55),
         ('2', 'Why optimize before\nanything needs it?', '2.07×\nonly 1.32× is efficiency',
          'fig 14', 55),
         ('3', 'Notebook,\nor queue?', '53 s vs 85 min\n96×', 'fig 15', 55),
@@ -1552,9 +1618,13 @@ def fig_board_layout():
 
     # The three rubric items that have no cell: cost, ethics, next steps + sources + AI.
     STRIP = [
+        # Written from the same records fig_06 draws, not typed beside them. The typed version
+        # said $120 and 143 GPU-hours and 69 kWh while the cell it mocks up said $107 and 148
+        # and 71 -- a layout mockup disagreeing with the layout it is a mockup of.
         ('WHAT IT COST', C3,
-         'fig 06 · $24k / $120 / free\n143 GPU-hours, 69 kWh, ~$7\nthe workstation bought\n'
-         'latency, not access'),
+         f'fig 06 · $24k / ${_rent_the_project():.0f} / free\n'
+         f'{sum(_workstation_hours_by_preset().values()):.0f} GPU-hours, 71 kWh, ~$7\n'
+         f'the workstation bought\nlatency, not access'),
         ('WHAT WE DO NOT CLAIM', C2,
          'ETHICS — the methods half\n2 of 9 claims not supported\nand printed anyway; nobody\n'
          'here reads Yoruba'),
