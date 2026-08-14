@@ -1661,14 +1661,20 @@ def fig_hardware():
     only number in the project that cannot be produced from this machine. It needs somebody to run
     bench_portable.py somewhere else.
 
-    Three machines so far: the workstation, a free Colab T4, and the 8 GB laptop -- measured
-    twice, once on its GPU and once with --cpu on its own processor, which is the pair that
-    answers "is a small mobile GPU even worth using". More rows (L4, A100, a MacBook) drop in
-    without touching this function.
+    Six machines so far: the workstation, a Colab A100, L4 and free T4, and the 8 GB laptop --
+    measured three ways, plugged in, on battery, and with --cpu on its own processor, which is
+    the pair (and now triple) that answers "is a small mobile GPU even worth using, and does it
+    need the wall". More rows (a MacBook) drop in without touching this function.
+
+    Every row except the workstation's is a three-minute timed run; the workstation's stays the
+    median of 127 and 70 real training runs until one can be taken on an idle card. Where a
+    device has both a burst and a sustained row, the sustained one is later in the file and wins.
 
     The first T4 reading was 33x and said no. It was bf16 running in software on a card whose
-    tensor cores do not have it; measured in fp16 the same card is 5.9x. Both numbers looked
-    equally plausible on the page, which is why the row carries its dtype. The laptop's first
+    tensor cores do not have it; measured in fp16 the same card is 5.9x on a burst and 7.1x held
+    for three minutes -- the only tier where those two disagree, because a free runtime shares a
+    host. Both numbers looked equally plausible on the page, which is why the row carries its
+    dtype, and the same reason the bars now come from timed runs. The laptop's first
     reading failed the same way in a different direction: Windows spilled the 98M model into
     system RAM and reported 5,075 tok/s of PCIe traffic as if it were the GPU. Its row carries
     the gradient-accumulation configuration that actually fits for the same reason.
@@ -1679,16 +1685,47 @@ def fig_hardware():
     """
     rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
     WS_HOURS = _workstation_hours_by_preset()
-    machines, order = {}, []
+    # Recovered from the rows rather than restated as 62,500 x 128 x 128 here. A second copy of
+    # a constant is how this project's worst numbers happened: bench_portable.py's own
+    # PROJECT_GPU_HOURS sat at 83.3 for weeks after the project reached 148. If the benchmark
+    # ever changes what a full run means, these bars follow it instead of quietly disagreeing.
+    TOKENS_PER_RUN = rows[0]['full_run_hours'] * 3600 * rows[0]['tokens_per_s']
+
+    # Every sitting for a machine gets collected first and reduced second, because last-row-wins
+    # is not a choice -- it is whatever order the file happens to be in. Two rules follow.
+    #
+    # A TIMED ROW BEATS A BURST ROW, always, and they are never averaged. They measure different
+    # things, and blending them would bury the one finding the method change produced: the free
+    # T4 reads 19-22% high on a 40-step burst while nothing else moves by 2%. So a machine with
+    # any --seconds row drops its burst rows entirely.
+    #
+    # AMONG COMPARABLE SITTINGS, THE MEDIAN. The laptop has been measured plugged in twice, 1.5%
+    # apart, and quoting whichever landed last in the file means appending a row silently redraws
+    # the figure. Hours come from that median rather than off one row, so the bar and the table
+    # beside it cannot disagree.
+    buckets, order = {}, []
     for r in rows:
         # A battery sitting is the same silicon telling a different story, so it is keyed
-        # apart -- otherwise last-row-wins silently replaces the plugged laptop with the
-        # battery reading and the figure never says which one it is showing.
+        # apart -- otherwise the plugged laptop and the battery laptop average into a machine
+        # that does not exist, at a rate neither of them ran at.
         key = r['device'] + (' (battery)' if 'battery' in (r.get('note') or '').lower() else '')
-        if key not in machines:
-            machines[key] = {}
+        if key not in buckets:
+            buckets[key] = {}
             order.append(key)
-        machines[key][r['preset']] = r
+        buckets[key].setdefault(r['preset'], []).append(r)
+
+    machines = {}
+    for key, presets in buckets.items():
+        machines[key] = {}
+        for preset, got in presets.items():
+            use = [r for r in got if r.get('timed_seconds')] or got
+            rate = st.median(r['tokens_per_s'] for r in use)
+            # The rest of the record comes from the sitting nearest that median, so dtype, peak
+            # memory and the micro-batch the row records all still describe one real run rather
+            # than a composite of several.
+            near = min(use, key=lambda r: abs(r['tokens_per_s'] - rate))
+            machines[key][preset] = dict(near, tokens_per_s=round(rate), sittings=len(use),
+                                         full_run_hours=TOKENS_PER_RUN / rate / 3600)
     cpu_only = [k for k in order if not machines[k]['poc'].get('compute_capability')]
     order = [k for k in order if machines[k]['poc'].get('compute_capability')]
     # Fastest first, so the workstation anchors the left and the question "how far down can you
@@ -1734,9 +1771,12 @@ def fig_hardware():
     # units whose rate moves with tier pricing and demand, so the dollars are one reading on one
     # day rather than a property of the machine -- Jeffrey flagged that before it bit us, which
     # is the discipline pointing the right way for once. The DURABLE finding is the ratio: the
-    # A100 costs 4.40x the L4 per hour and returns 4.48x the throughput, so the same work lands
-    # within 5% of the same price on either tier. You buy latency, not access, which is the
-    # workstation argument arrived at from a completely different direction.
+    # A100 costs 4.40x the L4 per hour and returns about 4.8x the work on this workload -- 4.45x
+    # on the 33.8M model and 5.06x on the 98M, which is why the blend beats the price ratio. So
+    # the faster tier is also, slightly, the cheaper one: $100 against $110, five times sooner.
+    # You buy latency, not access, which is the workstation argument arrived at from a completely
+    # different direction. On burst readings this came out "within 5% of the same price"; the
+    # sustained rows moved it to 10% and did not change the direction.
     # The table's rates come from the same rows as the bars, so the two halves of the figure
     # cannot disagree. The first version hardcoded burst readings here -- a hand-typed count on
     # the one board that forbids them -- and the day the sustained rows landed, the bars moved
@@ -1770,7 +1810,7 @@ def fig_hardware():
     costs = {}
     for n, t in enumerate(tiers):
         y = 0.575 - n * 0.088
-        hrs = sum(WS_HOURS[k] * ws_rate[k] / t['rate'][k] for k in WS_HOURS)
+        hrs = t['project_hours'] = sum(WS_HOURS[k] * ws_rate[k] / t['rate'][k] for k in WS_HOURS)
         if not t['fixed'] and t['uph'] and t['usd']:
             costs[t['name']] = hrs * t['uph'] * t['usd']
         cost = t['fixed'] or (f"${costs[t['name']]:,.0f}" if t['name'] in costs else '—')
@@ -1791,11 +1831,21 @@ def fig_hardware():
     l4 = next(t for t in tiers if t['name'] == 'Colab L4, Pro')
     a100 = next(t for t in tiers if t['name'] == 'Colab A100, Pro')
     if l4['name'] in costs and a100['name'] in costs:
-        gap = abs(costs[a100['name']] / costs[l4['name']] - 1)
+        # The work ratio is the BLEND across both model shapes, not the 33.8M model's alone. The
+        # A100 is 4.4x the L4 on the small model and 5.1x on the 98M, and the project is mostly
+        # the 98M half -- so a poc-only ratio (4.4x) sat exactly on the hourly price ratio and
+        # made the two tiers look like a wash. They are not: the faster tier is also the cheaper
+        # one, which is a sharper claim and the one the dollars beside it actually show.
+        work = l4['project_hours'] / a100['project_hours']
+        # Both dollar signs are escaped. Matplotlib reads a PAIR of $ as a mathtext span, so
+        # "$100 against $110" rendered as italic "100against110" -- the money vanished and the
+        # sentence still looked like a sentence. The single-$ strings elsewhere in this panel
+        # survive by accident of being odd-numbered; these do not.
         ax2.text(0, 0.085,
                  f"The A100 costs {a100['uph'] / l4['uph']:.1f}× the L4 per hour and returns "
-                 f"{a100['rate']['poc'] / l4['rate']['poc']:.1f}× the throughput, so\n"
-                 f"the whole project lands within {gap:.0%} of the same price on either tier.",
+                 f"{work:.1f}× the work, so the whole\n"
+                 f"project is \\${costs[a100['name']]:,.0f} against "
+                 f"\\${costs[l4['name']]:,.0f} — you buy {work:.1f}× the speed, not the bill.",
                  color=INK, fontsize=11.5, va='bottom', linespacing=1.6)
     ax2.text(0, 0.0,
              'Compute-unit rates move with pricing and demand — read 13 Aug 2026 at $9.99\n'
@@ -1813,13 +1863,17 @@ def fig_hardware():
                  color=INK2, fontsize=11.5, va='bottom')
 
 
-    fig.text(0.5, -0.145,
-             "Measured by bench_portable.py on each machine. The T4's first reading was 33× and "
-             "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True,\n"
+    fig.text(0.5, -0.175,
+             "Measured by bench_portable.py, three minutes per model per machine — except the "
+             "workstation, whose rate is the median of 127 and 70 real training runs because "
+             "every\nbenchmark sitting on it so far was taken while another job held the card. "
+             "Machines measured more than once show the median. The T4's first reading was 33× "
+             "and said no:\ntorch.cuda.is_bf16_supported() defaults to including_emulation=True, "
              "so a card without bf16 tensor cores ran it in software. Every row carries its "
-             "dtype for that reason. * The 98M model does not fit whole in 8 GB — the laptop runs "
-             "it\nas the same 16,384-token step via gradient accumulation (micro-batch 64 × 2), "
-             "which is the configuration the row records. Row still wanted: a MacBook.",
+             "dtype for that reason.\n* The 98M model does not fit whole in 8 GB — the laptop "
+             "runs it as the same 16,384-token step via gradient accumulation (micro-batch "
+             "64 × 2), which is the configuration\nthe row records. Rows still wanted: a MacBook, "
+             "and the workstation on an idle card.",
              ha='center', color=INK2, fontsize=11, linespacing=1.7)
     save(fig, '21-hardware')
 
