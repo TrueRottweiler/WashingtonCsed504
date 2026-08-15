@@ -2462,23 +2462,39 @@ decides what you are allowed to attempt. Here are real figures.
 
 ##### What the work actually consumed
 
-Everything below is measured from the run records, not estimated.
+The first half of this table comes out of the run records. **The second half does not, and this
+report said it did until 14 August.** The distinction matters more here than anywhere else on the
+board, because the energy line is the one people quote.
 
-| | |
-|---|---|
-| Models pretrained | 197 |
-| Fine-tuning experiments | 161, made of 541 individual runs |
-| Total graphics-card time | **148.0 GPU-hours** |
-| Electricity for that (cards only) | ~43 kWh |
-| Electricity at the wall, with cooling and the rest of the machine | ~71 kWh |
-| Storage: prepared text | 5.1 GB |
-| Storage: model checkpoints and logs | 166 GB |
+| | | where it comes from |
+|---|---|---|
+| Models pretrained | 197 | counted |
+| Fine-tuning experiments | 161 test-scored, made of 541 individual runs | counted |
+| — all fine-tuning records, every split | 278, made of 892 runs | counted |
+| Total graphics-card time | **148.0 GPU-hours** | summed from `seconds` on every record |
+| Storage: prepared text | 5.1 GB | measured on disk |
+| Storage: model checkpoints and logs | 166 GB | measured on disk |
+| Electricity, cards only | ~43 kWh | **assumed**: 148.0 h × 300 W |
+| Electricity at the wall | ~71 kWh | **assumed**: × 1.65 for cooling and the rest of the box |
+| Cost of that electricity | ~$7 | **assumed**: × $0.0986 per kWh |
 
-71 kilowatt-hours is roughly two months of a domestic fridge. **The entire
-computational output of this project cost about $7 of electricity.** That is worth
-sitting with, because it contradicts the impression most people have of what machine learning
-costs — and the reason is that these are small models. The same tooling pointed at a
-billion-parameter model would multiply everything below by a hundred or more.
+**Three of those nine rows are arithmetic on constants nobody measured**, and they happen to be
+the three the poster puts in the largest type. The 300 W is a real reading — the dashboard showed
+both cards at 300 W during the two-card test — but it is one reading held constant across 148
+hours that included idle gaps, checkpoint writes and evaluation passes, all of which draw less.
+The 1.65 wall factor is a rule of thumb. The tariff is a national average, not this building's
+bill.
+
+So the honest form is: **148.0 GPU-hours is measured; "about 71 kWh" and "about $7" are estimates
+that could be wrong by a third in either direction and would still make the same point.** A wall
+meter on the workstation for one week would replace both, and it is the cheapest unmeasured thing
+left in this project.
+
+The point survives the uncertainty, which is why it is worth stating at all: even at three times
+the estimate, **the entire computational output of this project cost less than a takeaway meal in
+electricity.** That contradicts the impression most people have of what machine learning costs,
+and the reason is that these are small models. The same tooling pointed at a billion-parameter
+model would multiply everything below by a hundred or more.
 
 ##### Time to train one model
 

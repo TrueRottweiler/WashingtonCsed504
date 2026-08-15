@@ -418,7 +418,7 @@ def fig_cost():
     that length is a lie: $7 against $24,000 is 3,400x and the bars looked about 4x apart.
     A dot makes no promise about length; only its position carries the number.
 
-    EVERY NUMBER HERE WAS HAND-TYPED UNTIL 14 AUGUST, AND EVERY ONE OF THEM HAD GONE STALE.
+    Every number here was hand-typed until 14 August, and every one of them had gone stale.
     The figure said 83 GPU-hours, $4.30, $250 to rent and 105 trained models. The project is
     148.0 GPU-hours, ~$7, $107 to rent and 197 models -- so the board's cost cell was quoting
     "148 GPU-hours, 71 kWh, $7, $107 on an A100" in type directly above a figure that said 83,
@@ -1071,7 +1071,7 @@ def residual_permutation(a, b):
     point is that consistency does not differ. Subtracting each arm's own mean removes it. The
     F-test has that property built in; a permutation test has to be given it.
 
-    THE STATISTIC MUST BE SYMMETRIC UNDER SWAPPING THE ARMS. The first version here used
+    The statistic must be symmetric under swapping the arms. The first version here used
     |sd(g1)/sd(g2) - 1|, which is not: a ratio of 0.7 scores 0.30 while its reciprocal 1.43 scores
     0.43, so the test is quietly directional. It returned 1/70 on entities -- and 1/70 is
     unreachable for any two-sided test at four a side, because every split is enumerated alongside
@@ -1107,7 +1107,7 @@ def residual_permutation(a, b):
 def _hardware_rate(rows):
     """The one rate a pile of sittings for one machine and preset reduces to.
 
-    THE ORDER OF THESE THREE RULES IS THE WHOLE FUNCTION. A realistic-loop row beats a bare-step
+    The order of these three rules is the whole function. A realistic-loop row beats a bare-step
     one and they are never blended, because they time different work -- the bare step omits
     batch-building, clipping and the host sync, and reads 2.7% high here and 0.7% high on a Mac.
     A timed row beats a burst. Only then, the median across comparable sittings.
@@ -1121,7 +1121,7 @@ def _hardware_rate(rows):
     method = min((r.get('method', 'bare-step') for r in rows), key=lambda m: rank.get(m, 2))
     use = [r for r in rows if r.get('method', 'bare-step') == method]
     use = [r for r in use if r.get('timed_seconds')] or use
-    # A RUN THAT ENDED FASTER THAN IT STARTED NEVER SETTLED, AND ITS MEAN IS NOT A RATE.
+    # A run that ended faster than it started never settled, and its mean is not a rate.
     #
     # throttle is first third over last third, so below 1.0 means the machine sped up while being
     # measured. Small values are noise -- the A100 and the L4 sit at 0.98-1.00 -- but the Surface
@@ -1636,7 +1636,11 @@ def fig_board_layout():
     CELLS = [
         ('1', 'What does a run cost,\nand in what unit?', '62,500 steps\n= 1.024B tokens',
          'fig 21', 55),
-        ('2', 'Why optimize before\nanything needs it?', '2.07×\nonly 1.32× is efficiency',
+        # `1.32× real`, not `only 1.32× is efficiency`. This mockup exists to prove what fits, and
+        # it was drawing the 24-character version that the board text two paragraphs above uses as
+        # its worked example of a big number that OVERFLOWS the column. A scale drawing arguing
+        # against its own caption.
+        ('2', 'Why optimize before\nanything needs it?', '2.07×\n1.32× real',
          'fig 14', 55),
         ('3', 'Notebook,\nor queue?', '53 s vs 85 min\n96×', 'fig 15', 55),
         ('4', 'What makes a record\nsurvive you?', 'fingerprint\n15abd33de5af', 'fig 07', 55),
@@ -1653,14 +1657,20 @@ def fig_board_layout():
         # said $120 and 143 GPU-hours and 69 kWh while the cell it mocks up said $107 and 148
         # and 71 -- a layout mockup disagreeing with the layout it is a mockup of.
         ('WHAT IT COST', C3,
-         f'fig 06 · $24k / ${_rent_the_project():.0f} / free\n'
+         # Escaped, for the third time in this file. A PAIR of dollar signs is a mathtext span to
+         # matplotlib, so "$24k / $110 / free" rendered as italic "24k/110 / free" -- both prices
+         # silently eaten on the one panel whose subject is cost.
+         f'fig 06 · \\$24k / \\${_rent_the_project():.0f} / free\n'
          f'{sum(_workstation_hours_by_preset().values()):.0f} GPU-hours, 71 kWh, ~$7\n'
          f'the workstation bought\nlatency, not access'),
         ('WHAT WE DO NOT CLAIM', C2,
          'ETHICS — the methods half\n2 of 9 claims not supported\nand printed anyway; nobody\n'
          'here reads Yoruba'),
         ('NEXT · SOURCES · AI', C4,
-         'what is still unbuilt\n19 references, shortened\n120 of 144 commits carry\n'
+         # 96 of 168 as of 14 Aug. Counted by hand and therefore pinned by nothing, which is
+         # why it was 24 commits and a full ratio out of date. Squash-merging is why the
+         # numerator can fall: four trailered commits on a branch arrive as one.
+         'a wall meter on the box\n19 references, shortened\n96 of 168 commits carry\n'
          'a Co-Authored-By trailer'),
     ]
 
@@ -1800,17 +1810,17 @@ def fig_hardware():
     # Every sitting for a machine gets collected first and reduced second, because last-row-wins
     # is not a choice -- it is whatever order the file happens to be in. Two rules follow.
     #
-    # A TIMED ROW BEATS A BURST ROW, always, and they are never averaged. They measure different
+    # A timed row beats a burst row, always, and they are never averaged. They measure different
     # things, and blending them would bury the one finding the method change produced: the free
     # T4 reads 19-22% high on a 40-step burst while nothing else moves by 2%. So a machine with
     # any --seconds row drops its burst rows entirely.
     #
-    # AMONG COMPARABLE SITTINGS, THE MEDIAN. The laptop has been measured plugged in twice, 1.5%
+    # Among comparable sittings, the median. The laptop has been measured plugged in twice, 1.5%
     # apart, and quoting whichever landed last in the file means appending a row silently redraws
     # the figure. Hours come from that median rather than off one row, so the bar and the table
     # beside it cannot disagree.
-    # THREE KINDS OF ROW LIVE HERE NOW, AND MEDIANING ACROSS THEM WOULD BE THE BUG THIS FIGURE
-    # KEEPS FINDING IN OTHER PEOPLE'S NUMBERS.
+    # Three kinds of row live here now, and medianing across them would be the bug this
+    # figure keeps finding in other people's numbers.
     #
     #   realistic-loop   the step mlm_train.pretrain() runs. What every row should eventually be.
     #   bare-step        the old step-only loop. Reads high, by 3% on the workstation and by an
