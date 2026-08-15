@@ -78,12 +78,12 @@ PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results()
 # other row times: 442,510 and 186,534. Comparable by construction.
 #
 # It is also validated, which no earlier version of this constant was. The 98M preset's real
-# runs, which average 93 minutes, have a median of 183,697 and a p90 of 187,594 -- the benchmark
-# lands at 1.006 of that p90 and 1.015 of the median. It predicts the real thing on the one
+# runs, which average 93 minutes, have a median of 183,697 and a p90 of 187,463 -- the benchmark
+# lands at 0.995 of that p90 and 1.015 of the median. It predicts the real thing on the one
 # machine where the real thing can be checked.
 #
 # The 33.8M preset agrees at the top and not in the middle: p90 427,932 (0.97 of this), median
-# 381,817 (0.86). That is not the benchmark being wrong, it is 9-minute runs spanning 1.73x from
+# 381,817 (0.86). That is not the benchmark being wrong, it is 9-minute runs spanning 1.76x from
 # p10 to p90 while 93-minute runs span 1.11x. Short runs are at the mercy of the machine's other
 # work; the ratio below is therefore a CEILING, and REALISTIC_FRACTION says so.
 #
@@ -92,7 +92,8 @@ REF_TOK_S = {'poc': 442_510, 'afriberta': 186_534}    # this script, idle card 0
 
 # What fraction of that ceiling the project's own runs actually sustained, at the median. The
 # honest thing to hand a student alongside a ratio: the benchmark says what your machine can do
-# when it is yours alone, and this says what ours delivered in practice over 190 real runs.
+# when it is yours alone, and this says what ours delivered in practice over the 184 real
+# runs taken at these two shapes.
 REALISTIC_FRACTION = {'poc': 0.86, 'afriberta': 0.98}      # median real run / this benchmark
 
 

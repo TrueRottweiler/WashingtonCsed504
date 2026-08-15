@@ -545,8 +545,9 @@ Colab cell.
 
 | machine | 33.8M model | 98M model | one 62,500-step run (98M) |
 |---|---|---|---|
+| **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 443k tok/s | 187k tok/s | **91 min** |
+| — *the same box, median of 197 real training runs* | *382k tok/s* | *184k tok/s* | *93 min* |
 | Google Colab — paid tier (A100-SXM4-80GB, bf16) | 372k tok/s | 177k tok/s | **96 min** |
-| **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
 | Google Colab — paid tier (L4, bf16) | 90k tok/s | 38k tok/s | **7.5 h** |
 | Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 66k tok/s | 28k tok/s\* | **10.2 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
@@ -565,7 +566,14 @@ machines is comparing two different computations, and MPS has no autocast path w
 be the same one. Read the Mac against itself and against the CPU baseline, not against the A100
 to two significant figures.
 
-The Toothless figures are medians across 96 and 55 completed runs, not a short probe — sustained
+**The two Toothless rows are the point of the table, not a redundancy.** The first is this
+benchmark on an idle card, measured the same way as every row beneath it — that is the one to
+compare against, because comparing a benchmark to somebody else's real runs is the error this
+whole section is about. The second is what the box actually delivered across 197 completed
+training runs, and it sits 14% below on the small model and 1% below on the large one. A machine
+you share with yourself is slower than a machine you do not.
+
+The real-run figures are medians across 127 and 70 completed runs, not a short probe — sustained
 rates after the card is hot, which is the only kind worth quoting. A benchmark run while another
 job holds the same card reads about **half**, which is a mistake we made and the script now warns
 about. Every other row is a **three-minute timed run** (`--seconds 180`), and each reports
@@ -591,7 +599,7 @@ time, while the 98M preset sat at **0.98–0.99** and did not decay at all.
 That asymmetry is the interesting part. A 70 W passively-cooled card can hold the duty cycle the
 expensive model asks for and cannot hold the one the cheap model asks for — so the machine that
 looks fastest in the first twenty seconds is the machine that falls furthest, and only on the
-configuration a beginner is most likely to run first. **Of the seven machines here, the T4 is the
+configuration a beginner is most likely to run first. **Of the six machines here, the T4 is the
 only one where the first number you see is not the number you get**, and it is the one belonging
 to the student with no budget and no alternative. Its `throttle` column said so from the first
 timed sitting; we needed three to believe it was the card rather than the queue.
@@ -623,7 +631,7 @@ micro-batches of 64 with the loss averaged between them — identical update, id
 the batch never stops being 128, and the project's unit (tokens of updates) does not move.
 This is not even a new knob: `mlm_train.pretrain()` has carried `accum=` since the workstation
 needed effective batches bigger than memory. Pointed the other way, it folds a 10 GB training
-run into **5.98 GB at 31,836 tok/s** held over three minutes — and micro-batch 32 × 4 measured
+run into **6.1 GB at 28,027 tok/s** held over three minutes — and micro-batch 32 × 4 measured
 within 2% of the same configuration's burst reading, so the folding itself is nearly free. Activation checkpointing (recompute the forward pass,
 roughly a third slower) waits behind it in the fallback ladder; the 98M model never needed it.
 
@@ -807,11 +815,11 @@ Folded through the same gradient accumulation the 8 GB laptop already needed, th
 The failure is worth naming because the shape of it keeps recurring and the surface details never
 repeat:
 
-| | what it claimed | what was true | why nothing errored |
+| | what it claimed | what it does | why nothing errored |
 |---|---|---|---|
-| Colab T4 | 11.6k tok/s, 33× | 54k tok/s, 7.1× | `is_bf16_supported()` defaults to `including_emulation=True` |
-| Surface laptop | 5.1k tok/s | 31.8k tok/s | Windows pages VRAM over PCIe and calls it working |
-| MacBook Pro | 286 tok/s | 6.2k tok/s | unified memory has no OOM to raise |
+| Colab T4 | 11.6k tok/s, 33× | 53k tok/s, 8.3× | `is_bf16_supported()` defaults to `including_emulation=True` |
+| Surface laptop | 5.1k tok/s | 28k tok/s | Windows pages VRAM over PCIe and calls it working |
+| MacBook Pro | 286 tok/s | 6.6k tok/s | unified memory has no OOM to raise |
 
 Three different platforms, three different mechanisms, one identical outcome: **a plausible number,
 no warning, and an answer wrong in the direction that discourages the reader.** The benchmark now
@@ -2895,7 +2903,7 @@ check.
 | `runs/gradient_languages.json` | `prepare_gradient_languages.py` | which languages were prepared |
 | `runs/scaling_law.json` | `scaling_law.py` | the fitted data/compute surface |
 | `runs/claims_audit.json` | `claims_audit.py` | every comparative claim against its null |
-| `runs/hardware.json` | `bench_portable.py` | one run costed on each machine — seven, one still open |
+| `runs/hardware.json` | `bench_portable.py` | one run costed on each machine — six, all measured |
 
 `check_provenance.py` resolves every `runs/*.json` named in any report against what is on disk, and
 reports the other direction too: a record that exists and no report points at is an experiment that
@@ -2904,10 +2912,11 @@ gate beside `check_links.py` and `check_boards.py`.
 
 **The one citation that used to dangle on purpose no longer does.** `runs/hardware.json` is named
 by Week 1 and the Appendix, and for weeks it did not exist, because the measurements could only
-come from machines that are not this one. Seven devices are in it now — the workstation, three
-Colab tiers, an 8 GB mobile RTX measured on mains and on battery, that laptop's own CPU, and a
-MacBook Pro. The row still open is the opposite of the original problem: a workstation reading
-taken on a card nothing else is holding.
+come from machines that are not this one. Six devices are in it now, across 56 rows — the
+workstation, three Colab tiers, an 8 GB mobile RTX measured on mains and on battery, that laptop's
+own CPU, and a MacBook Pro. Every one of them times the loop `pretrain()` runs, and every one but
+the workstation has been sat down at least twice, because a single sitting is a point estimate and
+this table spent a fortnight teaching us that.
 
 ---
 

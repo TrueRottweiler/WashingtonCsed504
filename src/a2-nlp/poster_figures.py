@@ -1876,7 +1876,7 @@ def fig_hardware():
              # idle machine can do. The gap to the column beside it is 0.86x at 33.8M and 0.98x
              # at 98M -- dispersion, not bias: 9-minute runs span 1.73x from p10 to p90 while
              # 93-minute runs span 1.11x.
-             WS + ' (real runs)': 'the same box,\n190 real runs',
+             WS + ' (real runs)': 'the same box,\n197 real runs',
              'NVIDIA A100-SXM4-80GB': 'Colab A100\nsm_80 · bf16',
              'NVIDIA L4': 'Colab L4\nsm_89 · bf16',
              'Tesla T4': 'Colab T4, free\nsm_75 · fp16',
@@ -2094,10 +2094,10 @@ def fig_hardware():
              "2.6% on the workstation, 5.0% on "
              "an A100 whose step is dearer, 0.8% on an L4, 0.7% on a Mac 26× slower again. "
              "Machines measured more than once "
-             "show the median.\nRead every bar as a CEILING. Against this project's own 190 "
-             "training runs the benchmark matches a run that gets the machine to itself — 1.006 "
-             "of the 98M preset's p90 — while\nthe median 33.8M run reached 0.86 of it. That is "
-             "dispersion, not bias: 9-minute runs span 1.73× from p10 to p90, 93-minute runs "
+             "show the median.\nRead every bar as a CEILING. Against the 184 of this project's own "
+             "training runs taken at this shape, the benchmark matches a run that gets the machine "
+             "to itself — 0.995 of the 98M preset's p90 — while\nthe median 33.8M run reached 0.86 of it. That is "
+             "dispersion, not bias: 9-minute runs span 1.76× from p10 to p90, 93-minute runs "
              "1.11×. The 'real runs' column is that median.\nThe T4's first reading was 33× and "
              "said no: torch.cuda.is_bf16_supported() defaults to including_emulation=True, so a "
              "card without bf16 tensor cores ran it in software —\nhence the dtype on every "
