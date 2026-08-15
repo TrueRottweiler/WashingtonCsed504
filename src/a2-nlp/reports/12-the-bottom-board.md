@@ -289,15 +289,15 @@ MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on ba
 `--cpu` on its own processor. **A Colab A100 comes within a fifth of one Blackwell card** —
 1.19×, 46 minutes a run against 37. The L4 is **4.9× slower, 30 days of card time, $112**. The
 free T4 is the floor of what somebody with no budget gets — **8.3×, 53 days, and the 98M model
-fits there too**. The laptop a student most likely already owns runs **3.8 h / 8.9 h per run, 63×
+fits there too**. The laptop a student most likely already owns runs **4.3 h / 10.2 h per run, 56×
 its own CPU, and beats the free T4 on both model sizes even on battery.** More rows drop into
 `runs/hardware.json` without touching the figure.
 
 > **Read this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **Every machine here is now measured that way except the
-> laptop**, which still carries `‡` on its two power settings.
+> the loss read back every step. **Every machine on this figure is now measured that way**, and
+> every one of them at least twice except the workstation. No `‡` remains.
 >
 > **I predicted the re-measured rows would all get worse. Most got better.** The method
 > correction is real and one-directional — it always makes a machine look slower — but the old
@@ -368,11 +368,24 @@ lasts about twenty seconds. **The row a student with no budget lands on is the o
 first number you see is not the number you get**, and it is the only row on this figure whose
 throttle would have told you so.
 
-**Unplugging the laptop costs a quarter of it: 24% on the 33.8M model, 25% on the 98M**, run
-back-to-back so the battery reading started warm and got no cold-start flattery. 8.9 hours becomes
-11.9. That is much the larger of the two effects — three minutes of held load cost this chassis
-under 2%, and the wall socket cost it a quarter — so on a mobile card the power policy is the
-finding and the thermals were only the assumption.
+**Unplugging the laptop costs about a sixth: 15.4% on the 33.8M model, 14.9% on the 98M**, run
+back-to-back so the battery reading started warm and got no cold-start flattery. 4.3 hours becomes
+5.1, and 10.2 becomes 11.9.
+
+That figure was **24% and 25%** until the laptop was re-measured on the realistic loop, and the
+correction is entirely in the *plugged* numbers — the battery readings barely moved (56,159 →
+55,992 and 23,850 → 23,842). Unplugged, the card is power-capped and therefore stationary: it
+returns nearly the same number however you measure it. Plugged, it boosts and then decays, which
+is where the old reading was flattering itself. **The mains figure was the unreliable half of that
+comparison, not the battery one**, which is the opposite of what you would assume.
+
+**And the first sitting of a cold session is the one to throw away.** The laptop's first 98M run
+came back at 25,038 against 28,027 from the sitting straight after it — a 12% gap that would have
+medianed to a number neither run measured. Its `throttle` was **0.87**: the last third ran 15%
+*faster* than the first, so it never settled inside the window. The cause is mundane — the fans
+had not spun up. The figure now drops any row whose throttle is below 0.95, and the check pays for
+itself immediately: with the unsettled row out the two presets agree on the battery penalty
+(15.4% and 14.9%), and with it in they do not (15.4% and 10.1%).
 
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
@@ -419,11 +432,11 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
    CPU baseline in its side panel.
 6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
-6b. **Re-measure every machine against the realistic loop.** Eight minutes each, `--seconds 180
-   --bare-seconds 60`, which are the defaults. ~~Workstation~~, ~~Mac × 2~~, ~~T4 × 3~~,
-   ~~L4 × 2~~ and ~~A100 × 2~~ are done. What is left is the **laptop: 2 plugged + 1 on
-   battery**, and it is the lowest-value row on the list — nothing on this board quotes money
-   from it. Do it for consistency, not because the number is in doubt.
+6b. ~~Re-measure every machine against the realistic loop~~ — **done.** Workstation, Mac ×2,
+   T4 ×3, L4 ×2, A100 ×2, laptop ×2 plugged + ×1 battery. Every column on the figure now times
+   the loop `pretrain()` runs and no `‡` remains. **One optional eight-minute run is left**: a
+   third plugged sitting on the laptop, because its first 98M reading never settled (throttle
+   0.87) and was dropped, leaving that one cell at n=1.
 7. **Re-render `fig_hardware` and re-set the strip's cost block**, which is the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
@@ -738,18 +751,18 @@ a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-si
 still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
 finishes.
 
-**Only the laptop is still measured the old way**, on both its power settings. Everything else
-times the loop `pretrain()` runs, and every Colab tier has been sat down at least twice.
+**Every machine is measured the same way now**, and every one at least twice except the
+workstation itself.
 
-**How much a re-run moves a row is now measured, and it is not what I predicted.** The method
+**How much a re-run moves a row is measured, and it is not what I predicted.** The method
 correction is one-directional — it always makes a machine look slower — but between-sitting
-variation is larger and has no direction at all. Across eight re-measured rows the net change ran
-**−5.0% to +5.9%**. The L4's cost fell from $117 to $112 on that account; the A100's rose from
-$107 to $110.
+variation is larger and has no direction at all. Across the re-measured rows the net change ran
+**−12% to +6%**. The L4's cost fell from $117 to $112; the A100's rose from $107 to $110; the
+laptop plugged fell 11%, which is what rewrote the battery finding.
 
-**The laptop is the lowest-value row left**, because nothing on this board quotes money from it
-and its ratio is already the least surprising number here. Re-run it for consistency, not for
-doubt.
+**The one number left unmeasured is the laptop's plugged 98M row at n=1**, because its first
+sitting never settled and was dropped. One more eight-minute plugged run would close it. Nothing
+on the board depends on it to two significant figures.
 
 **The Mac is the honest edge of that claim rather than a counterexample to it.** 16.9 h and 43.1 h
 is three times the free T4, and a reader who owns one should know that the free tier is faster

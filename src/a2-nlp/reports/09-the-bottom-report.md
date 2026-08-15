@@ -548,7 +548,7 @@ Colab cell.
 | Google Colab — paid tier (A100-SXM4-80GB, bf16) | 372k tok/s | 177k tok/s | **96 min** |
 | **Toothless** — 1 × RTX PRO 6000 Blackwell Max-Q, 96 GB | 382k tok/s | 184k tok/s | **93 min** |
 | Google Colab — paid tier (L4, bf16) | 90k tok/s | 38k tok/s | **7.5 h** |
-| Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 74k tok/s | 32k tok/s\* | **8.9 h** |
+| Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB, **plugged in** | 66k tok/s | 28k tok/s\* | **10.2 h** |
 | — the same laptop, **on battery** | 56k tok/s | 24k tok/s\* | **11.9 h** |
 | Google Colab — free tier (T4, fp16) | 53k tok/s | 21k tok/s | **13.3 h** |
 | **MacBook Pro** — M4 Pro, 24 GB unified, MPS | 17k tok/s† | 6.6k tok/s\*† | **43.1 h** |
@@ -596,7 +596,7 @@ only one where the first number you see is not the number you get**, and it is t
 to the student with no budget and no alternative. Its `throttle` column said so from the first
 timed sitting; we needed three to believe it was the card rather than the queue.
 
-And the `--cpu` row is the same laptop with its GPU switched off: the **63×** between those two
+And the `--cpu` row is the same laptop with its GPU switched off: the **56×** between those two
 rows is what the GPU a student already owns is worth. (That row is still a forty-step burst; a
 CPU has no boost clock to flatter it, and 551 hours does not need three decimal places.)
 
@@ -628,21 +628,37 @@ within 2% of the same configuration's burst reading, so the folding itself is ne
 roughly a third slower) waits behind it in the fallback ladder; the 98M model never needed it.
 
 **What that buys a student with a gaming laptop, measured and plugged in:** the 33.8M model at
-3.8 hours a run and the 98M at 8.9 — one pretraining run per night, either size, on a card that
+4.3 hours a run and the 98M at 10.2 — one pretraining run per night, either size, on a card that
 sells inside consumer laptops. The same machine without its GPU is 241 hours for the *small*
 model: the difference between "one model per night" and "one model per fortnight, if nothing
 sleeps." A month of nights runs the small-model half of this study; patience, it turns out,
 changes quite a lot.
 
-**"Plugged in" is doing more work in that sentence than the thermals are.** We ran the pair
-back-to-back — mains first, then the cable out and straight into the second run, so the battery
-reading started on a warm card and got none of the cold-start flattery. Unplugged, the same
-laptop holds **24% less** on the 33.8M model and **25% less** on the 98M: 3.8 hours becomes 5.1,
-and 8.9 becomes 11.9. That is the difference between one 98M model per night and one 98M model
-per night *only if you start before ten*. It is also, by a wide margin, the larger of the two
-effects we went looking for — three minutes of sustained load costs this chassis under 2%, and
-the wall socket costs it a quarter. On a mobile card the power policy is the finding; the
-thermals were the thing we assumed.
+**"Plugged in" is doing real work in that sentence, though less than we first thought.** We ran
+the pair back-to-back — mains first, then the cable out and straight into the second run, so the
+battery reading started on a warm card and got none of the cold-start flattery. Unplugged, the
+same laptop holds **15.4% less** on the 33.8M model and **14.9% less** on the 98M: 4.3 hours
+becomes 5.1, and 10.2 becomes 11.9. Still one model per night either way, which the earlier
+figure had put in doubt.
+
+**That number was 24% and 25% for a day, and the correction is instructive about which half of a
+comparison to distrust.** The battery readings barely moved when the laptop was re-measured on the
+realistic loop — 56,159 to 55,992, and 23,850 to 23,842. Every bit of the change is in the
+*plugged* numbers, which fell 11%. Unplugged, the card is power-capped and therefore stationary:
+it returns nearly the same figure however you measure it, with a `throttle` of 1.01. Plugged, it
+boosts and then decays — throttle 1.08 and 1.11 across two sittings — and that is where a
+measurement has room to flatter itself. **The mains half was the unreliable one**, which is not
+where anyone would look first.
+
+**And the first sitting of a cold session should be discarded.** The laptop's first 98M run came
+back at 25,038 against 28,027 from the sitting immediately after, and averaging them would have
+produced a number neither run measured. Its `throttle` was **0.87** — the last third ran 15%
+*faster* than the first, so the window closed before it settled. The cause is not exotic: the fans
+had not spun up yet. On a laptop the *first* reading is the bad one, and not because the card is
+hot. `throttle` was already on every row describing the machine; it is now also a validity check,
+and any row below 0.95 is dropped. The check earns its place immediately — with the unsettled row
+excluded the two presets agree on the battery penalty (15.4% and 14.9%), and with it included they
+do not (15.4% and 10.1%).
 
 **What an 8 GB card genuinely cannot do**, so the paragraph above does not oversell:
 
@@ -851,7 +867,7 @@ Eight hours a night, five nights a week, is **40 GPU-hours a month for free** �
 already own and are not using between midnight and eight. Our entire project was 148.0 GPU-hours.
 "Four or five times a laptop's disadvantage" was this sentence's guess before we measured; the
 measured answer is 5.2×, and the small-model half of this study is a month of nights. The 98M
-model, folded through gradient accumulation because it does not fit in 8 GB whole, is 8.9 hours
+model, folded through gradient accumulation because it does not fit in 8 GB whole, is 10.2 hours
 a run — precisely one model per night, and 11.9 if you forget the cable.
 
 | route | money | elapsed | what you need |
@@ -879,15 +895,21 @@ the next morning. On a laptop over a month, a silent failure on night three is d
 thirty — which is the difference between a study and nothing.
 
 **Three practical notes for the overnight route.** Keep it plugged in — and this one we measured
-on the machine rather than borrowing it: unplugged, the same laptop returns **24% less** on the
-33.8M model and **25% less** on the 98M, which turns an 8.9-hour run into an 11.9-hour one. An
-earlier draft cited a 17% thermal swing from our own a1-cv work as the reason; the real number is
-larger, it is a power policy rather than a temperature, and it is now this project's own. Disable
-sleep, not just the screen. And the thing we expected to matter did not: three minutes of held
-load cost this chassis under 2% against its opening pace, so on this laptop the honest number and
-the quick one were nearly the same. That is not true everywhere — the free Colab T4 read 19–22%
-high on the same shortcut — which is the argument for measuring rather than for any particular
-rule of thumb about laptops.
+on the machine rather than borrowing it: unplugged, the same laptop returns **15% less** on both
+model shapes, which turns a 10.2-hour run into an 11.9-hour one. An earlier draft cited a 17%
+thermal swing from our own a1-cv work as the reason; the real effect is a power policy rather than
+a temperature, and it is now this project's own measurement rather than a borrowed one.
+
+Disable sleep, not just the screen. And **start the night's first run half an hour before you
+need the number**, because on this chassis the first sitting of a cold session is the one that
+lies: its 98M run came back 12% below the sitting that followed it, with a `throttle` of 0.87
+meaning it was still speeding up when the window closed. The fans had not caught up. Every
+subsequent run on the same machine was steady.
+
+The thing we expected to matter — sustained thermal decay — turned out to be the smaller effect
+here at 8–11% across three minutes, and it is a bigger one on the free Colab T4 at 19–22%. Neither
+is predictable from the hardware's spec sheet, which is the argument for measuring rather than for
+any rule of thumb about laptops.
 
 Three caveats, because this is the number people will quote:
 
