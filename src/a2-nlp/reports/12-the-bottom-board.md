@@ -284,7 +284,7 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 **Cell 1's figure is drawn — `21-hardware.svg`. Nothing on this board is blocked any more.**
 
-Eight columns across seven machines: the workstation, a Colab A100, a Colab L4, a free Colab T4, a
+Eight columns across six machines: the workstation, a Colab A100, a Colab L4, a free Colab T4, a
 MacBook Pro, and the 8 GB Surface Studio Laptop three ways — plugged in, on battery, and with
 `--cpu` on its own processor. **A Colab A100 comes within a fifth of one Blackwell card** —
 1.19×, 46 minutes a run against 37. The L4 is **4.9× slower, 30 days of card time, $112**. The
@@ -314,7 +314,7 @@ its own CPU, and beats the free T4 on both model sizes even on battery.** More r
 
 **The workstation row is no longer the open one — it is the only closed one.** Measured on an idle
 card at **442,510 tok/s** (33.8M) and **186,534** (98M), and validated against the project's own
-training runs: it sits at **1.006 of the 98M preset's p90** over 70 real runs. That is the first
+training runs: it sits at **0.995 of the 98M preset's p90** over its 68 comparable runs. That is the first
 time any number on this figure has been checked against the thing it claims to predict.
 
 **The MacBook row landed on 13 August, and it is the one row on the figure that runs off the top
@@ -390,7 +390,7 @@ itself immediately: with the unsettled row out the two presets agree on the batt
 **The first T4 reading said 33× and would have killed the claim.** `bench_portable.py` chose its
 precision with `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation=True)` —
 so a card whose tensor cores have no bf16 answered yes and ran it in software. 11,566 tok/s against
-64,644 once it was measured in fp16 — both bursts; sustained the card holds 54,144, which is the
+64,644 once it was measured in fp16 — both bursts; sustained the card holds 53,148, which is the
 number on the figure. It also reported the 98M model as not fitting in 15 GB, which
 was the same cause: in fp16 it fits at batch 128 with 9.85 GB. Nothing errored and nothing warned,
 and both readings looked equally plausible on the page. **Every row on the figure carries its dtype
@@ -402,7 +402,7 @@ and the benchmark "worked" at 5,075 tok/s — the PCIe bus wearing a GPU costume
 card's honest rate. On Linux the same run is an OutOfMemoryError. The fix was already in the
 factory: gradient accumulation (`mlm_train.pretrain(accum=)`, now mirrored by `bench_portable.py`)
 folds the same 16,384-token step into micro-batches — identical update math, the batch never stops
-being 128 — and the model trains in **5.98 GB at 31,836 tok/s** sustained. The script now treats an
+being 128 — and the model trains in **6.1 GB at 28,027 tok/s** sustained. The script now treats an
 allocation past free memory exactly like an OOM, walks the fallback ladder, and **the row records
 the configuration it took**, because a rate without one is not reproducible. Report 09 carries the
 full story under *"The 8 GB story: we needed 10 GB and had 8."*
@@ -428,7 +428,7 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 3. **Set the nine cells and three strip blocks from the words above.** They are written to the
    measure; do not re-expand them.
 4. **Check every big number against the 18-character measure** before setting it.
-5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, eight columns across seven machines and the
+5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, eight columns across six machines and the
    CPU baseline in its side panel.
 6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
@@ -559,12 +559,18 @@ python bench_portable.py --seconds 180 --out runs\hardware.json --note "Toothles
 One card deliberately: the figure compares *a card*, and a two-card number is not comparable to a
 MacBook. `set CUDA_VISIBLE_DEVICES=0` lasts for that prompt session only.
 
-### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB *(needs re-running: 2 plugged, 1 battery)*
+### A2. Surface Studio Laptop — RTX 2000 Ada Mobile, 8 GB *(done — 2 plugged, 1 battery)*
 
 The most important row on the figure, because it is the machine a student is most likely to own.
-It does not need the repository — the script is self-contained. Its current rows are the old
-step-only loop, so all three want taking again; the back-to-back ordering below is what the
-battery finding rests on and still applies.
+It does not need the repository — the script is self-contained. The procedure is kept because the
+back-to-back ordering is what the battery finding rests on, and because this machine produced the
+one reading the table had to throw away.
+
+**Two things are still worth doing here, neither urgent.** A third plugged sitting would take the
+98M cell off n=1, since the first one never settled. And the `--cpu` baseline is the last row in
+the file still measured on the old step-only loop — `python bench_portable.py --cpu --seconds 60`,
+about three minutes. Its number will barely move (a CPU step is 14 seconds, so per-step overhead
+is nothing), but it is the last mixed-method comparison on the board and the `56×` quotes it.
 
 ```bat
 conda activate uw-csed504
@@ -746,9 +752,9 @@ python poster_figures.py fig_hardware
 ```
 
 **The sentence the figure has to earn:** *you do not need the workstation.* It is only true if the
-numbers say so. Seven machines say it today — the free T4, the paid L4, an A100 that comes within
+numbers say so. Six machines say it today — the free T4, the paid L4, an A100 that comes within
 a tenth of one Blackwell card, an 8 GB laptop that runs both models overnight-sized on mains,
-still runs them on battery, and beats its own CPU by 63×, and a MacBook Pro that is slow but
+still runs them on battery, and beats its own CPU by 56×, and a MacBook Pro that is slow but
 finishes.
 
 **Every machine is measured the same way now**, and every one at least twice except the
