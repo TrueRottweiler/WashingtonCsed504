@@ -590,7 +590,7 @@ class HardwareRows(unittest.TestCase):
     the day the 286 tok/s row arrived.
     """
 
-    BAND = (1.8, 3.2)          # observed 2.07-2.54 across seven machines; padded either side
+    BAND = (1.8, 3.2)          # observed 2.07-2.55 across nine columns; padded either side
 
     @classmethod
     def setUpClass(cls):

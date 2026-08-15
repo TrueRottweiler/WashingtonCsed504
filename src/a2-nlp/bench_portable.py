@@ -66,7 +66,7 @@ FULL_RUN_STEPS = 62_500          # what the study actually runs, for the extrapo
 # rather than reaching a student.
 PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results() + ft_api.results()
 
-# WHAT THE RATIO DIVIDES BY, AND WHY IT IS NOW THE WORKSTATION'S OWN BENCHMARK.
+# What the ratio divides by, and why it is now the workstation's own benchmark.
 #
 # It was the median over 127 and 70 real training runs until 13 August, on the reasoning that a
 # real median beats a synthetic sitting. It does, as a description of what this box delivered --
@@ -122,7 +122,7 @@ def make_pool(device):
     int32, which is the same data and the safer index path on backends that are patchier about
     narrow integer types; the whole data path is under a millisecond either way.
 
-    SMALLER ON MPS, and #89 is the reason. A Mac has no free VRAM to spend -- the 98M preset
+    Smaller on MPS, and #89 is the reason. A Mac has no free VRAM to spend -- the 98M preset
     already lands at 16.2 GB against Metal's 17.8 GB recommended working set, and past that line
     the machine does not fail, it degrades silently and hands back 286 tok/s. 256 MB of int32
     pool is not worth a quarter of the remaining headroom, and 16M tokens is the median corpus
@@ -178,7 +178,7 @@ def pick_device():
 def other_compute_processes(device):
     """Who else is on this card. Returns a list of pids, or None if it could not be determined.
 
-    THIS REPLACES A MEMORY THRESHOLD THAT CRIED WOLF ON EVERY RUN. The old check asked
+    This replaces a memory threshold that cried wolf on every run. The old check asked
     torch.cuda.mem_get_info(), called `total - free` "already in use", and warned above 1 GB.
     But mem_get_info can only run after CUDA is initialised, and the context itself is ~1.6 GB
     of the device under Windows -- so on 13 August an idle card with 0 MiB in nvidia-smi still
@@ -228,7 +228,7 @@ def amp_dtype(device):
     slower, and a benchmark that silently changes precision between machines is comparing two
     different computations.
 
-    THE CHECK IS THE COMPUTE CAPABILITY, NOT is_bf16_supported(). This function used to ask
+    The check is the compute capability, not is_bf16_supported(). This function used to ask
     `torch.cuda.is_bf16_supported()`, whose signature is `(including_emulation: bool = True)` --
     so on a Turing card it falls through to `_check_bf16_tensor_supported()`, finds that a
     bfloat16 tensor can be created, and returns True. bf16 then runs in software.
@@ -268,7 +268,7 @@ class MemorySpill(RuntimeError):
     out at 5,075 tok/s against an honest 32,267 -- so it is treated exactly like an OOM: not a
     measurement, try a smaller footprint.
 
-    TWO OPERATING SYSTEMS DO THIS, FOR DIFFERENT REASONS, AND NEITHER RAISES ANYTHING.
+    Two operating systems do this, for different reasons, and neither raises anything.
     On Windows the driver pages VRAM over PCIe. On a Mac there is no separate VRAM to overflow --
     the GPU and the CPU share one pool, so going past what Metal recommends does not fail, it
     just starts swapping against the rest of the machine. The first MacBook reading of the 98M
@@ -336,7 +336,7 @@ def check_spill(device, budget, where):
     The 0.95 leaves margin for other processes drifting between two readings; a false positive
     only costs falling back to a configuration that certainly fits.
 
-    CHECKED TWICE, after the first step and again after warmup. On CUDA the first step really
+    Checked twice, after the first step and again after warmup. On CUDA the first step really
     does allocate everything at once -- params, grads, optimizer state, activations -- so one
     check was enough. MPS grows into its allocation: the 98M model at full batch reads 12.6 GB
     after step one and 15.6 GB by step two. A single early check is a check that passes."""
@@ -366,7 +366,7 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     n_backbone = n_params - model.get_input_embeddings().weight.numel()
     dt = amp_dtype(device)
 
-    # THE STEP THIS TIMES IS THE ONE pretrain() RUNS, NOT A STRIPPED-DOWN COUSIN.
+    # The step this times is the one pretrain() runs, not a stripped-down cousin.
     #
     # It was the cousin until 13 August, and the difference was 11% on the 33.8M model. The old
     # loop reused one fixed micro-batch and called plain AdamW, reasoning that "the model is the
@@ -447,7 +447,7 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
     if device.type == 'cuda':
         torch.cuda.reset_peak_memory_stats()
 
-    # TIME A DURATION, NOT A STEP COUNT, AND REPORT THE END RATHER THAN THE AVERAGE.
+    # Time a duration, not a step count, and report the end rather than the average.
     #
     # Jeffrey asked how a two-minute test can be representative of a laptop, and the honest
     # answer is that it was not representative of anything. At 40 steps the timed section is
@@ -534,7 +534,8 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
             k, took = run_block(alt_fn, alt_block, alt_n)
             alt_n, alt_own, marks = alt_n + k, alt_own + took, saved
 
-        # WHICH LOOP LEADS THE CYCLE ALTERNATES, AND ON A DECAYING CARD THAT IS THE WHOLE BALLGAME.
+        # Which loop leads the cycle alternates, and on a decaying card that is the whole
+        # ballgame.
         #
         # Interleaving was supposed to cancel drift, and it does cancel drift BETWEEN cycles. What
         # the first version did not cancel was drift WITHIN one: the alternate always ran second,
@@ -599,7 +600,7 @@ def bench(preset, device, dev_name, steps, warmup, micro=None, ckpt=False,
         props = torch.cuda.get_device_properties(0)
         cc, sms = f'{props.major}.{props.minor}', props.multi_processor_count
     r = {'preset': preset, 'device': dev_name, 'compute_capability': cc, 'sms': sms,
-         # WHICH STEP THIS TIMED. Every row written before 13 August 2026 is 'bare-step' and
+         # Which step this timed. Every row written before 13 August 2026 is 'bare-step' and
          # reads high -- on this workstation by 11% at 33.8M and 2% at 98M. The two are not
          # comparable and nothing should ever median them together, which is why the field is
          # written explicitly rather than inferred from a date or a missing key.

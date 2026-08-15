@@ -100,10 +100,14 @@ three answers are *no*.
 
 > Nothing needed to be fast yet, which is the argument against doing it. 25.2 → 12.2 minutes —
 > but only **1.32× is efficiency**; the rest is a second card. The hours saved are not the point.
-> **1,089 models across 17 languages, and only one is Yoruba.** At 25 minutes a cell that control
-> set is a week's work and gets cut. At 12 it runs.
+> **197 models and 892 fine-tuning runs, across 17 languages, and only one is Yoruba.** At 25
+> minutes that control set is a week's work and gets cut. At 12 it runs.
 
-*58 words · `mlm_api.results()` · report 03*
+*59 words · `mlm_api.results()` · `ft_api.results()` · report 03*
+
+> **Why the wording changed.** This said "1,089 models", which is 197 + 892 and is not 1,089
+> models — 892 of them are fine-tuning runs on top of the 197. Nobody would have caught it from
+> the board, and it is the first question a reviewer at the poster would ask.
 
 **Second block, if the cell can take two:**
 
@@ -226,16 +230,20 @@ three answers are *no*.
 
 **Figure:** `06-what-it-cost.svg`
 
-> **148 GPU-hours. 71 kWh. $7 of electricity.** Rent the same work on Colab: **$112 on an L4,
+> **148 GPU-hours. ≈71 kWh. ≈$7 of electricity.** Rent the same work on Colab: **$112 on an L4,
 > $110 on an A100.** The A100 costs 4.4× the L4 per hour and returns 4.5× the work, so the bill
 > is the same within 2% and what changes is **30 days against 7**. Free T4: 53 days, $0. **You buy
 > latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
 
 *66 words · `runs/hardware.json`*
 
-> **Do not set this block until the Colab re-runs land.** All three tier figures are old-method
-> numerators over a re-measured workstation, so the days and the dollars will rise. The shape of
-> the claim — faster tier, same bill — is the durable part and is not at risk; the digits are.
+> **Set this block — the tiers are measured.** All three were re-run on the realistic loop, twice
+> or more each. The instruction that used to sit here said to wait, and it outlived its reason.
+>
+> **One honesty note before it prints.** *148 GPU-hours* is measured. *71 kWh* and *$7* are not:
+> they are 148.0 × 300 W × 1.65 × $0.0986, and only the 300 W was ever observed. They could be a
+> third out in either direction and the sentence would still be true, which is why the block keeps
+> them — but write them with "≈" rather than as readings. Report 09 §Cost carries the derivation.
 
 ### What we do not claim
 
@@ -248,13 +256,19 @@ three answers are *no*.
 
 ### Next · sources · AI
 
-> **Next:** the hardware figure, an audit of which sites dominate 69M tokens of Yoruba, and a
-> Yoruba-speaking evaluation this project could not do. **Sources:** 19 references, shortened.
-> **AI:** an assistant wrote much of this code — **120 of 144 commits carry a `Co-Authored-By`
-> trailer**, which is `git log` rather than a promise. It made the building 3–5× faster and the
-> *verifying* no faster at all.
+> **Next:** a wall meter on the workstation, an audit of which sites dominate 69M tokens of
+> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** 19 references,
+> shortened. **AI:** an assistant wrote much of this code — **96 of 168 commits carry a
+> `Co-Authored-By` trailer**, which is `git log` rather than a promise. It made the building 3–5×
+> faster and the *verifying* no faster at all.
 
-*62 words · report 09 §Panel 10*
+*63 words · report 09 §Panel 10*
+
+> **Both numbers moved and one moved down.** It said 120 of 144. Squash-merging collapses a
+> branch's commits into one, so a pull request with four trailered commits arrives as a single
+> trailered commit — the ratio falls as the history is tidied. Worth knowing before quoting a
+> `git log` count as if it were a constant. The hardware figure was the old first "next"; it is
+> built, so a wall meter takes its place as the cheapest unmeasured thing left.
 
 ---
 
@@ -312,10 +326,31 @@ its own CPU, and beats the free T4 on both model sizes even on battery.** More r
 > We have not isolated why, and the honest form of the claim is the measurement rather than the
 > rule: **between 0.7% and 5.0%, per machine, and you find out by running it.**
 
-**The workstation row is no longer the open one — it is the only closed one.** Measured on an idle
-card at **442,510 tok/s** (33.8M) and **186,534** (98M), and validated against the project's own
-training runs: it sits at **0.995 of the 98M preset's p90** over its 68 comparable runs. That is the first
-time any number on this figure has been checked against the thing it claims to predict.
+**The workstation row was measured on an idle card** at **442,510 tok/s** (33.8M) and **186,534**
+(98M), and validated against the project's own training runs: it sits at **0.995 of the 98M
+preset's p90** over its 68 comparable runs. That is the first time any number on this figure has
+been checked against the thing it claims to predict.
+
+> **Three places where a sceptic should push, and what the honest answer is.**
+>
+> **The workstation is the only machine measured once**, and it is the denominator of every ratio
+> on the figure. Every other column has two sittings or three; this one has one, because the card
+> has been busy on every occasion since. If that sitting was unrepresentative, all eight ratios
+> move together. **It is the largest single point of leverage on the panel and it should be run
+> again**, eight minutes, whenever both cards are genuinely idle.
+>
+> **p90 was chosen after seeing the data.** "The benchmark predicts a run that gets the machine to
+> itself" is a fair description of what p90 means, but nobody wrote p90 down before looking, and a
+> different quantile would have made the agreement better or worse. What is *not* post hoc is the
+> shape: the 98M preset's whole distribution is tight (p10–p90 spans 1.11×) so the choice barely
+> matters there, while the 33.8M preset spans 1.76× and the choice matters a lot. Read the 98M
+> agreement as the real validation and the 33.8M one as an illustration.
+>
+> **The throttle ≥ 0.95 rule was also written after seeing the row it excludes.** The defence is
+> that it is stated as a general criterion, it is checkable, and it makes two independent presets
+> agree that previously disagreed — but it was not a pre-registered rule, and one row out of
+> fifty-six is a thin basis for a threshold. If a second unsettled row ever appears, that is the
+> one to check the rule against rather than to apply it to.
 
 **The MacBook row landed on 13 August, and it is the one row on the figure that runs off the top
 of the axis.** An M4 Pro with 24 GB sustains **16.8k tok/s on the 33.8M model and 6.6k on the
@@ -340,19 +375,31 @@ tok/s in 16.2 GB: 21.7× the first reading.** Had it gone on the board it would 
 whole project costs a Mac owner eleven years.
 
 **The tell was free and we should have looked for it sooner: the two presets' ratio.** Every
-machine on this figure runs the 33.8M model between **2.07× and 2.62×** the speed of the 98M — the
+machine on this figure runs the 33.8M model between **2.07× and 2.55×** the speed of the 98M — the
 workstation, the A100, the L4, the T4, the laptop on both power settings, the honest Mac row, and
 even the bare Intel CPU, which is the same fp32 path the Mac uses. The first Mac reading said
 **59×**. One line of arithmetic across rows that already existed, and it is a better detector than
-any of the three platform-specific mechanisms, because it does not need to know what went wrong —
-it is a property of the two models, not of the silicon. `test_board_numbers.py` now asserts it.
+any of the three platform-specific mechanisms, because it does not need to know what went wrong.
 
-**Switching from a burst to `--seconds 180` mattered on one machine out of five, and it was the
-one that mattered.** The A100, the L4 and the laptop all came back within 2% of their burst
-readings, and none of them decayed measurably across the three minutes. The free T4 came back
-**19% lower on the 33.8M model and 22% lower on the 98M**. Two explanations were confounded —
-"the method flatters this card by a fifth" against "free-tier sessions differ by a fifth" — and
-the only way to separate them was to sit the T4 down three times.
+**It is a weaker claim than "a property of the two models" and worth stating as what it is.** The
+band is 23% wide across nine columns, which is a lot for something described as a constant — the
+workstation's own real runs sit at 2.07 and the Mac at 2.55, and the reasons for the spread
+(precision, memory architecture, whether the run needed gradient accumulation) are real effects
+rather than noise. So it will not catch a reading that is 30% wrong. It catches the ones that are
+an *order of magnitude* wrong, which is what all three of ours were: 59×, and the two others would
+have been similar. `test_board_numbers.py` asserts a padded 1.8–3.2 for that reason, not the
+observed band.
+
+**Switching from a burst to `--seconds 180` mattered on one machine out of six, and it was the
+one that mattered.** The A100 and the L4 came back within 2% of their burst readings. The free T4
+came back **19% lower on the 33.8M model and 22% lower on the 98M**. Two explanations were
+confounded — "the method flatters this card by a fifth" against "free-tier sessions differ by a
+fifth" — and the only way to separate them was to sit the T4 down three times.
+
+*(An earlier version of this paragraph put the laptop in the untroubled group and said none of
+those machines "decayed measurably". The laptop's own rows say otherwise — throttle 1.08 and 1.11
+plugged — and it contradicted the battery paragraph four blocks down. Two true sentences in one
+document disagreeing is worse than either being wrong on its own, because each one looks checked.)*
 
 **Three sittings, and the answer is the method.** Free-tier sessions agree to **1.8%** on the
 33.8M model and **0.5%** on the 98M. A shared host was the intuitive explanation and it is wrong:
@@ -430,14 +477,14 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
 4. **Check every big number against the 18-character measure** before setting it.
 5. ~~Cell 1's figure~~ — **done**, `21-hardware.svg`, eight columns across six machines and the
    CPU baseline in its side panel.
-6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All seven were
+6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All six were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
 6b. ~~Re-measure every machine against the realistic loop~~ — **done.** Workstation, Mac ×2,
    T4 ×3, L4 ×2, A100 ×2, laptop ×2 plugged + ×1 battery. Every column on the figure now times
-   the loop `pretrain()` runs and no `‡` remains. **One optional eight-minute run is left**: a
+   the loop `pretrain()` runs and no `‡` remains. **Two optional short runs are left**: a
    third plugged sitting on the laptop, because its first 98M reading never settled (throttle
    0.87) and was dropped, leaving that one cell at n=1.
-7. **Re-render `fig_hardware` and re-set the strip's cost block**, which is the only board text
+7. ~~Re-render `fig_hardware`~~ — **done.** Set the strip's cost block, the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
    `check_provenance.py`, `poster/board_content.py`, the four test files, regenerate every
