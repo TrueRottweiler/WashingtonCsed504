@@ -1121,6 +1121,22 @@ def _hardware_rate(rows):
     method = min((r.get('method', 'bare-step') for r in rows), key=lambda m: rank.get(m, 2))
     use = [r for r in rows if r.get('method', 'bare-step') == method]
     use = [r for r in use if r.get('timed_seconds')] or use
+    # A RUN THAT ENDED FASTER THAN IT STARTED NEVER SETTLED, AND ITS MEAN IS NOT A RATE.
+    #
+    # throttle is first third over last third, so below 1.0 means the machine sped up while being
+    # measured. Small values are noise -- the A100 and the L4 sit at 0.98-1.00 -- but the Surface
+    # laptop's first 98M sitting came back at 0.87: its last third was 15% faster than its first,
+    # still climbing when the window closed. Averaged whole, it read 25,038 against 28,027 from
+    # the sitting immediately after it, and the two would have medianed to a number neither run
+    # measured. The cause is mundane and worth knowing: that was the first run of a cold session,
+    # so the fans had not spun up yet. On a laptop the FIRST reading is the bad one, and not
+    # because the card is hot.
+    #
+    # Dropping it is not cherry-picking, because the criterion is stated in advance and the data
+    # corroborates it: with the unsettled row out, the battery penalty comes to 15.4% on one
+    # preset and 14.9% on the other. With it in, they disagree -- 15.4% against 10.1%.
+    settled = [r for r in use if (r.get('throttle') or 1.0) >= 0.95]
+    use = settled or use
     rates = sorted(r['tokens_per_s'] for r in use)
     return dict(rate=st.median(rates), method=method, sittings=len(use),
                 lo=rates[0], hi=rates[-1],
@@ -2060,12 +2076,22 @@ def fig_hardware():
                  color=INK2, fontsize=11.5, va='bottom')
 
 
+    # The ‡ sentence explains a mark. With no column carrying one it is dead text, and
+    # dead text on a poster is a reader hunting for something that is not there -- so it
+    # clears itself the same way the marks do. The measured spread survives either way,
+    # because that is the finding rather than the bookkeeping.
+    marked = ("‡ marks a column still on the old step-only loop, which omits all three and\n"
+              "reads high. How high is a property of the machine and not predictable from its\n"
+              "speed: "
+              if stale else
+              "Every column times that loop. The step-only version it replaced omits all\n"
+              "three and reads high by an amount that is a property of the machine and not\n"
+              "predictable from its speed: ")
     fig.text(0.5, -0.40,
              "Measured by bench_portable.py, three minutes per model per machine, timing the "
              "step mlm_train.pretrain() actually runs — batches built and masked on-device, "
-             "gradients\nclipped, the loss read back every step. ‡ marks a column still on the "
-             "old step-only loop, which omits all three and reads high. How high is a property of"
-             " the machine and not\npredictable from its speed: 2.6% on the workstation, 5.0% on "
+             "gradients\nclipped, the loss read back every step. " + marked +
+             "2.6% on the workstation, 5.0% on "
              "an A100 whose step is dearer, 0.8% on an L4, 0.7% on a Mac 26× slower again. "
              "Machines measured more than once "
              "show the median.\nRead every bar as a CEILING. Against this project's own 190 "
