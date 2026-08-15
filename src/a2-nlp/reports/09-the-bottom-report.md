@@ -631,19 +631,65 @@ Accumulation is the one that made two machines usable. Clipping is the one every
 prevents failures and does not — the honest version is that it improves the runs which were going
 to work anyway.
 
-##### What each machine actually gives you
+##### How to tell these cards apart
 
-| machine | what it enables | what it needs | how it changed our runs |
-|---|---|---|---|
-| **2 × Blackwell workstation** | the whole study in a week; a 90-minute answer | $24,000, and a queue so it is never idle | latency, which is what let us find our own mistakes |
-| **Colab A100** | the same study in 7 days for ~1,100 units | a paid tier; sessions that end | the row that shows the workstation bought speed, not access |
-| **Colab L4** | the same study, same units, 30 days | a paid tier | best value if you are not in a hurry |
-| **Colab T4, free** | every experiment here, 53 days | nothing at all | throttles 20% on the small model within three minutes — the only machine where the first number is not the number you get |
-| **8 GB laptop** | one model per night, either size | gradient accumulation; the mains cable | made the overnight route real rather than theoretical |
-| **MacBook Pro M4 Pro** | the small model overnight; the large one over two | gradient accumulation, and fp32 | the row a lot of students will look for, and honest about being slow |
+Colab hands you a menu — T4, L4, A100, two kinds of TPU — with no explanation, and most students
+have no reason to know that "T4" is a 2018 part or that a TPU is not a fast GPU. **Three
+properties decide almost everything, and none of them is the headline number on a spec sheet.**
 
-**The machine-by-machine detail — how to read a Colab menu, the three silent-failure stories in
-full, and the validation against 197 real training runs — is in [Appendix A](#appendix-a--the-per-machine-detail).**
+| | generation | memory | bf16? | what decides it here |
+|---|---|---|---|---|
+| **T4** | Turing, 2018 | 16 GB GDDR6 | **no** | Colab's free card. Predates bf16, so the stack falls back to fp16 — which works, and is the precision we chose *not* to use |
+| **L4** | Ada, 2023 | 24 GB GDDR6 | yes | modern instruction set, modest bandwidth |
+| **A100** | Ampere, 2020 | 40 or 80 GB **HBM2e** | yes | an *older* architecture than the L4 and far faster anyway, because HBM has roughly 5× the bandwidth |
+| **RTX 2000 Ada Mobile** | Ada, 2023 | 8 GB GDDR6 | yes | a laptop card, and the most instructive row on the table |
+| **RTX PRO 6000 Max-Q** | Blackwell, 2025 | 96 GB GDDR7 | yes | ours — compute capability 12.0, 188 SMs, both measured rather than quoted |
+| **Apple M-series** | — | *unified* | not in PyTorch | a different world: holding and computing are separate constraints |
+| **TPU v5e / v6e** | Google | — | — | **not a GPU.** A different programming model entirely. Our script exits rather than pretend |
+
+*Vendor figures except where noted as measured. Read them as ordering, not arithmetic.*
+
+**Bandwidth decides more than FLOPS here**, which is why the 2020 A100 beats the 2023 L4 by 4.9×.
+Our models and batches are small, so a card spends its time moving parameters rather than
+multiplying them. **Generation decides precision**: anything before Ampere has no bfloat16, and
+compute capability is the honest way to read that — ours reports 12.0, a T4 reports 7.5. And
+**"does it fit" is almost never binary**: the floor is parameters, gradients and optimizer state,
+about 1.6 GB here, and everything above it is activations, which gradient accumulation folds until
+they fit.
+
+**What each one buys you, and what it still does not solve.**
+
+- **Colab T4, free.** *Enables:* every experiment on this board for nothing — 53 days of card
+  time, and the 98M model does fit. *Does not address:* it predates bf16, so you are training in a
+  precision we deliberately avoided, and it is the only card here that sheds 20% of its speed
+  inside three minutes on the small model. The first number you see is not the one you get.
+- **Colab L4.** *Enables:* the best value on the menu — the whole project for about 1,119 compute
+  units, on a modern instruction set with room to spare at 24 GB. *Does not address:* bandwidth.
+  GDDR6 is what puts it 4.9× behind an A100 that is three years older, so what it sells you is
+  patience rather than speed.
+- **Colab A100.** *Enables:* workstation-class throughput on a rented card — 1.19× our Blackwell,
+  the entire project in 7 days, for the same units as the L4. *Does not address:* sessions still
+  end, and it carries the highest per-step overhead we measured at 5.0%, so it is the machine a
+  step-only benchmark flatters most.
+- **RTX 2000 Ada Mobile, 8 GB.** *Enables:* one pretraining run a night, either model size, on
+  hardware a student already owns — and 56× the same laptop's own processor. *Does not address:*
+  8 GB will not hold the 98M model whole, and Windows does not say so. It spills into system RAM
+  and reports a plausible number at a sixth of the card's honest speed.
+- **RTX PRO 6000 Max-Q, 96 GB.** *Enables:* the whole study in a week and an answer in 90 minutes,
+  which is what let us find our own mistakes while they were still cheap. *Does not address:*
+  $24,000, and nothing a rented A100 cannot do for ~1,100 units. It buys latency, not capability.
+- **Apple M-series.** *Enables:* the small model overnight on a machine a lot of students already
+  carry, with unified memory that holds models a discrete card of the same size could not.
+  *Does not address:* bandwidth is a few hundred GB/s against an A100's ~1,500–2,000, PyTorch has
+  no bf16 path so it runs fp32, and unified memory has no out-of-memory to raise — it takes what
+  it needs from the operating system and the whole machine degrades together.
+- **TPU.** *Enables:* nothing here. *Does not address:* it is not a GPU. It needs `torch_xla` and
+  a different training loop, and a TPU row would not be comparable to any of the above, so
+  `bench_portable.py` refuses the runtime rather than produce a number that looks like the others.
+
+**The machine-by-machine working — the three silent-failure stories in full, why Apple Silicon is
+the comparison people get most wrong, and the validation against 197 real training runs — is in
+[Appendix A](#appendix-a--the-per-machine-detail).**
 
 ##### You have met this exact trap before
 
@@ -2914,23 +2960,11 @@ the factory already owned the knob that makes 8 GB enough for most of this board
 list of things it is *not* enough for is short, specific, and worth knowing before you plan a
 term — rather than the day your card meets a model ten percent bigger than its memory.
 
-## How to tell these cards apart
+## How to tell these cards apart — the long form
 
-Colab offers you a menu — T4, L4, A100, two kinds of TPU — with no explanation, and most students
-have no reason to know that "T4" is a 2018 part or that a TPU is not a fast GPU. Three properties
-decide everything, and none of them is the headline number on a spec sheet.
-
-| | generation | memory | bf16? | what that means here |
-|---|---|---|---|---|
-| **T4** | Turing, 2018 | 16 GB GDDR6 | **no** | Colab's free card. Predates bf16, so our stack silently falls back to fp16 — which works, but is the precision we chose *not* to use |
-| **L4** | Ada, 2023 | 24 GB GDDR6 | yes | the value option: modern instruction set, modest bandwidth |
-| **A100** | Ampere, 2020 | 40 or 80 GB **HBM2e** | yes | older architecture than the L4 and far faster anyway, because HBM has roughly 5× the memory bandwidth |
-| **RTX 2000 Ada Mobile** | Ada, 2023 | 8 GB GDDR6 | yes | a laptop card, and the most instructive row: 8 GB holds the 98M model only folded — the section above |
-| **RTX PRO 6000 Max-Q** | Blackwell, 2025 | 96 GB GDDR7 | yes | ours. Compute capability 12.0, 188 SMs, both measured rather than quoted |
-| **Apple M-series** | — | *unified* | not in PyTorch | a different world; see below |
-| **TPU v5e / v6e** | Google | — | — | **not a GPU.** Different programming model entirely — `torch_xla`, a different training loop. Our code exits rather than pretend |
-
-*Vendor figures except where noted as measured. Treat them as ordering, not arithmetic.*
+Panel 1 carries the table and a sentence on each card. This is the reasoning under it: why
+these three properties and not the ones on the spec sheet, and why Apple Silicon is the
+comparison people get most wrong.
 
 **The three things that actually decide it**
 
