@@ -497,7 +497,7 @@ Identical compute in every row. Only the data moves. *That* is an experiment abo
 Three reasons, worst last.
 
 **It asks a different question.** 30,000 steps is 491M tokens — a different budget, so the answer
-cannot be set beside the 105 runs already recorded.
+cannot be set beside the runs already recorded.
 
 **It breaks the design.** At the 1024M rung, 30,000 steps is 0.48 passes: the model never sees
 half its corpus, and the "largest corpus gets exactly one clean pass" property that makes the
@@ -1855,7 +1855,7 @@ know whether two settings genuinely differ, you need several runs of *each*, bec
 setting run twice gives different answers, and until you know how different, you cannot say
 whether anything you measured means anything.
 
-**What the 105 runs were actually for.** They are not one grid. They are seven separate
+**What the pretraining runs were actually for.** They are not one grid. They are seven separate
 questions, and the run counts follow from the questions rather than from a product of axis
 lengths:
 
@@ -1881,7 +1881,7 @@ on our own runs, not quoted from a textbook.
 | **training steps** | how many corrections the model makes | 2,930 … 62,500 | the run stops before the cliff — see the curve above; the first 11,500 steps look like failure | past the point where the schedule has annealed, nothing more happens; the last third of our run is worth 0.10 |
 | **training data** | how much text the model sees | 2M … 1,024M tokens | below ~16M the model is data-starved (6.74 at 4M, 4.35 at 16M) | above ~64M it stops mattering: 16× more text moves the loss **−0.080**, against a spread of 0.185 |
 | **model size** | parameters | 33.8M, 98M, 154M | the small model is faster *and* not worse — 419k vs 201k tokens/s | bigger did **not** win. At 256M tokens the two sizes are indistinguishable, and at clipping 1.0 the larger one failed 31% of the time |
-| **batch size** | sequences per step | 64, 128, 256, 512 | more, smaller steps; noisier gradients | fewer, larger steps. Fixed at **128** for 99 of 105 runs so nothing in the study depends on it — the other four were throughput probes, not a controlled sweep |
+| **batch size** | sequences per step | 64, 128, 256, 512 | more, smaller steps; noisier gradients | fewer, larger steps. Fixed at **128** for 191 of 197 runs so nothing in the study depends on it — the other six were throughput probes, not a controlled sweep |
 | **warmup fraction** | how long the rate ramps before annealing | none, 0.06 | — | — *we cannot say.* No two runs differ in warmup alone, so we have no controlled comparison. Listing it as "searched" would be overclaiming |
 | **sequence length** | tokens per example | 128 | — | — fixed for every single run, deliberately, so no result can depend on it |
 
@@ -2211,44 +2211,29 @@ paying for them. Panel 9 tries exactly that, and fails.
 
 ### In depth — What the factory could answer about itself
 
-Everything above is the factory answering questions about *language*. This panel is the factory
-answering a question about **training**, using nothing but its own history — 105 stored loss
-curves, no new compute, no GPU touched.
+Everything above is the factory answering questions about *language*. This section is the factory
+answering questions about **training** and about **its own instruments**, using nothing but its own
+history — stored loss curves and checkpoints already on disk, no new pretraining, no GPU touched.
 
-**The question.** Thirteen of our 105 runs never learned anything. They did not crash: they
-trained for up to ninety minutes, saved a checkpoint, and produced a number that was worthless.
-Between them they consumed **13.1 GPU-hours, 16% of everything we ever spent**. The obvious fix is
-to notice early and kill them. Should we build that?
+**The early-stopping question lives in Panel 9 and is not repeated here.** It used to be, and the
+copy was the older one: it said 105 runs, thirteen doomed, 13.1 GPU-hours, against Panel 9's 195,
+35 and 25.5. A reader met the stale version first and the current one twenty pages later, with the
+same figure under both and no way to tell which was live. Panel 9 has the argument; what follows
+is the prevention study it hands off to, and then the metric-validity work.
 
-![Two panels: the early signal fails to separate the two outcomes, and every abandonment rule
-costs more than it saves](figures/10-early-signal.png)
+**Why the patience family fails is structural rather than a tuning problem**, and this is the part
+Panel 9 does not have room for. Only 17.9% of runs are doomed. A doomed run wastes at most its
+*remaining* time; a false kill wastes a *whole* run and you have to do it again. With that base
+rate and that asymmetry the arithmetic cannot close however good the classifier is — which is
+worth knowing before building the feature, and took no compute to find out.
 
-**The obvious detector does not work, and not by a little.** Every model drops about three nats
-almost immediately — that is the unigram distribution, which anything learns in a few hundred
-steps — and then the doomed ones simply stop. At step 8,000 a run that never learned has gained
-**more** (3.31 nats) than the weakest run that went on to succeed (3.22). The populations overlap
-at every checkpoint we tested, in both directions. No threshold on "how far has the loss fallen"
-can work at any step.
-
-**The rule that does discriminate still loses money.** What actually separates the two groups is
-whether the run has *left its plateau* — the cliff in figure 08. A rule that waits and then
-abandons anything still flat catches **every one** of the doomed runs. It also kills a large
-number of good ones, because the cliff arrives anywhere from 15% to 90% of the way through a
-run. The best operating point available nets **−36.1 GPU-hours**.
-
-**Why it is structural rather than a tuning failure.** Only 18% of runs are doomed. A doomed run
-wastes at most its *remaining* time; a false kill wastes a *whole* run and you have to do it
-again. With that base rate and that asymmetry, the arithmetic cannot close no matter how good the
-classifier is. That is worth knowing before building the feature, and it took no compute to find
-out.
-
-**And the deadline cannot be a constant, because the cliff moves.** Median 16,000 steps, range
+**The deadline also cannot be a constant, because the cliff moves.** Median 16,000 steps, range
 2,200 to 48,500 — a 22× spread. By configuration: 7,200 steps for the 33.8M model against 30,000
 for the 98M. (Learning rate and model size are perfectly confounded in our runs, so we cannot say
-which causes it. That is a real gap, and a cheap experiment would close it.)
+which causes it. That is a real gap and a cheap experiment would close it.)
 
-**So the honest recommendation is: do not build the detector, and go and test prevention
-instead.** We had been saying that tighter gradient clipping "fixes" the large model. Pulled
+**So: do not build the detector, and go and test prevention instead.** We had been saying that
+tighter gradient clipping "fixes" the large model. Pulled
 apart, that is two claims we had merged — does it stop runs failing, or does it improve the ones
 that don't? — and the prevention study has since answered both at the 1024M cell.
 
@@ -2307,11 +2292,25 @@ the same checkpoints.
 
 ##### Why the two tasks differ — and the explanation we got wrong first
 
-The first version of this account blamed the floor: entity recognition starts closer to its ceiling,
-so less is left for pretraining to supply. That is wrong, and it survived into a figure and an
-email before anyone checked it. **The floors are near enough identical** — 0.403 of 0.705 on topic
-classification is 57%, 0.414 of 0.798 on entity recognition is 52%. A five-point difference
-explains nothing.
+The first version of this account blamed the floor: entity recognition starts closer to its
+ceiling, so less is left for pretraining to supply. We then refuted it by showing the two floors
+were near enough identical — 57% of the ceiling on topic classification against 52% on entity
+recognition.
+
+**Both the claim and the refutation were built on a number that has since moved, and the
+refutation is the one that does not survive.** That 0.414 entity-recognition floor was one
+learning rate, not a swept one. `runs/ner_control_sweep.json` sweeps the untrained control across
+eight rates and the floor comes out at **0.6261** — so the shares are **57% and 78%**, a
+twenty-one point gap rather than a five-point one. The floors are *not* near-identical, and the
+sentence that said so is retired.
+
+**That does not resurrect the original explanation; it leaves the question open.** A higher floor
+does mean less headroom on entity recognition, which is the right shape for the effect we see —
+but "less headroom" and "no measurable relationship among working models" are different claims,
+and nothing here establishes the first causes the second. What the data does support is the
+variability argument below, which needs no assumption about floors at all. Read that as the
+finding, and read this paragraph as a caution: **we wrote a refutation as confidently as the claim
+it refuted, and both rested on the same unswept number.**
 
 ![Floor, the gain every trained model receives, and the band the sixteen actually
 span](figures/12-floors.png)
@@ -2328,8 +2327,8 @@ between the best and worst of sixteen is 0.044, about 13% of the smallest gain. 
 classification spreads them over 0.143, about 90% of the smallest gain.
 
 **A benefit that everyone receives equally cannot be predicted by anything**, because there is
-nothing left to predict. That is the whole reason validation loss tracks one task and not the
-other, and it has nothing to do with where the floor sits.
+nothing left to predict. That is a sufficient explanation for why validation loss tracks one task
+and not the other, and it stands on measured spreads rather than on where either floor sits.
 
 The uncomfortable implication is for the data ladder, the step budgets and the seed replication —
 all chosen to move a number that, on one of our two tasks, moves nothing downstream.
@@ -2402,9 +2401,17 @@ abandonment rule: what it saves in abandoned compute against what it costs in he
 by mistake.
 
 **Results.** At **all eleven checkpoints the two outcomes overlap** — the best doomed run has
-always gained more than the worst healthy run. Only one rule in the entire grid ever fires, and it
-kills two healthy runs and zero dead ones, netting −0.5 GPU-hours. The patience-based rules lose
-up to 84. There is no threshold, because there is no separation to threshold.
+always gained more than the worst healthy run. There is no threshold, because there is no
+separation to threshold.
+
+Two families of rule were priced, and the figure shows the second, so it is worth naming both.
+**Threshold rules** — abandon if nats gained is below some cut at some checkpoint — almost never
+fire at all: exactly one in the grid does, and it kills two healthy runs and zero dead ones for a
+net **−0.5 GPU-hours**. That is not a near miss, it is a rule that has found nothing to act on.
+**Patience rules** — wait a fixed share of the budget, then abandon anything still flat — do catch
+the failures, all 35 of them, and pay for it in false kills: net **−36.1 GPU-hours** at the best
+operating point and **−84.5** at the worst. Every point in the family loses money, which is what
+the right-hand panel of the figure shows.
 
 **Learning.** Do not build the detector; the signal it needs is not there. Spend the effort on
 prevention instead — and then measure that too, because tighter gradient clipping, tested at
@@ -2510,8 +2517,10 @@ times as long as it should, because a bigger vocabulary makes the final layer en
 explains how that nearly produced a wrong scientific conclusion; here it is simply a reminder that
 "model size" and "cost to train" are not the same number.
 
-Measured throughput: **419,000 tokens per second** for the small model, **185,000** for the larger
-one, taken as the median across all 105 runs.
+Measured throughput: **381,800 tokens per second** for the small model, **183,700** for the larger
+one, taken as the median across the 120 and 70 completed runs at each shape. (This said 419,000
+until 14 August. The run set has roughly doubled since that median was taken and it drifted down
+as the fleet got busier — the same effect the hardware panel measures directly.)
 
 ##### Why so many steps, and why we could not just go faster
 
@@ -2526,7 +2535,7 @@ stick, and 14.8 passes was the smallest number that got us to a stable answer.
 
 **Why not just turn the learning rate up?** We tried. The learning rate is the size of the step
 the model takes each time it corrects itself, and turning it up is exactly the "go faster" lever.
-Here is what the 105 runs say about it:
+Here is what the runs say about it:
 
 | peak learning rate | runs | runs that never learned anything |
 |---|---|---|
