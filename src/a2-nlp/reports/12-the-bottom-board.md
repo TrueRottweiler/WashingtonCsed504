@@ -231,9 +231,9 @@ three answers are *no*.
 **Figure:** `06-what-it-cost.svg`
 
 > **148 GPU-hours. ≈71 kWh. ≈$7 of electricity.** Rent the same work on Colab: **$112 on an L4,
-> $110 on an A100.** The A100 costs 4.4× the L4 per hour and returns 4.5× the work, so the bill
-> is the same within 2% and what changes is **30 days against 7**. Free T4: 53 days, $0. **You buy
-> latency, not access.** Team: Jeffrey Stall (factory), Patrick Kwok and Leon (Yoruba science).
+> $110 on an A100** — or **≈1,100 compute units either way, under four months of the 300 a month
+> every student already gets free.** What the faster tier buys is **7 days against 30**, not a
+> cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon.
 
 *66 words · `runs/hardware.json`*
 
@@ -452,7 +452,9 @@ folds the same 16,384-token step into micro-batches — identical update math, t
 being 128 — and the model trains in **6.1 GB at 28,027 tok/s** sustained. The script now treats an
 allocation past free memory exactly like an OOM, walks the fallback ladder, and **the row records
 the configuration it took**, because a rate without one is not reproducible. Report 09 carries the
-full story under *"The 8 GB story: we needed 10 GB and had 8."*
+full story in **Appendix A**, under *"The 8 GB story: we needed 10 GB and had 8."* — the
+machine-by-machine detail moved there on 15 August when Panel 1's hardware section went from 5,100
+words to 1,450.
 
 **`11-metric-validity.svg`, `08-why-not-shorter.svg` and `09-scaling-with-cards.svg` are drawn and
 carried by neither board.** Available if a cell wants one.
@@ -742,6 +744,24 @@ All three tiers are measured on the realistic loop, twice or more each: **$112 o
 an A100, $0 on the free T4.** The two paid tiers land within 2% of each other, which is the
 board's "you buy latency, not access" claim arriving cleanly for the first time — earlier
 versions of that sentence were comparing tiers measured different ways.
+
+**Quote it in compute units on the board, and in dollars here.** Units are what a student actually
+spends and the claim is tighter in them — **1,105 on an A100 against 1,119 on an L4, 1.3% apart**,
+because the per-hour rate is exactly the thing that cancels. Dollars survive in the appendix and
+in figure 06 because that panel needs to set the $24,000 workstation and the $7 electricity bill
+beside the rental, and those two have no meaning in units.
+
+| | A100 | L4 |
+|---|---|---|
+| one 33.8M run, 1.024B tokens | 5.2 units | 4.9 units |
+| one 98M run | 10.9 units | 11.5 units |
+| the whole project | 1,105 units | 1,119 units |
+
+**The rates that turn hours into units are read off the usage page, not measured** — 6.77
+units/hour on the A100 and 1.54 on the L4, on 13 August 2026. Re-read them when you re-run, and
+put them on the row: `compute_units_per_hour` and `usd_per_compute_unit`. A tier whose selected
+row lacks them gets priced from an older sitting, and `test_board_numbers.py` now fails when that
+happens.
 
 **Attach the compute-unit rate by hand when you record a paid tier.** The benchmark cannot see
 it, so a fresh row arrives without `compute_units_per_hour` and `usd_per_compute_unit`. Left off,
