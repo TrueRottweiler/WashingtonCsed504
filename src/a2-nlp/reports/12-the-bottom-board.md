@@ -328,8 +328,16 @@ its own CPU, and beats the free T4 on both model sizes even on battery.** More r
 > **Read this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **Every machine on this figure is now measured that way**, and
-> every one of them at least twice except the workstation. No `‡` remains.
+> the loss read back every step. **Every GPU on this figure is now measured that way, and every
+> one of them at least twice.** No `‡` remains on any bar.
+>
+> **One row is not, and the `‡` logic cannot see it.** The `--cpu` baseline sits in the side
+> panel rather than the bar panel, so it is not in the list the mark is computed from — it is
+> still a bare-step reading, and this paragraph said "every machine" until somebody checked.
+> Leaving it is a deliberate call rather than an oversight: a CPU step takes **13.9 seconds**, so
+> the per-step overhead the new loop adds is about 0.01% of it. Re-measuring would return the same
+> 1,179 tok/s and the same **56×**. It is the one place in this project where the measurement is
+> not worth taking, and saying so is better than quietly implying it was.
 >
 > **I predicted the re-measured rows would all get worse. Most got better.** The method
 > correction is real and one-directional — it always makes a machine look slower — but the old
@@ -513,11 +521,14 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
 6b. ~~Re-measure every machine against the realistic loop~~ — **done.** Workstation ×2, Mac ×2,
    T4 ×3, L4 ×2, A100 ×2, laptop ×2 plugged + ×1 battery. Every column on the figure times the
-   loop `pretrain()` runs, no `‡` remains, and every machine has been sat down at least twice.
-   **Two optional short runs are left, neither affecting a printed number**: a third plugged
-   sitting on the laptop, whose first 98M reading never settled (throttle 0.87) and was dropped,
-   leaving that one cell at n=1; and `--cpu --seconds 60` on the same laptop, the last row in
-   the file still measured with the old step-only loop.
+   loop `pretrain()` runs, no `‡` remains, and every GPU has been sat down at least twice.
+   **Nothing further is worth measuring, and both remaining gaps were checked rather than
+   assumed.** The laptop's plugged 98M cell is n=1, but three things corroborate it: its own last
+   third matches its mean (throttle 1.00, so it settled), the discarded sitting's last third is
+   within 6% of it, and the battery penalty it yields (14.9%) agrees with the poc preset's
+   independent two-sitting figure (15.4%). The `--cpu` baseline is the last bare-step row and
+   will stay that way: a CPU step is 13.9 seconds, so the new loop's overhead is 0.01% of it and
+   the 56x cannot move.
 7. ~~Re-render `fig_hardware`~~ — **done.** Set the strip's cost block, the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
