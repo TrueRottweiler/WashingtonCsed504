@@ -87,12 +87,22 @@ three answers are *no*.
 
 **Big number:** `62,500 steps` / `= 1.024B tokens` · **Figure:** `21-hardware.svg`
 
-> Every course measures training in epochs, and an epoch stops meaning anything the moment the
-> dataset is the variable — which is the first thing a scaling study does. At 4M tokens the model
-> sees the corpus sixty times; at 1,024M, a quarter of it once. **Tokens of updates** survives
-> both. Pick the unit that survives what you intend to vary.
+> Every course measures training in epochs — one pass over the data. That stops meaning anything
+> once the dataset is the variable, which is the first thing a scaling study does: at 4M tokens
+> the model sees the corpus sixty times; at 1,024M, a quarter of it once. **Tokens of updates**
+> survives both — and fixing the unit is what lets the figure below compare hardware and nothing
+> else.
 
-*56 words · `runs/scaling_law.json`*
+*67 words · `runs/scaling_law.json` · `runs/hardware.json`*
+
+**Over the 55-word guide on purpose, and worth it.** Two additions. *"One pass over the data"*
+glosses **epoch**, which is the one term on this board a 501 student may genuinely not have met.
+And the closing clause is the bridge this cell was missing: a reader saw epochs-versus-tokens
+sitting above a chart of eight machines with nothing joining them. Fixing the unit is precisely
+what makes that chart legible, and saying so costs twelve words.
+
+*(First draft of this ran to 91 words, which is past what the column physically holds — the
+guide is approximate, the column is not. 67 fits.)*
 
 ### 2 · Why optimize before anything needs it?
 
@@ -176,20 +186,28 @@ three answers are *no*.
 
 **Big number:** `2.27×` / `not 1.0×` · **Figure:** `13-how-many-seeds.svg`
 
-> Our rule was "bigger than the cell's own seed spread," and that is half a rule — sound at
-> rejecting noise, silent just above it. At three seeds a difference must clear **2.27×** the
-> spread, and the exact test **cannot return a p below 0.10** at three a side however far apart
-> the arms land. Two of our own claims were sitting in that gap. Both were retired.
+> Our rule was "bigger than the seed spread" — half a rule: sound at rejecting noise, silent just
+> above it. At three seeds a difference must clear **2.27×** the spread. Worse: three against
+> three is only twenty possible shufflings, so the smallest p the test can return is **0.10**,
+> however far apart the arms land. Two of our claims sat in that gap. Both retired.
 
-*58 words · `runs/claims_audit.json`*
+*64 words · `runs/claims_audit.json`*
+
+**Why this one is over the guide.** "The exact test cannot return a p below 0.10" is the most
+useful sentence on the board and the easiest to misread as a typo. The reason is countable and
+worth showing: three against three is twenty possible shufflings, and a two-sided test needs at
+least two of them to be as extreme as what you saw — 2/20 = 0.10. **A student who takes one thing
+from this board should take this**, because it means a three-seed experiment cannot produce a
+significant result at p < 0.05 no matter what the effect is. Sixteen extra words buys that.
 
 ### 7 · Which of your units are not units?
 
 **Big number:** `5.1×` / `at "matched" steps` · **Figure:** *none — set the table as type*
 
-> Two vocabularies give two losses that are not on one scale. Convert to **bits per character**.
-> Then count what "matched steps" actually bought: a 250k output head is 5.1× the compute per
-> step, so twelve thousand steps each handed one arm five times the budget.
+> Two vocabularies give two losses that are not on one scale. Convert to **bits per character**,
+> which divides the vocabulary back out. Then count what "matched steps" actually bought: the
+> final layer that scores 250k possible tokens costs **5.1×** the compute of one scoring 16k, so
+> twelve thousand steps each handed one arm five times the budget.
 
 | 12,000 steps each | 16k vocab | 250k vocab |
 |---|---|---|
@@ -231,7 +249,7 @@ three answers are *no*.
 **Figure:** `06-what-it-cost.svg`
 
 > **148 GPU-hours. ≈71 kWh. ≈$7 of electricity.** Rent the same work on Colab: **$112 on an L4,
-> $110 on an A100** — or **≈1,100 compute units either way, under four months of the 300 a month
+> $111 on an A100** — or **≈1,100 compute units either way, under four months of the 300 a month
 > every student already gets free.** What the faster tier buys is **7 days against 30**, not a
 > cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon.
 
@@ -310,8 +328,16 @@ its own CPU, and beats the free T4 on both model sizes even on battery.** More r
 > **Read this paragraph before quoting any of it.** On 14
 > August the benchmark stopped timing a stripped-down step and started timing the one
 > `mlm_train.pretrain()` actually runs — batches built and masked on-device, gradients clipped,
-> the loss read back every step. **Every machine on this figure is now measured that way**, and
-> every one of them at least twice except the workstation. No `‡` remains.
+> the loss read back every step. **Every GPU on this figure is now measured that way, and every
+> one of them at least twice.** No `‡` remains on any bar.
+>
+> **One row is not, and the `‡` logic cannot see it.** The `--cpu` baseline sits in the side
+> panel rather than the bar panel, so it is not in the list the mark is computed from — it is
+> still a bare-step reading, and this paragraph said "every machine" until somebody checked.
+> Leaving it is a deliberate call rather than an oversight: a CPU step takes **13.9 seconds**, so
+> the per-step overhead the new loop adds is about 0.01% of it. Re-measuring would return the same
+> 1,179 tok/s and the same **56×**. It is the one place in this project where the measurement is
+> not worth taking, and saying so is better than quietly implying it was.
 >
 > **I predicted the re-measured rows would all get worse. Most got better.** The method
 > correction is real and one-directional — it always makes a machine look slower — but the old
@@ -326,18 +352,30 @@ its own CPU, and beats the free T4 on both model sizes even on battery.** More r
 > We have not isolated why, and the honest form of the claim is the measurement rather than the
 > rule: **between 0.7% and 5.0%, per machine, and you find out by running it.**
 
-**The workstation row was measured on an idle card** at **442,510 tok/s** (33.8M) and **186,534**
-(98M), and validated against the project's own training runs: it sits at **0.995 of the 98M
-preset's p90** over its 68 comparable runs. That is the first time any number on this figure has
-been checked against the thing it claims to predict.
+**Two terms this section uses constantly, defined once, here.**
 
-> **Three places where a sceptic should push, and what the honest answer is.**
->
-> **The workstation is the only machine measured once**, and it is the denominator of every ratio
-> on the figure. Every other column has two sittings or three; this one has one, because the card
-> has been busy on every occasion since. If that sitting was unrepresentative, all eight ratios
-> move together. **It is the largest single point of leverage on the panel and it should be run
-> again**, eight minutes, whenever both cards are genuinely idle.
+**`throttle`** is the number every row carries for how much the machine slowed down *while being
+measured*: the speed over the first third of the run divided by the speed over the last third.
+**1.0 means it held its pace.** 1.20 means it ended a fifth slower than it started, which is a
+card getting hot and backing off its clock. Below 1.0 means it got *faster*, which usually means
+the run had not settled yet — fans still spinning up — and that reading should be thrown away.
+
+**`p90`** is a way of saying "a good run rather than a typical one". Sort every real training run
+by speed and walk 90% of the way up the list: that run is the p90. The middle of the list is the
+median. We use both because the gap between them is the point — the benchmark predicts the good
+run, and most runs are not the good run.
+
+**The workstation row was measured on an idle card, twice** — **443,313 tok/s** (33.8M) and
+**186,734** (98M), the median of two sittings that agree to 0.36% and 0.21%, and validated against the project's own training runs: it lands within half a percent of
+the 98M preset's p90 across its 68 comparable runs. That is the first time any number on this
+figure has been checked against the thing it claims to predict.
+
+> **Two places where a sceptic should push, and what the honest answer is.** There were three
+> until 16 August: the workstation was the only machine measured once, and it is the denominator
+> of every ratio here, so an unrepresentative sitting would have moved all eight together and
+> nothing would have looked wrong. It has now been measured twice and the sittings agree to
+> **0.36% and 0.21%** — the tightest repeatability on the figure. That objection is closed, and
+> it was closed by doing the measurement rather than by arguing about it.
 >
 > **p90 was chosen after seeing the data.** "The benchmark predicts a run that gets the machine to
 > itself" is a fair description of what p90 means, but nobody wrote p90 down before looking, and a
@@ -481,11 +519,16 @@ MasakhaNER floor moved it to **0.6261** and the shares to 61% and 78% — so the
    CPU baseline in its side panel.
 6. ~~Re-measure every machine at `--seconds 180`~~ — **done, and superseded.** All six were
    taken as three-minute rows, and then on 14 August the thing being timed changed: see 6b.
-6b. ~~Re-measure every machine against the realistic loop~~ — **done.** Workstation, Mac ×2,
-   T4 ×3, L4 ×2, A100 ×2, laptop ×2 plugged + ×1 battery. Every column on the figure now times
-   the loop `pretrain()` runs and no `‡` remains. **Two optional short runs are left**: a
-   third plugged sitting on the laptop, because its first 98M reading never settled (throttle
-   0.87) and was dropped, leaving that one cell at n=1.
+6b. ~~Re-measure every machine against the realistic loop~~ — **done.** Workstation ×2, Mac ×2,
+   T4 ×3, L4 ×2, A100 ×2, laptop ×2 plugged + ×1 battery. Every column on the figure times the
+   loop `pretrain()` runs, no `‡` remains, and every GPU has been sat down at least twice.
+   **Nothing further is worth measuring, and both remaining gaps were checked rather than
+   assumed.** The laptop's plugged 98M cell is n=1, but three things corroborate it: its own last
+   third matches its mean (throttle 1.00, so it settled), the discarded sitting's last third is
+   within 6% of it, and the battery penalty it yields (14.9%) agrees with the poc preset's
+   independent two-sitting figure (15.4%). The `--cpu` baseline is the last bare-step row and
+   will stay that way: a CPU step is 13.9 seconds, so the new loop's overhead is 0.01% of it and
+   the 56x cannot move.
 7. ~~Re-render `fig_hardware`~~ — **done.** Set the strip's cost block, the only board text
    whose digits depend on the tiers. The `‡` marks and the PROVISIONAL note clear themselves.
 8. **The print gate, last, once nothing is still writing:** `check_links.py`, `check_boards.py`,
@@ -518,19 +561,28 @@ identical for timing, which means it pastes straight into a fresh Colab cell.
 **What we are collecting.** For each machine, on both model shapes: tokens per second for the step
 `mlm_train.pretrain()` actually runs, the same figure for the old step-only loop, whether the model
 fits in memory, and the extrapolated wall-clock for one full 62,500-step run. The reference is the
-workstation running this same script on one idle card — **442,510 tok/s** at 33.8M and **186,534**
-at 98M — so every ratio divides a measurement by the same kind of measurement.
+workstation running this same script on one idle card, twice — **443,313 tok/s** at 33.8M and
+**186,734** at 98M, the median of two sittings — so every ratio divides a measurement by the same
+kind of measurement.
 
 **Everything before 13 August needs re-running.** Those rows timed a stripped-down step: one fixed
 batch reused, no gradient clipping, no host sync. Rows now carry `"method"`, and `bare-step` and
 `realistic-loop` numbers must never be averaged together.
 
-**Read every row as a ceiling.** The benchmark measures a machine with nothing else on it. Checked
-against 190 of this project's own training runs, that is exactly what a *good* run gets — the
-benchmark sits at 1.006 of the 98M preset's p90 — but the median 33.8M run reached only **0.86** of
-it, because a 9-minute run is at the mercy of whatever else the box does during those 9 minutes.
-Real runs span **1.73×** from p10 to p90 at 33.8M and **1.11×** at 98M. The number is honest; the
-spread is the finding.
+**Read every row as a ceiling.** The benchmark measures a machine with nothing else running on it,
+and that turns out to be exactly what a *lucky* real run gets.
+
+Checked against 184 of this project's own training runs: **sort them by speed and take the one
+90% of the way up the list** — the "p90", the run that had a good night. The benchmark lands
+within half a percent of it on the 98M model. The *typical* run does worse: the middle run of the
+33.8M set reached only **0.86** of the benchmark, because a nine-minute run is at the mercy of
+whatever else the machine was doing during those nine minutes.
+
+How much worse depends on how long the run is. Sorting the 33.8M runs by speed, the one 10% up
+the list and the one 90% up differ by **1.76×**; for the 98M runs, whose average length is 93
+minutes rather than 9, that gap is only **1.11×**. A long run averages over the interruptions. A
+short one is at their mercy. **The benchmark number is honest; the spread around it is the
+finding.**
 
 **Before you start, on every machine: close other GPU work, and mean it.** A number taken while
 something else holds the card is simply wrong, and it is the most common way these tables mislead.
@@ -585,7 +637,8 @@ conda activate uw-csed504
 
 ### A1. Toothless — the workstation *(done — and the only machine that is)*
 
-Measured 14 August on an idle card 0: **442,510 tok/s** at 33.8M, **186,534** at 98M. Three
+Measured on an idle card 0 on 14 and 16 August: the two sittings agree to **0.36% and 0.21%**,
+and the figure uses their median — **443,313** at 33.8M and **186,734** at 98M. Three
 earlier attempts were all taken while ollama held the card; the fourth was clean, and the script
 now says so in as many words rather than firing a warning it fires on every run.
 
@@ -741,7 +794,7 @@ this chassis the memory ceiling is the finding and the thermals were a non-event
 ## C. Google Colab — the tier ladder *(done — T4 ×3, L4 ×2, A100 ×2)*
 
 All three tiers are measured on the realistic loop, twice or more each: **$112 on an L4, $110 on
-an A100, $0 on the free T4.** The two paid tiers land within 2% of each other, which is the
+an A100, $0 on the free T4.** The two paid tiers land within 1% of each other, which is the
 board's "you buy latency, not access" claim arriving cleanly for the first time — earlier
 versions of that sentence were comparing tiers measured different ways.
 
