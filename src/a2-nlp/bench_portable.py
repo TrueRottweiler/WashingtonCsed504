@@ -77,7 +77,13 @@ PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results()
 # So the reference is now this script, on one idle card, timing the same realistic loop every
 # other row times: 442,510 and 186,534. Comparable by construction.
 #
-# It is also validated, which no earlier version of this constant was. The 98M preset's real
+# Measured TWICE, which no earlier version of this constant was. The two sittings agree to
+# 0.36% and 0.21% -- the tightest repeatability of any machine on the figure, and it matters
+# more here than anywhere else because this is the number every other row divides by. A single
+# unrepresentative sitting would have moved all eight ratios together and nothing would have
+# looked wrong.
+#
+# It is also validated. The 98M preset's real
 # runs, which average 93 minutes, have a median of 183,697 and a p90 of 187,463 -- the benchmark
 # lands at 0.995 of that p90 and 1.015 of the median. It predicts the real thing on the one
 # machine where the real thing can be checked.
@@ -88,7 +94,7 @@ PROJECT_GPU_HOURS = 148.0        # recomputed 12 Aug 2026 from mlm_api.results()
 # work; the ratio below is therefore a CEILING, and REALISTIC_FRACTION says so.
 #
 # test_board_numbers.py asserts both against the live records, so the next drift fails a test.
-REF_TOK_S = {'poc': 442_510, 'afriberta': 186_534}    # this script, idle card 0, 13 Aug 2026
+REF_TOK_S = {'poc': 443_313, 'afriberta': 186_734}    # median of two sittings, idle card 0
 
 # What fraction of that ceiling the project's own runs actually sustained, at the median. The
 # honest thing to hand a student alongside a ratio: the benchmark says what your machine can do

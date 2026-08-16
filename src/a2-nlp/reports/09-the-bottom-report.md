@@ -103,7 +103,7 @@ the two cards over the weekend this poster was written.
 
 | | | |
 |---|---|---|
-| **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is **1.024B tokens** ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>**Enables 2:** you cannot say a run got faster until you can say what a run is.<br>*§5 · figure — none yet, the one gap on the board* | **2 · Why optimize before anything needs it?**<br>25.2 → 12.2 minutes, **2.07×** — of which only **1.32×** is efficiency; the rest is a second card doing the same GPU-minutes in parallel. Had to learn that the hours saved are not the point: speed changes which experiments you are willing to **start**.<br>**Enables 6–9:** every result below rests on running one cell three to fifteen times.<br>*§4, §11 · figure 14* | **3 · What belongs in a notebook, and what belongs in a queue?**<br>Measure the split rather than argue it. Preparing the corpus is **53 seconds**; one pretraining run is **85 minutes** — a ratio of **96×**, which is not close enough to be a judgment call. Everything cheap stays interactive, everything expensive goes in a queue, and **both paths write the same record.**<br>**Enables 4:** work that runs unattended has nobody watching it, so it has to describe itself.<br>*§7, §8 · figure 15* |
+| **1 · What does a run cost, and in what unit?**<br>Epochs stop being a unit the moment the dataset is a variable. Had to learn: 62,500 steps is not a choice, it is **1.024B tokens** ÷ a batch — and what the same run costs on a laptop, a Colab session and this box.<br>**Enables 2:** you cannot say a run got faster until you can say what a run is.<br>*§5 · figure 21* | **2 · Why optimize before anything needs it?**<br>25.2 → 12.2 minutes, **2.07×** — of which only **1.32×** is efficiency; the rest is a second card doing the same GPU-minutes in parallel. Had to learn that the hours saved are not the point: speed changes which experiments you are willing to **start**.<br>**Enables 6–9:** every result below rests on running one cell three to fifteen times.<br>*§4, §11 · figure 14* | **3 · What belongs in a notebook, and what belongs in a queue?**<br>Measure the split rather than argue it. Preparing the corpus is **53 seconds**; one pretraining run is **85 minutes** — a ratio of **96×**, which is not close enough to be a judgment call. Everything cheap stays interactive, everything expensive goes in a queue, and **both paths write the same record.**<br>**Enables 4:** work that runs unattended has nobody watching it, so it has to describe itself.<br>*§7, §8 · figure 15* |
 | **4 · What makes a record survive you?**<br>Two runs silently overwrote each other; two people prepared "the same" corpus and got different vocabularies. Had to learn: a filename is an identity, a vocabulary needs a fingerprint — `15abd33de5af` — and a dashboard showing an empty queue while both cards sit at 85% is worse than none.<br>**Enables 5:** a record that describes itself is the smallest unit somebody else can pick up.<br>*§8 · figure 07* | **5 · What does someone else have to be able to call?**<br>**Nine functions**, and nothing else to import, on a folder of sixteen thousand lines they never open. Three things it had to be — callable, shareable, runnable on one card — and a fourth we got wrong: **findable.** Leon read the documentation and asked whether there was an interface he was supposed to be using. There was.<br>**Enables 6:** once other people can disagree with your numbers, "is this real" stops being private.<br>*§6, §12 · figure 19* | **6 · Is this difference real?**<br>Spread is a property of the **cell**, not a constant. And our rule, *"bigger than the spread"*, is half a rule: at three seeds a difference must be **2.27×** the spread, and the exact test cannot return a p below **0.10** at three a side however far apart the arms land. Two of our own claims were sitting in that gap.<br>**Enables 7–9:** this is the instrument the rest of the board is read through.<br>*§10 · figures 04, 13* |
 | **7 · Which of your units are not units?**<br>Two vocabularies produce two losses that are not on one scale. Had to learn to convert to **bits per character** — and that a 250k output head is **5.1×** the compute per step, so matched *steps* handed one arm five times the budget and reversed the conclusion.<br>**Enables 8:** the same lesson, moved from a unit to a setting.<br>*§10 · no figure; the two readings are set as type* | **8 · Does a tuned setting transfer?**<br>We claimed adding a language was one function call — true only if the settings come too. Five languages, six rates, 60 runs: Hausa, Nyanja and Swahili all peak at **7e-4**. Igbo collapses at 7e-4 and at every rate above it. The risk is not a slightly worse model, it is a wasted night that looks like a result.<br>**Enables 9:** if runs fail this way, catch them early.<br>*§14 · figure 16* | **9 · Detect the failure, or prevent it?**<br>35 of 195 runs never learned — **17.9%**, wasting 25.5 GPU-hours. Scored against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all eleven**: the best doomed run always looks better than the worst healthy one. One rule in the grid ever fires, and it kills two healthy runs and zero dead ones. Do not build the detector — and clipping, at fifteen seeds a side, does **not** prevent divergence either (Fisher p = 1.00).<br>*§14 · figure 10* |
 
@@ -570,6 +570,22 @@ no rule; there is only measuring.
 inside the 17.8 GB Metal recommends on a 24 GB Mac. † MPS runs fp32 where every CUDA row is bf16
 or fp16, so the Mac is directional rather than exactly comparable.
 
+**A word on `bf16`, `fp16` and `fp32`, because they appear on every row and decide one of the
+findings.** They are three ways to store a number, and the trade is always the same: fewer bits
+means faster arithmetic and less memory, at the cost of precision.
+
+- **fp32** — 32 bits. The default, the most accurate, and the slowest.
+- **fp16** — 16 bits. Fast, but it has a narrow *range*: values can overflow to infinity or
+  collapse to zero during training, so it needs a workaround called loss scaling.
+- **bf16** — also 16 bits, but the bits are split differently. It keeps fp32's range and gives up
+  precision instead, so it is fast *and* does not need the workaround. This is what we train in.
+
+The catch is that bf16 needs hardware built for it, which arrived with NVIDIA's Ampere generation
+in 2020. **Anything older silently falls back to fp16** — and on a T4 our stack went further and
+emulated bf16 in software, which is the 33× error the next section is about. That is why every
+row in the table names its precision: two rows in different precisions are not the same
+computation, and putting them side by side without saying so is the mistake, not the fix.
+
 ##### The budget every student already has
 
 **Every student on this course gets 300 Google Colab compute units a month at no cost**, and that
@@ -649,13 +665,27 @@ properties decide almost everything, and none of them is the headline number on 
 
 *Vendor figures except where noted as measured. Read them as ordering, not arithmetic.*
 
-**Bandwidth decides more than FLOPS here**, which is why the 2020 A100 beats the 2023 L4 by 4.9×.
-Our models and batches are small, so a card spends its time moving parameters rather than
-multiplying them. **Generation decides precision**: anything before Ampere has no bfloat16, and
-compute capability is the honest way to read that — ours reports 12.0, a T4 reports 7.5. And
-**"does it fit" is almost never binary**: the floor is parameters, gradients and optimizer state,
-about 1.6 GB here, and everything above it is activations, which gradient accumulation folds until
-they fit.
+Three things decide which of these is right for you, and none of them is the number a shop puts on
+the box.
+
+**Bandwidth matters more than raw arithmetic speed here.** *Memory bandwidth* is how fast a card
+can move data between its memory and its processors — as opposed to how many multiplications a
+second it can do. Our models and batches are small, so the card spends most of its time fetching
+parameters rather than multiplying them, and it is the fetching that limits us. That is why the
+2020 A100 beats the 2023 L4 by 4.9×: **HBM** (High Bandwidth Memory, stacked physically next to
+the processor) moves roughly five times what the **GDDR6** in a normal card does.
+
+**The generation decides your precision**, for the reason in the note above — bf16 needs Ampere
+(2020) or newer. The reliable way to check is *compute capability*, NVIDIA's version number for
+what a card's hardware can do: ours reports **12.0**, a T4 reports **7.5**. That single number
+tells you more than the model name does.
+
+**And "does it fit?" is almost never a yes or no.** What is genuinely fixed is the floor — the
+parameters, their gradients, and the optimizer's own bookkeeping, about 1.6 GB for our 98M model.
+Everything above that floor is *activations*, the intermediate values a forward pass produces, and
+those are negotiable: gradient accumulation folds them into smaller pieces until they fit. So the
+real question is never "will it fit" but "at what micro-batch, and what does that cost me?" — and
+on our 8 GB laptop the answer was "almost nothing".
 
 **What each one buys you, and what it still does not solve.**
 
@@ -1211,7 +1241,10 @@ Reading that screen top to bottom is roughly how the project was run:
   started, and you can see it at a glance rather than deducing it from a number.
 - **The sentence under the title is generated, not written.** "Best so far: French at 2.54, 1.92
   nats of loss ahead of Mandarin." It restates the chart in words, and it comes from the same
-  records the chart does, so it cannot say something the data does not. Ours went through several rounds of being wrong in instructive ways — it showed runs as
+  records the chart does, so it cannot say something the data does not. (*Nats* are this report's
+  unit of loss throughout — the same idea as bits, just measured with the natural logarithm,
+  because that is what a PyTorch cross-entropy loss comes out in. One nat is about 1.44 bits.
+  Panel 7 uses the conversion to make two different vocabularies comparable.) Ours went through several rounds of being wrong in instructive ways — it showed runs as
 "training" that had actually finished, it hid everything not yet started so a twelve-job night
 looked like a three-job night, and it labeled a counter "epoch" that was not an epoch, which
 confused everyone who read it including the people who wrote it.
@@ -1795,8 +1828,17 @@ between the two arms. It is the most natural reading of a controlled comparison,
 here for a reason that is invisible until you count.
 
 **Approach.** Convert to **bits per character**, which is vocabulary-independent: nats per token,
-divided by ln 2, divided by characters per token. Then count what matched steps actually bought
-each arm. A 250k output projection at hidden size 512 is a 128M-parameter head against 8.2M, and
+divided by ln 2, divided by characters per token.
+
+*(A **nat** is a unit of information, the same idea as a bit but measured with the natural
+logarithm instead of log base 2 — which is simply what a PyTorch cross-entropy loss comes out in.
+One nat is about 1.44 bits, so dividing by ln 2 converts one to the other. Everywhere this report
+says "0.5 nats of loss", read "about three quarters of a bit of surprise per token". The reason we
+convert at all is the second half of that formula: **dividing by characters per token is what
+removes the vocabulary from the comparison**, and without it a 16k-vocabulary model and a
+250k-vocabulary model are being scored on two different scales.)*
+
+Then count what matched steps actually bought each arm. A 250k output projection at hidden size 512 is a 128M-parameter head against 8.2M, and
 its matmul dominates the forward pass — measured, the large-vocabulary arm runs at 80k tokens/sec
 against 408k. So "12,000 steps each" handed one arm **5.1× the compute** of the other.
 
@@ -3095,7 +3137,7 @@ Colab's published compute-unit rates:
 
 | where | the whole project, on that card | elapsed | to rent |
 |---|---|---|---|
-| Colab A100 | ~163 GPU-hours | **7 days** | **~$110** |
+| Colab A100 | ~163 GPU-hours | **7 days** | **~$111** |
 | Colab L4 | ~727 GPU-hours | **30 days** | **~$112** |
 | Colab T4 (free tier's card) | ~1,269 GPU-hours | **53 days** | **$0**, in sessions that end |
 
@@ -3110,7 +3152,7 @@ units.** They move with pricing and demand, which is why the durable claim below
 not a price.
 
 **The A100 is 4.4× the L4's hourly rate and 4.5× its throughput on this workload, so the same
-project lands at the same price on either tier** — $110 against $112, within 2%, one of them five
+project lands at the same price on either tier** — $111 against $112, within 1%, one of them five
 times sooner. That is "you buy latency, not access" stated in dollars.
 
 It is worth recording that this sentence has been through three versions. On burst readings it
@@ -3119,7 +3161,7 @@ tier was 9% *cheaper*; now that all three tiers are measured the same way it say
 same claim the earliest version made and the first time every number in it came from one method.
 The middle version was the confident one.
 
-**Against $24,000 of cards, $110 is two hundred and twenty times cheaper.** The workstation bought us
+**Against $24,000 of cards, $111 is two hundred and twenty times cheaper.** The workstation bought us
 *latency* — an answer in ninety minutes rather than tomorrow — and cell 2 argues that latency is
 what let the project find its own mistakes. It did not buy access to the science. A student with a
 subscription and patience can run every experiment on this board.
@@ -3139,7 +3181,7 @@ a run — precisely one model per night, and 11.9 if you forget the cable.
 | route | money | elapsed | what you need |
 |---|---|---|---|
 | buy the workstation | ~$24,000 | ~6 days | the money |
-| rent Colab | ~$110 on an A100, ~$112 on an L4 | 7 days / 30 days | a subscription and patience with queues |
+| rent Colab | ~$111 on an A100, ~$112 on an L4 | 7 days / 30 days | a subscription and patience with queues |
 | **your own laptop, overnight** | **$0** | **~34 days of card time** | a power cable and a queue that survives being left alone |
 
 That last column is the point, and it is where this whole board turns out to be about something
