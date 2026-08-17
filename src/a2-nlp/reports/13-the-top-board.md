@@ -2,14 +2,253 @@
 
 *A2-NLP · CSED 504 · the top board*
 
-**The fourteen sections below are the fourteen panels of the top poster.** Report 09 is the bottom
-board — the factory that made these numbers answerable a hundred and ninety-seven times instead of
-twice — and it says of anything upstairs that "the top poster carries it properly." This is that
-document.
+**What goes on the wall is the nine cells and three strip blocks below.** The fourteen *Panel*
+sections after them are the long form — the argument behind each cell, kept because a cell that
+makes somebody want the whole case needs somewhere to send them. The bottom board has the same
+pair: [report 12](12-the-bottom-board.md) is what to print, [report 09](09-the-bottom-report.md)
+is the long form.
 
 Every number here was recomputed from `src/a2-nlp/runs/` on **11 August 2026**, through
 `ft_api.results()` and `mlm_api.results()`, not transcribed from a report or an email. Where a
 figure is not regenerable from the records, it says so in the panel.
+`test_board_numbers.py` pins each one to the record it came from.
+
+---
+
+## Format — the same board as the bottom, and the same measure
+
+24 × 36 in portrait, three columns at x = 1.50 / 8.75 / 16.13 in, each **6.35 in** wide; body type
+**18 pt**. Three rows of 6.70 in with 0.25 in gutters, then a 4.45 in strip across the foot. The
+full derivation is in [report 12](12-the-bottom-board.md#format--measured-from-the-template-not-assumed)
+and is not repeated here — **both boards print at the same size and must not drift apart.**
+
+**The word budget is a hard limit, not a target.** A cell with a figure has about 1.9 in of column
+left, which is **~55 words at 18 pt**; a cell without a figure gets about **110**; a strip block
+about **100**. Every big number has to fit **about 18 characters per line**, which is why each is
+written below as two lines separated by ` / `.
+
+**Nine cells, seven figures.** Cells 1 and 4 carry no figure and run long as type. That is the
+whole of the layout decision — unlike the bottom board, no cell here is carrying a second block.
+
+---
+
+## Title block
+
+> ## When is it worth training your own model?
+> *Yoruba, from scratch against multilingual transfer*
+>
+> **Transfer** inherits a hundred languages and a vocabulary built mostly for other people.
+> **From scratch** fits the language and starts from nothing. On the task that needs meaning,
+> from scratch wins — and the reason is the **vocabulary**, not the data.
+
+Author line, in the header band: *Patrick Kwok · Jeffrey Stall · Leon · A2-NLP · CSED 504 · the
+lower board is the machinery this experiment ran on.*
+
+Both boards carry all three names; the role split is named once, on the bottom board's strip.
+
+**Goals**, set as one line in the header band under the author line, at 20 pt. These are the
+proposal's six, in its own order, and they are the one rubric item neither board carried until
+17 August:
+
+> **What we set out to do.** Establish baselines against a reproduced published floor · measure
+> from-scratch quality against pretraining budget on two tasks · **separate labelled-data quantity
+> from task type**, which the proposal called the decisive experiment · locate where from-scratch
+> overtakes transfer · test whether the pattern generalises across languages · ask whether MLM
+> loss predicts downstream quality. **All six are closed.** Goals 1–5 are the cells below; goal 6
+> is answered **no**, in report 10.
+
+---
+
+## The nine cells
+
+Read left to right, top to bottom. The top row rules out the obvious explanation and puts the real
+one in its place; the middle row is the result and the floors that make it honest; the bottom row
+is the causal evidence and what it actually buys you.
+
+### 1 · Why train your own model at all?
+
+**Big number:** `69.1M` / `tokens, all of it` · **Figure:** *none — set as type*
+
+> For a language with little text the received answer is transfer: fine-tune a multilingual
+> encoder someone else pretrained — XLM-R across 100 languages, mmBERT across 1,800 and about
+> 3 trillion tokens. You inherit everything they learned, **including a vocabulary built mostly
+> for other languages**. The alternative is to pretrain your own small encoder on whatever
+> in-language text exists, with a vocabulary fitted to it, and get a model that fits, built from
+> far less. **Yoruba is the test case**: about 47 million speakers, and all of FineWeb-2 Yoruba is
+> 69.1M tokens. The received answer is transfer. The interesting question is when it stops being
+> right.
+
+*105 words · no figure · report 13 Panel 1*
+
+### 2 · Is Yoruba starved of text?
+
+**Big number:** `−0.080` / `for 16× the text` · **Figure:** `05-data-saturation.svg`
+
+> Scarcity is the natural story, and it does not survive measurement. On an English ladder at
+> fixed compute, sixteen times the text — 64M to 1,024M tokens — moves validation loss
+> **−0.080**: 0.43× the seed spread, and the wrong way. All of FineWeb-2 Yoruba is 69.1M, so
+> **at these budgets Yoruba has enough text.**
+
+*54 words · `runs/*_result.json`, the `eng_1b_*` ladder*
+
+### 3 · Then where does the disadvantage live?
+
+**Big number:** `1.15× vs 1.59×` / `covered vs not` · **Figure:** `02-tokenizer-gradient.svg`
+
+> Seventeen languages. XLM-R's 250k vocabulary costs **1.150** tokens per word on languages it
+> covers and **1.593** on those it does not — 1.244 against 1.593 with both sides African, ruling
+> out script and region. Learnability does not separate at all: 4.618 against 4.808, overlapping.
+> **The disadvantage lives in the vocabulary, not the language.**
+
+*53 words · `runs/gradient_table.json` · report 07 §4*
+
+### 4 · What does a vocabulary that does not fit cost?
+
+**Big number:** `77 words` / `against 44` · **Figure:** *none — set as type*
+
+> A vocabulary that does not fit cuts words into more pieces. Yoruba costs **1.76 tokens for every
+> one** a fitted vocabulary uses — second-highest of seventeen, not a quirk of one language.
+> Concretely: **a 128-token context window holds 77 Yoruba words under our `yor-bpe16k` and 44
+> under XLM-R's.** The same effect arrives from a different direction: encoding the identical
+> 260M characters gives 69,096,452 tokens under our vocabulary against 121,339,416 under XLM-R's
+> — a ratio of **1.756**, reproducing the 1.76 measured on word counts. The first time two of our
+> measurements agreed by accident rather than by construction.
+
+*97 words · no figure · `runs/swap_*_result.json`, `n_tokens`*
+
+### 5 · Does a small from-scratch model actually win?
+
+**Big number:** `0.688` / `against 0.582` · **Figure:** `01-headline.svg`
+
+> SIB-200 topic classification: 204 test items, five seeds, every arm swept over nine learning
+> rates and ranked on the **dev** split rather than the items it is scored on. **A 33.8M model
+> trained on 64M Yoruba tokens reaches 0.688 macro-F1 against mmBERT's 0.582** — mmBERT saw about
+> 3 trillion tokens across 1,800 languages. Say **ahead**, not *beats*: the intervals still
+> overlap by 0.004.
+
+*63 words · `runs/ft_sib200_*.json` · report 11*
+
+### 6 · What does a model that knows no Yoruba score?
+
+**Big number:** `0.626` / `knowing no Yoruba` · **Figure:** `12-floors.svg`
+
+> Draw the floor, or the chart lies. On MasakhaNER, 0.863 / 0.851 / 0.837 looks like three strong
+> models — until an untrained encoder scores **0.626**. Most of every bar is capitalisation and
+> name shape, which transfer from any language. On topic the floor bites harder: **XLM-R scores
+> 0.358, below the 0.382 of an untrained model of its own architecture.**
+
+*60 words · `runs/ner_control_sweep.json` · `runs/ft_sib200_*.json`*
+
+### 7 · Is that the task, or just the labels?
+
+**Big number:** `43%` / `of the way there` · **Figure:** `18-label-quantity.svg`
+
+> We win topic by 0.106 and lose entities by 0.026. Across the identical sixteen from-scratch
+> models, entity scores span **0.044** against topic's **0.143** — entity recognition barely
+> notices which model it is given. So we cut NER to 701 labels at a fixed step budget.
+> **Threefold does nothing; tenfold moves the models 1.5× further apart, and still less than half
+> way.**
+
+*61 words · `runs/label_quantity.json` · `runs/downstream_correlation.json`*
+
+### 8 · Does the vocabulary *cause* it?
+
+**Big number:** `+0.144` / `vocabulary alone` · **Figure:** `03-matched-steps-vs-compute.svg`
+
+> Same architecture, same Yoruba text, same compute — one model on our 16k vocabulary, one on
+> XLM-R's 250k. Four seeds a side, dev-swept. **Every seed of ours beats every seed of theirs, on
+> both tasks**: +0.144 on topic, +0.061 on entities. The only design here that shows the penalty
+> *causing* a difference — and only because compute was held fixed, not steps.
+
+*62 words · `runs/swap_downstream.json`*
+
+### 9 · So what does a bad vocabulary actually cost?
+
+**Big number:** `F = 15.1` / `spread, not mean` · **Figure:** `17-tokenizer-lottery.svg`
+
+> We reported for two days that a bad vocabulary costs 0.144 bits per character. Six
+> **pre-registered** seeds a side say otherwise: the gap falls to 0.059 (*p* = 0.374) and the arms
+> interleave. **The spreads separate instead** — 0.145 against 0.037, *F* = 15.1. A vocabulary
+> that does not fit **decides how much of a gamble the run is.**
+
+*59 words · `runs/tokenizer_seeds.json`*
+
+---
+
+## The strip — three blocks across the foot
+
+### A number that is not a result
+
+**Big number:** `5 constants` / `one on purpose`
+
+> The recurring failure mode: *a constant chosen for one context silently deciding a result in
+> another.* A seed spread of 0.049, applied to experiments it did not describe. Fertility measured
+> on the first 400 documents — a separation that reverses at 800. An untrained floor printed for a
+> fortnight at 0.4140, one cell of a sweep. And **`FT_STEPS = 352`, inherited to preserve
+> behaviour, which decided this study's central downstream conclusion** — the best of them,
+> because keeping it was correct.
+
+*81 words · report 13 Panel 12*
+
+### What we do not claim
+
+**Big number:** `3 limits` / `stated, not hidden`
+
+> **Nobody on this team reads Yoruba**, so every quality judgement here is a benchmark number
+> rather than a judgement about whether the output is good Yoruba. We did not compare masked
+> against next-token modelling — encoder and decoder cannot be scored comparably on these tasks.
+> We did not use translation-based augmentation, because we could not audit whether a translation
+> preserved meaning. And the causal evidence in cell 8 is **one language**, four seeds a side.
+
+*75 words · report 13 Panel 13 · `runs/claims_audit.json`*
+
+### What we would do next
+
+**Big number:** `4–5` / `languages next`
+
+> **The gap is causal breadth.** Cell 8 shows the vocabulary causing a downstream difference in
+> one language; cell 3 shows the penalty tracking coverage across seventeen, but never through to
+> a task. **The experiment that closes it is cell 8 repeated across the coverage gradient** — the
+> swap in four or five languages spanning 1.15 to 1.59, with the untrained floor measured in each.
+> If the downstream gap tracks the fertility ratio, the argument becomes quantitative.
+
+*76 words · report 13 Panel 14*
+
+---
+
+## Does the board answer the assignment?
+
+Checked against the rubric rather than assumed. **The pair of boards is what gets marked**, so
+this column says plainly where an item lives even when that is downstairs — duplicating a
+requirement across both boards spends wall space twice, and the brief warns that space is tight.
+
+| required | where it is |
+|---|---|
+| Team member names | header band, both boards · role split on the bottom strip |
+| Problem / motivation | title block + **cell 1** |
+| Goals | **header band**, all six, added 17 Aug · full audit in report 13 §Goals |
+| Tool stack | **bottom board cells 2–5** — that board is the tool stack |
+| Pre-existing vs from scratch | **cells 1 and 5** |
+| How performance was explored | **cells 5–9**: dev-split selection, five seeds, floors, exact tests |
+| Dataset EDA | **cell 2** (corpus size and saturation), **cells 3–4** (tokenizer fit across 17 languages) |
+| Results / summary statistics | **cells 5–9**, every one a measured number with its spread |
+| Discussion / limitations | **cells 6–9** and **strip 2** |
+| Ethical impact | **strip 2** here and on the bottom board — the one item deliberately said twice |
+| Next steps | **strip 3** |
+| Citations + AI statement | **bottom board strip 3**, with all 19 references in report 09 |
+
+**Two of these were genuinely missing before this pass, and neither was visible from the panels.**
+Goals were on no board at all — the proposal's six had been closed one at a time in the state file
+and never collected anywhere a reader could see them. And Dataset EDA was being claimed by the
+bottom board's coverage table as *"the top board's panel 2"* while the top board had no settable
+panel 2 to point at, because it had no settable panels. **A coverage table that cites a document
+which does not yet say the thing is the same defect as a caption that cites uncommitted records.**
+
+---
+
+## The long form — the fourteen panels
+
+*Everything below is the argument behind the cells above. It is not set on the board.*
 
 ---
 
