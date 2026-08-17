@@ -255,19 +255,31 @@ def title_block(path: Path) -> TitleBlock:
                      if ln.startswith('*') and not ln.startswith('**')), '')
     takeaway = ' '.join(ln for ln in head
                         if ln and not ln.startswith('## ') and ln.strip('*') != subtitle)
-    def run(i: int) -> str:
-        return ' '.join(ln for ln in (runs[i] if len(runs) > i else []) if ln)
-
     author = AUTHOR.search(region)
     return TitleBlock(
         title=title,
         subtitle=subtitle,
         takeaway=_plain(takeaway),
         author=_plain(' '.join(author.group(1).split())) if author else '',
-        goals=_plain(run(1)),
-        citations=_plain(run(2)),
+        goals=_plain(_labelled_quote(region, 'Goals')),
+        citations=_plain(_labelled_quote(region, 'Citations')),
         source_file=path.name,
     )
+
+
+def _labelled_quote(region: str, label: str) -> str:
+    """The blockquote introduced by a bold **Label** paragraph, or ''.
+
+    By label rather than by position. Positionally -- runs[1] is goals, runs[2] is citations --
+    the bottom board, which needs citations and has no goals, would have printed its reference
+    list across the header band as though it were the project's objectives. Two boards do not
+    have to carry the same optional blocks, so the block has to say what it is.
+    """
+    m = re.search(rf'^\*\*{label}\*\*', region, re.M)
+    if not m:
+        return ''
+    runs = _quote_runs(region[m.end():])
+    return ' '.join(ln for ln in (runs[0] if runs else []) if ln)
 
 
 def _plain(text: str) -> str:

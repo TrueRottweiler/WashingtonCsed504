@@ -70,10 +70,12 @@ version, restricted to what *this* board actually leans on. The AI statement is 
 here — it is written once, properly, on the bottom board's strip, and the two boards hang
 together:
 
-> **Data:** FineWeb-2 (`HuggingFaceFW/fineweb-2`) · SIB-200, Adelani et al. 2024 · MasakhaNER 2.0,
-> Adelani et al. 2022 · **Models:** XLM-R, Conneau et al. 2020 · mmBERT (`jhu-clsp/mmBERT-base`) ·
-> RoBERTa, Liu et al. 2019 · AfriBERTa, Ogueji et al. 2021 · **Statistics:** Welch 1947 ·
-> Pitman 1937 · Full list and the AI disclosure: report 09 §References.
+> **Built with** PyTorch and HuggingFace `transformers`, `tokenizers` and `datasets`, plus NumPy;
+> GlotLID for language ID. Fine-tuning and evaluation ran on Google Colab (A100 and T4);
+> pretraining on the workstation downstairs. · **Data:** FineWeb-2 (`HuggingFaceFW/fineweb-2`) ·
+> SIB-200, Adelani et al. 2024 · MasakhaNER 2.0, Adelani et al. 2022 · **Models:** XLM-R, Conneau
+> et al. 2020 · mmBERT (`jhu-clsp/mmBERT-base`) · RoBERTa, Liu et al. 2019 · AfriBERTa, Ogueji et
+> al. 2021 · **Statistics:** Welch 1947 · Pitman 1937 · Full list: report 09 §References.
 
 ---
 

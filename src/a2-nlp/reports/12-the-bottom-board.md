@@ -65,6 +65,16 @@ a reader, where the course number identifies the work. "Leon" is "Leon Wan" wher
 lists the team, so the two boards do not render a teammate's name two ways side by side. The
 first-name reference in cell 5 is narrative and stays as it is.)*
 
+**Citations**, set as the footer line across the foot of the board. This board is the factory, so
+its footer names the stack the factory is built on; the top board's names the one the experiment
+used. Neither repeats the other:
+
+> **Built with** PyTorch and HuggingFace `tokenizers`, plus NumPy and matplotlib; no training
+> framework above them — the loop, the masking, the scheduler and the run records are this
+> project's own. Long jobs ran on a 2 × RTX PRO 6000 Blackwell workstation, benchmarked against
+> Colab A100 / L4 / T4, a MacBook Pro (M4 Pro, MPS) and an 8 GB laptop. · Nineteen references,
+> in full in report 09 §References.
+
 ---
 
 ## The nine cells
@@ -280,25 +290,23 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 ### Next · sources · AI
 
 > **Next:** a wall meter on the workstation, an audit of which sites dominate 69M tokens of
-> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** 19 references —
-> models, data and statistics — listed in full in report 09; the top board's footer carries the
-> shortened form. **AI:** an assistant wrote much of this code — **101 of 173 commits carry a
-> `Co-Authored-By` trailer**, which is `git log` rather than a promise. It made the building 3–5×
-> faster and the *verifying* no faster at all.
+> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** nineteen
+> references — models, data and statistics — in full in report 09; both footers carry the short
+> form. **AI:** we used **Claude Code** throughout to turn ideas and action points into working
+> code. It made the building much faster and the *verifying* no faster at all — every number here
+> still had to be checked against the records.
 
-*87 words · report 09 §Panel 10 · recount 17 Aug*
+*77 words · report 09 §Panel 10*
 
-> **Both numbers moved again, and the third recount found the counting method wrong.** It said
-> 120 of 144, then 96 of 168, and at 17 August it is **101 of 173**. Squash-merging collapses a
-> branch's commits into one, so a pull request with four trailered commits arrives as a single
-> trailered commit — the ratio falls as the history is tidied.
+> **The commit ratio is off the board as of 17 August, and getting it wrong three times is the
+> reason.** It said 120 of 144, then 96 of 168, and a recount on the 17th made it 101 of 173 —
+> squash-merging collapses a branch into one commit, so the ratio falls as the history is tidied.
 >
-> **`git log --format='%b' | grep -c` returns 228, which is more trailers than there are
-> commits.** A squashed commit carries one trailer per commit it absorbed, so counting *lines*
-> counts co-authorships and counting *commits* is what the sentence claims. The board wants
-> commits: `git rev-list HEAD` and test each body once. Both numbers are true of something; only
-> one is true of the sentence — which is this board's own recurring lesson, arriving in the panel
-> that discloses the assistant.
+> Worse, the method was wrong. **`git log --format='%b' | grep -c` returns 228, more trailers than
+> there are commits**, because a squashed commit carries one trailer per commit it absorbed:
+> counting *lines* counts co-authorships where the sentence claims *commits*. A precise-looking
+> number that has been wrong at every telling is worth less than the plain statement, and the
+> plain statement is what the assignment asks for. Report 09 keeps the derivation.
 
 ---
 
