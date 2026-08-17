@@ -186,17 +186,22 @@ STRIP_H = 4.45
 # and ~1.9 body; these are that plan adjusted to what PowerPoint actually laid out, measured off
 # `layout-validation.json` rather than estimated.
 #
+# THE FIGURE BLOCK IS 2.30 in, NOT REPORT 12's 2.30-BY-GUESS: it is what the column figures are
+# drawn at, so they land at scale 1.0 and the type inside them prints at the size it was set.
+# Scaled to the old 1.80 in they came back to 0.75x and 7 pt. The big number gives up 0.15 in for
+# it, being decoration next to a chart.
+#
 # THE MEASURED RATE IS ~2.82 pt OF COLUMN PER WORD at 18 pt in a 5.77 in measure. So 1.9 in of
 # body is 137 pt, which holds about **48 words, not 55** -- report 12's guide overshoots its own
 # geometry by roughly 13%, and every cell on both boards was written to the guide. Rather than
 # re-cut two boards to 48 words, the body keeps 2.72 in (196 pt, ~69 words), taken out of the
 # figure and the big number. Both are decorative next to the prose.
-CELL_TOP = 0.16
-CELL_HEAD_H = 0.66
-CELL_BIG_H = 0.95
-CELL_FIG_H = 1.80
-CELL_BOTTOM = 0.19
-GAP = 0.08
+CELL_TOP = 0.12
+CELL_HEAD_H = 0.70
+CELL_BIG_H = 0.80
+CELL_FIG_H = 2.12
+CELL_BOTTOM = 0.15
+GAP = 0.06
 
 # The strip is 4.45 in rather than 6.70 and cannot hold 18 pt prose: a strip block carrying a
 # figure would have 1.50 in of body left, which is 38 words against the ~100 report 12 budgets.

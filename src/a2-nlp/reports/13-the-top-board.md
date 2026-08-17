@@ -102,7 +102,7 @@ is the causal evidence and what it actually buys you.
 
 ### 2 · Is Yoruba starved of text?
 
-**Big number:** `−0.080` / `for 16× the text` · **Figure:** `05-data-saturation.svg`
+**Big number:** `−0.080` / `for 16× the text` · **Figure:** `05-data-saturation-column.svg`
 
 > Scarcity is the natural story, and it fails measurement. On an English ladder at fixed compute,
 > **sixteen times the text moves validation loss −0.080** — 0.43× the seed spread, and the wrong
@@ -113,7 +113,7 @@ is the causal evidence and what it actually buys you.
 
 ### 3 · Then where does the disadvantage live?
 
-**Big number:** `1.15× vs 1.59×` / `covered vs not` · **Figure:** `02-tokenizer-gradient.svg`
+**Big number:** `1.15× vs 1.59×` / `covered vs not` · **Figure:** `02-tokenizer-gradient-column.svg`
 
 > Seventeen languages. XLM-R's 250k vocabulary costs **1.150** tokens per word on languages it
 > covers and **1.593** on those it does not — 1.244 against 1.593 with both sides African, ruling
@@ -138,7 +138,7 @@ is the causal evidence and what it actually buys you.
 
 ### 5 · Does a small from-scratch model actually win?
 
-**Big number:** `0.688` / `against 0.582` · **Figure:** `01-headline.svg`
+**Big number:** `0.688` / `against 0.582` · **Figure:** `01-headline-column.svg`
 
 > SIB-200 topic classification: 204 test items, five seeds, every arm swept over nine learning
 > rates and ranked on the **dev** split rather than the items it is scored on. **A 33.8M model
@@ -150,7 +150,7 @@ is the causal evidence and what it actually buys you.
 
 ### 6 · What does a model that knows no Yoruba score?
 
-**Big number:** `0.626` / `knowing no Yoruba` · **Figure:** `12-floors.svg`
+**Big number:** `0.626` / `knowing no Yoruba` · **Figure:** `12-floors-column.svg`
 
 > Draw the floor, or the chart lies. On MasakhaNER, 0.863 / 0.851 / 0.837 looks like three strong
 > models — until an untrained encoder scores **0.626**. Most of every bar is capitalisation and
@@ -161,7 +161,7 @@ is the causal evidence and what it actually buys you.
 
 ### 7 · Is that the task, or just the labels?
 
-**Big number:** `43%` / `of the way there` · **Figure:** `18-label-quantity.svg`
+**Big number:** `43%` / `of the way there` · **Figure:** `18-label-quantity-column.svg`
 
 > We win topic by 0.106 and lose entities by 0.026. Across the identical sixteen from-scratch
 > models, entity scores span **0.044** against topic's **0.143** — entity recognition barely
@@ -173,7 +173,7 @@ is the causal evidence and what it actually buys you.
 
 ### 8 · Does the vocabulary *cause* it?
 
-**Big number:** `+0.144` / `vocabulary alone` · **Figure:** `03-matched-steps-vs-compute.svg`
+**Big number:** `+0.144` / `vocabulary alone` · **Figure:** `03-matched-steps-vs-compute-column.svg`
 
 > Same architecture, same Yoruba text, same compute — one model on our 16k vocabulary, one on
 > XLM-R's 250k. Four seeds a side, dev-swept. **Every seed of ours beats every seed of theirs, on
@@ -184,7 +184,7 @@ is the causal evidence and what it actually buys you.
 
 ### 9 · So what does a bad vocabulary actually cost?
 
-**Big number:** `F = 15.1` / `spread, not mean` · **Figure:** `17-tokenizer-lottery.svg`
+**Big number:** `F = 15.1` / `spread, not mean` · **Figure:** `17-tokenizer-lottery-column.svg`
 
 > We reported for two days that a bad vocabulary costs 0.144 bits per character. Six
 > **pre-registered** seeds a side say otherwise: the gap falls to 0.059 (*p* = 0.374) and the arms
