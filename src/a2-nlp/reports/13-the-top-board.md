@@ -27,6 +27,13 @@ left, which is **~55 words at 18 pt**; a cell without a figure gets about **110*
 about **100**. Every big number has to fit **about 18 characters per line**, which is why each is
 written below as two lines separated by ` / `.
 
+**Those are writing guides. The limit is measured, and a word count cannot decide it.** Rendered,
+the body sets at **2.82–3.23 pt of column per word** — the range is how long the words are, so
+plain prose fits where a cell carrying `121,339,416` and `macro-F1` does not, at the same count.
+`board_content.py` flags a panel that looks long; **`build_posters.py` fails on any box whose
+laid-out text is taller than its box**, and that is the gate. Cell 2 sits at 56 words and cell 5 at
+63, and both are correct.
+
 **Nine cells, seven figures.** Cells 1 and 4 carry no figure and run long as type. That is the
 whole of the layout decision — unlike the bottom board, no cell here is carrying a second block.
 
@@ -41,21 +48,32 @@ whole of the layout decision — unlike the bottom board, no cell here is carryi
 > **From scratch** fits the language and starts from nothing. On the task that needs meaning,
 > from scratch wins — and the reason is the **vocabulary**, not the data.
 
-Author line, in the header band: *Patrick Kwok · Jeffrey Stall · Leon · A2-NLP · CSED 504 · the
-lower board is the machinery this experiment ran on.*
+Author line, in the header band: *Patrick Kwok · Jeffrey Stall · Leon Wan · CSED 504 · the lower
+board is the machinery this experiment ran on.*
 
-Both boards carry all three names; the role split is named once, on the bottom board's strip.
+Both boards carry all three names in full, and the role split is named once, on the bottom
+board's strip. **Neither board carries "A2-NLP"** — it is our internal project code and means
+nothing to a reader; the course number is the identifier that does.
 
-**Goals**, set as one line in the header band under the author line, at 20 pt. These are the
-proposal's six, in its own order, and they are the one rubric item neither board carried until
-17 August:
+**Goals**, set as one line in the header band under the author line. These are the proposal's six,
+in its own order, and they are the one rubric item neither board carried until 17 August:
 
-> **What we set out to do.** Establish baselines against a reproduced published floor · measure
-> from-scratch quality against pretraining budget on two tasks · **separate labelled-data quantity
-> from task type**, which the proposal called the decisive experiment · locate where from-scratch
-> overtakes transfer · test whether the pattern generalises across languages · ask whether MLM
-> loss predicts downstream quality. **All six are closed.** Goals 1–5 are the cells below; goal 6
-> is answered **no**, in report 10.
+> **Goals.** Baselines against a reproduced published floor · from-scratch quality against
+> pretraining budget on two tasks · **separate labelled-data quantity from task type**, the
+> proposal's decisive experiment · locate where from-scratch overtakes transfer · test whether it
+> generalises across languages · does MLM loss predict downstream quality? **All six closed;
+> goal 6 is answered no.**
+
+**Citations**, set as the footer line across the foot of the board. Report 09 §References holds
+all nineteen and says "the poster should carry a shortened version of this"; this is that
+version, restricted to what *this* board actually leans on. The AI statement is **not** repeated
+here — it is written once, properly, on the bottom board's strip, and the two boards hang
+together:
+
+> **Data:** FineWeb-2 (`HuggingFaceFW/fineweb-2`) · SIB-200, Adelani et al. 2024 · MasakhaNER 2.0,
+> Adelani et al. 2022 · **Models:** XLM-R, Conneau et al. 2020 · mmBERT (`jhu-clsp/mmBERT-base`) ·
+> RoBERTa, Liu et al. 2019 · AfriBERTa, Ogueji et al. 2021 · **Statistics:** Welch 1947 ·
+> Pitman 1937 · Full list and the AI disclosure: report 09 §References.
 
 ---
 
@@ -84,12 +102,12 @@ is the causal evidence and what it actually buys you.
 
 **Big number:** `−0.080` / `for 16× the text` · **Figure:** `05-data-saturation.svg`
 
-> Scarcity is the natural story, and it does not survive measurement. On an English ladder at
-> fixed compute, sixteen times the text — 64M to 1,024M tokens — moves validation loss
-> **−0.080**: 0.43× the seed spread, and the wrong way. All of FineWeb-2 Yoruba is 69.1M, so
-> **at these budgets Yoruba has enough text.**
+> Scarcity is the natural story, and it fails measurement. On an English ladder at fixed compute,
+> **sixteen times the text moves validation loss −0.080** — 0.43× the seed spread, and the wrong
+> way. All of FineWeb-2 Yoruba is 69.1M, which at these budgets is **enough**. GlotLID reads it
+> 97.3% Yoruba; `langdetect`, having none, called it Vietnamese.
 
-*54 words · `runs/*_result.json`, the `eng_1b_*` ladder*
+*56 words · `runs/*_result.json`, the `eng_1b_*` ladder*
 
 ### 3 · Then where does the disadvantage live?
 
@@ -108,13 +126,13 @@ is the causal evidence and what it actually buys you.
 
 > A vocabulary that does not fit cuts words into more pieces. Yoruba costs **1.76 tokens for every
 > one** a fitted vocabulary uses — second-highest of seventeen, not a quirk of one language.
-> Concretely: **a 128-token context window holds 77 Yoruba words under our `yor-bpe16k` and 44
-> under XLM-R's.** The same effect arrives from a different direction: encoding the identical
-> 260M characters gives 69,096,452 tokens under our vocabulary against 121,339,416 under XLM-R's
-> — a ratio of **1.756**, reproducing the 1.76 measured on word counts. The first time two of our
-> measurements agreed by accident rather than by construction.
+> **A 128-token context window holds 77 Yoruba words under our `yor-bpe16k` and 44 under
+> XLM-R's.** Encoding the same 260M characters gives 69.1M tokens under ours against 121.3M under
+> XLM-R's, a ratio of **1.756** that reproduces the 1.76 from word counts. **Storage matters as
+> much as cutting:** MasakhaNER ships *decomposed*, 17% of its characters combining marks, which
+> made our own vocabulary measure worse than XLM-R's until we normalised to NFC.
 
-*97 words · no figure · `runs/swap_*_result.json`, `n_tokens`*
+*101 words · no figure · `runs/swap_*_result.json`, `n_tokens`*
 
 ### 5 · Does a small from-scratch model actually win?
 

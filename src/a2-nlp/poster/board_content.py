@@ -71,14 +71,35 @@ FIG = re.compile(r'\*\*Figure:\*\*\s*(.+?)\s*$', re.M)
 # skipped the count check that way, and a check that quietly matches nothing is worse than none.
 WORDCOUNT = re.compile(r'^\*(\d+) words\b', re.M)
 
-# Report 12 measures these off the real template: a cell keeps ~1.9 in of column under its header,
-# big number and figure, which is ~55 words at 18 pt. Drop the figure and it is ~110. The strip is
-# shallower but full width, at ~100.
+# Report 12's writing guides: ~55 words in a cell with a figure, ~110 without, ~100 in a strip
+# block. Keep them -- they are what the prose is written to.
 GUIDE = {'figure': 55, 'type': 110, 'strip': 100}
-# 55 words is the guide and 75 is where report 12 found the column physically stops ("first draft
-# ran to 91 words, which is past what the column holds -- the guide is approximate, the column is
-# not"). The same slack carries to the other two budgets rather than being invented separately.
-SLACK = 75 / 55
+
+# The caps are MEASURED off the rendered boards, not the guide times a slack factor. The body
+# boxes are 194.4 pt with a figure, 329.8 pt without and 167.8 pt in a strip.
+#
+# A WORD COUNT IS A PROXY AND THESE ARE THE CONSERVATIVE END OF IT. The observed rate runs
+# 2.82-3.23 pt of column per word at 18 pt, because it depends on how long the words are: plain
+# prose sets at 2.82, and a cell carrying `121,339,416`, `yor-bpe16k` and `macro-F1` sets at 3.23.
+# No single word cap is both safe for the second and permissive for the first, so these divide by
+# the worst rate. A panel over the cap is not necessarily unprintable -- it needs looking at.
+#
+# THE AUTHORITY IS THE RENDERER. `build_posters.main()` fails on any box whose laid-out text is
+# taller than the box it was given, which is measured rather than estimated. This gate is the
+# cheap pre-check that runs without PowerPoint; that one is the gate.
+#
+# (The first version of these derived the caps as guide x (75/55), giving 'type' a cap of 150. A
+# 133-word cell passed and then overflowed by 100 pt. A cap inferred from another cap.)
+CAP = {'figure': 65, 'type': 102, 'strip': 80}
+
+# ...and those three assume the panel carries a big number, because eleven of the twelve on each
+# board do. A panel without one gets that block's 1.03 in back, which is 26 more words at 18 pt
+# and 38 at 15 pt. Without this the cap said 86 where report 12's own guide for a strip block is
+# ~100, and it rejected the bottom board's Next/sources/AI block at 87 words -- a block that fits
+# with 37 to spare. Same shape as the bug above, one variable further in: a cap that quietly
+# assumes a layout the panel does not have.
+BIG_BLOCK_WORDS = {'figure': 26, 'type': 26, 'strip': 38}
+
 # The measure holds about 18 characters on a big-number line; past ~22 it certainly overflows.
 BIG_LINE_CHARS = 22
 
@@ -116,7 +137,8 @@ class Panel:
 
     @property
     def limit(self) -> int:
-        return round(GUIDE[self.budget] * SLACK)
+        b = self.budget
+        return CAP[b] + (0 if self.big_lines else BIG_BLOCK_WORDS[b])
 
 
 def _blockquote(chunk: str) -> str:
@@ -186,6 +208,7 @@ class TitleBlock:
     author: str
     source_file: str
     goals: str = ''
+    citations: str = ''
 
     @property
     def sources_line(self) -> str:
@@ -197,8 +220,9 @@ class TitleBlock:
         not a link. Deriving it from the Path that was actually read makes the class of error
         impossible rather than merely fixed.
         """
-        return (f'Source: reports/{self.source_file} · every number on this board regenerates '
-                f'from committed runs/ records and is pinned by test_board_numbers.py')
+        provenance = (f'Source: reports/{self.source_file} · every number on this board '
+                      f'regenerates from committed runs/ records')
+        return f'{self.citations} · {provenance}' if self.citations else provenance
 
 
 def _quote_runs(region: str) -> list[list[str]]:
@@ -231,14 +255,17 @@ def title_block(path: Path) -> TitleBlock:
                      if ln.startswith('*') and not ln.startswith('**')), '')
     takeaway = ' '.join(ln for ln in head
                         if ln and not ln.startswith('## ') and ln.strip('*') != subtitle)
-    goals = ' '.join(ln for ln in (runs[1] if len(runs) > 1 else []) if ln)
+    def run(i: int) -> str:
+        return ' '.join(ln for ln in (runs[i] if len(runs) > i else []) if ln)
+
     author = AUTHOR.search(region)
     return TitleBlock(
         title=title,
         subtitle=subtitle,
         takeaway=_plain(takeaway),
         author=_plain(' '.join(author.group(1).split())) if author else '',
-        goals=_plain(goals),
+        goals=_plain(run(1)),
+        citations=_plain(run(2)),
         source_file=path.name,
     )
 
@@ -275,18 +302,36 @@ def check(path: Path | None = None) -> list[str]:
     problems = []
     for name, panels in _boards(path):
         for n, p in panels.items():
-            actual = len(p.body.split())
             if not p.body:
                 problems.append(f'{name} {n}: no panel text found')
                 continue
-            if actual > p.limit:
-                problems.append(f'{name} {n}: {actual} words of body, over the ~{p.limit} a '
-                                f'{p.budget} panel holds')
             for line in p.big_lines:
                 if len(line) > BIG_LINE_CHARS:
                     problems.append(f'{name} {n}: big-number line {line!r} is {len(line)} chars, '
                                     f'over the ~18 that fit at 6.35 in')
     return problems
+
+
+def long_panels(path: Path | None = None) -> list[str]:
+    """Panels past the word cap -- advisory, because a word count is a proxy and the caps are the
+    conservative end of a range.
+
+    This blocked, briefly, and blocking was wrong in both directions. Set to the safe end it
+    rejected four of the bottom board's cells at 66-69 words, every one of which renders with room
+    to spare because Jeffrey writes plainer prose than the rate assumed. Set to the permissive end
+    it passed a 133-word cell that then overflowed by 100 pt. The quantity it is estimating --
+    laid-out height -- depends on how long the words are, so no word count can decide it.
+
+    `build_posters.main()` measures the real thing and fails on it. This one says "look at that".
+    """
+    notes = []
+    for name, panels in _boards(path):
+        for n, p in panels.items():
+            actual = len(p.body.split())
+            if p.body and actual > p.limit:
+                notes.append(f'{name} {n}: {actual} words, over the ~{p.limit} a {p.budget} '
+                             f'panel usually holds -- check it in the render')
+    return notes
 
 
 def stale_counts(path: Path | None = None) -> list[str]:
@@ -315,7 +360,7 @@ def _boards(path: Path | None):
 if __name__ == '__main__':
     import sys
 
-    problems, notes = check(), stale_counts()
+    problems, notes = check(), long_panels() + stale_counts()
     for name, panels in _boards(None):
         src = BOTTOM if name == 'bottom' else TOP
         print(f'\n{name} board -- {len(panels)} panels from {src.name}')

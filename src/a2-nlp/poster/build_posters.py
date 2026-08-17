@@ -61,6 +61,7 @@ from board_content import (
     Panel,
     board,
     check as check_board,
+    long_panels,
     stale_counts,
     title_block,
 )
@@ -135,8 +136,8 @@ SLOTS = {
 STAT_CELLS = {"yoruba": ("5", "3", "1", "9"), "factory": ("5", "2", "1", "6")}
 
 EYEBROW = {
-    "yoruba": "A2-NLP · LOW-RESOURCE LANGUAGE MODELING",
-    "factory": "A2-NLP · EXPERIMENT INFRASTRUCTURE",
+    "yoruba": "LOW-RESOURCE LANGUAGE MODELING",
+    "factory": "EXPERIMENT INFRASTRUCTURE",
 }
 
 BOARD_FILE = {"yoruba": TOP, "factory": BOTTOM}
@@ -439,7 +440,7 @@ def add_header(slide, content: dict, *, landscape: bool = False) -> None:
             # The rubric asks for team member names, so this comes off the board's author line
             # rather than being a generic string. It said "A2-NLP Project Team" for a fortnight.
             content.get("author")
-            or "A2-NLP Project Team · CSED 504 · University of Washington · Summer 2026",
+            or "CSED 504 · University of Washington · Summer 2026",
             9.5,
             color=UW_GOLD,
             font=BODY_FONT,
@@ -674,7 +675,7 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
             y + 0.10,
             2.55,
             0.34,
-            "A2-NLP · 2026",
+            "CSED 504 · 2026",
             7.8,
             color=UW_PURPLE,
             font=SUBHEAD_FONT,
@@ -703,7 +704,7 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
             y + 0.10,
             2.5,
             0.42,
-            "A2-NLP · 2026",
+            "CSED 504 · 2026",
             7.8,
             color=UW_PURPLE,
             font=SUBHEAD_FONT,
@@ -2156,7 +2157,7 @@ def main() -> None:
             "board is not settable; fix these before rendering:\n  "
             + "\n  ".join(problems)
         )
-    for note in stale_counts():
+    for note in long_panels() + stale_counts():
         print(f"note: {note}")
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)
@@ -2196,6 +2197,21 @@ def main() -> None:
             "exported at a size nobody can print:\n  "
             + "\n  ".join(f"{r['pptx']}: {r['page_inches'][0]} x {r['page_inches'][1]} in"
                           for r in wrong_size)
+        )
+
+    # And the overflow report BLOCKS. It spent its whole life as a field in a JSON file nobody
+    # read, which is how it went unnoticed that autofit had made it incapable of firing. A gate
+    # that only reports is a gate you find out about afterwards. Everything is written by this
+    # point, so the outputs are on disk to look at -- the exit code is what says not to print them.
+    over = [(r, o) for r in reports for o in r["text_overflows"]]
+    if over:
+        raise SystemExit(
+            f"{len(over)} text box(es) overflow -- do not print these:\n  "
+            + "\n  ".join(
+                f"{r['pptx']}: {o['shape']} needs {o['bound_height_pt']} pt "
+                f"in {o['box_height_pt']} pt"
+                for r, o in over
+            )
         )
 
     preview_paths = [OUTPUTS / report["preview"] for report in reports]
