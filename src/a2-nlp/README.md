@@ -70,8 +70,29 @@ underneath, so the diff is readable.
 
 The whole project measured **148 GPU-hours** across every run it kept; the smoke path below is
 minutes, and `mlm_run.py --estimate` projects a step's cost from what it measures on your machine
-before you commit a night to it. Nothing needs credentials — every dataset is public and
-downloads on first use.
+before you commit a night to it.
+
+**The data is not in the repository, and does not need to be.** All three sources are public and
+every one is fetched automatically the first time it is needed — **no account, no token, no manual
+download step**:
+
+| dataset | how it arrives | used for |
+|---|---|---|
+| **FineWeb-2 Yoruba** | streamed from [`HuggingFaceFW/fineweb-2`](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) by `mlm_data.py`, then cached under `data/` | pretraining. All of it is 69.1M tokens (260M characters) and it exhausts in about 7 seconds of streaming |
+| **SIB-200** | `load_dataset('Davlan/sib200', 'yor_Latn')` inside `ft_api.load_sib200` | topic classification, 701 / 99 / 204 |
+| **MasakhaNER 2.0** | the CoNLL files over HTTPS from the [masakhane-ner](https://github.com/masakhane-io/masakhane-ner) repository, by `ft_api.load_masakhaner` | entity recognition, 6,876 / 983 / 1,964 |
+
+MasakhaNER is read from CoNLL rather than `load_dataset` deliberately: the HuggingFace copy ships a
+custom loading script, and that execution path was disabled after a July 2026 security incident.
+`ft_api` asserts the split sizes on the way in, because a published-baseline comparison is only
+valid if they match.
+
+`data/` and the HuggingFace cache are both gitignored. Budget roughly **1 GB** for the Yoruba
+corpus and its cache; the English ladder used by the saturation control is larger.
+
+**You do not need any of it to check the results.** Every run record is committed under `runs/`, so
+the tests, the claims audit and every figure regenerate from the repository alone — the datasets are
+only needed to train something new.
 
 ```bash
 cd src/a2-nlp
