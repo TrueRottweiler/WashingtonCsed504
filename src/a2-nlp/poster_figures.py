@@ -2411,7 +2411,7 @@ def fig_label_quantity_column():
     this draws the statistic the study's rule actually decides on -- between-model sd, which does
     not grow with set size -- at the three label counts.
 
-    The set and the statistics come from , exactly as the wide figure takes
+    The set and the statistics come from study_label_quantity, exactly as the wide figure takes
     them. runs/label_quantity.json holds only the SUBSAMPLED levels; the full split lives in the
     ordinary MasakhaNER records, and the matched sixteen are the models carrying every level. A
     first draft read the json alone and drew two points instead of three, with 701 at 0.0190 --
