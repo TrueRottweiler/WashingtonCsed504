@@ -264,3 +264,7 @@ src/a1-cv/hpo_outputs/
 # in the working tree so they are one click away in the editor, and out of git because a draft
 # of a message is not a project artifact.
 drafts/
+
+# Generated posters. They rebuild from the board files in one command, they are ~11 MB, and
+# PR #78 already declined to carry built posters in the repo.
+src/a2-nlp/poster/outputs/

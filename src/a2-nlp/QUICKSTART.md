@@ -1,16 +1,24 @@
-# Quickstart — for Patrick and Leon
+# Quickstart
 
-Everything here runs on **one GPU**, including a free Colab session. Nothing requires the
-two-card workstation; the scheduler just uses whatever cards it finds.
+**Ten minutes from a clean machine to a trained model.** Everything here runs on **one GPU**,
+including a free Colab session. Nothing requires the two-card workstation the long jobs were run
+on; the scheduler uses whatever cards it finds, and falls back to CPU for the small rungs.
 
 If you only read one section, read [§2](#2-the-thing-that-will-save-you-the-most-time).
+
+New to the project? [`README.md`](README.md) says what it is and what it found;
+[`reports/`](reports/) has the analysis. This file is only *how to run it*.
 
 ---
 
 ## 1. Setup (one cell)
 
+Substitute your own clone URL if you are working from a fork.
+
 ```python
 !git clone https://github.com/TrueRottweiler/WashingtonCsed504.git
+# torch is already on a Colab runtime. OFF Colab, install it first and match your CUDA build:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124      (or .../whl/cpu)
 %pip install -q -U datasets transformers tokenizers seqeval
 
 import os, sys
@@ -181,29 +189,49 @@ the compute axis.
 
 ---
 
-## What we are *not* taking over
+## The other half: fine-tuning
 
-Your fine-tuning half — SIB-200, MasakhaNER, the seeded harness with pooled bootstrap CIs — is
-untouched and should stay that way. It runs on a few hundred labeled examples in seconds; a
-GPU-resident token stream has nothing to offer it. `POC_v4_factory.ipynb` is your v3 notebook
-with only the pretraining plumbing swapped out, each change marked
-`# BEGIN: factory` / `# END: factory` with the old code left commented underneath. **v3 is
-untouched.**
+`mlm_api.py` pretrains. **[`ft_api.py`](ft_api.py) fine-tunes and evaluates**, and it is a
+deliberately separate module: it runs on a few hundred labelled examples in seconds, so a
+GPU-resident token stream has nothing to offer it.
+
+```python
+import ft_api as ft
+
+ft.load_sib200(lang='yor_Latn')          # topic classification, 701/99/204, NFC-normalised
+ft.load_masakhaner(lang='yor')           # entity recognition, read from the CoNLL files
+ft.evaluate('runs/yor_64M_62.5k_s0', task='sib200', lr=3e-5, seeds=5,
+            eval_split='validation')     # select a rate on dev...
+ft.evaluate('runs/yor_64M_62.5k_s0', task='sib200', lr=3e-5, seeds=5)   # ...then score on test
+ft.table()                               # the canonical downstream table
+```
+
+Two things it does that matter more than they look:
+
+- **`eval_split='validation'` scores on the 99-item dev split** so a sweep can choose a learning
+  rate without choosing on the number it will later report. `results()` and `table()` hide those
+  cells by default, because a cell selected on the items it is scored on is not a reportable
+  number. Getting this wrong moved one published row by 0.049.
+- **Text is NFC-normalised by default**, and the setting is recorded. MasakhaNER ships decomposed
+  — 17% of its characters are combining marks — and on raw text the project's own tokenizer
+  measured *worse* than the multilingual baseline. See [§5 of the README](README.md).
 
 ---
 
-## Findings you should know before you write anything up
+## Findings worth knowing before you run anything
 
-Detail in [`reports/`](reports/). The three that change decisions:
+Full analysis in [`reports/`](reports/); the headline conclusions are in
+[`README.md`](README.md). The three that change what you would choose to run:
 
-1. **All the Yoruba in FineWeb-2 is 69.1M tokens** — it exhausts in 7 seconds of streaming. Your
-   64M rung uses 93% of it and the 128M rung is not reachable from that source.
-2. **The study is compute-bound.** More training moves validation loss by 2.2–2.7; 16× more text
-   moves it by 0.08–0.61. Spend the budget on updates, not on scraping.
-3. **XLM-R's 0.127 on SIB-200 is probably a fine-tuning failure, not a coverage result** — the
-   same model scores 0.843 on MasakhaNER, which it could not do without usable Yoruba
-   representations. Your headline contrast leans on that number; please re-run it with more seeds
-   and a higher learning rate before it goes on the poster.
+1. **All the Yoruba in FineWeb-2 is 69.1M tokens** — it exhausts in about 7 seconds of streaming.
+   The 64M rung uses 93% of it, and a 128M rung is not reachable from that source.
+2. **The data axis saturates at or before 64M tokens.** On an English ladder at fixed compute,
+   sixteen times the text moves validation loss by −0.080 — 0.43× the seed spread, and pointing
+   the wrong way. Spend the budget on updates, not on scraping.
+3. **One seed is not a measurement.** Seed spread is 0.103–0.149 on the 33.8M ladders and 1.369
+   at 86M, where runs are bimodal — about 31% never leave the unigram plateau at the default
+   gradient norm. Train the 86M preset with `clip=0.5`, and measure the spread in the cell you are
+   judging rather than borrowing one from another.
 
 ---
 
@@ -214,6 +242,11 @@ Detail in [`reports/`](reports/). The three that change decisions:
 - Cells showing **"Could not render content"** after a headless run — `python nb_clean.py <nb>`.
 - A corpus that won't re-prepare — pass `force=True`; without it, preparation is a deliberate
   no-op.
+- `python not found at: C:/Users/...` from `py.sh` — set `UW_CSED504_PY` to your interpreter, or
+  let it fall back to a repo-local `.venv` or `python` on PATH.
+- `FileNotFoundError: .../data/yor/stats.json` — something redirected `DATA_DIR` in the notebook
+  process only. `!python` scripts are fresh interpreters and do not see it; leave `DATA_DIR` alone.
 
-Ask Jeffrey. The interface in `mlm_api.py` is meant to stay stable — if you write against it
-today it should still work next week, and if it doesn't, that's a bug worth reporting.
+The interface in `mlm_api.py` is meant to stay stable: if you write against it today it should
+still work later, and if it does not, that is a bug worth reporting. `API_VERSION` is there to be
+pinned against.

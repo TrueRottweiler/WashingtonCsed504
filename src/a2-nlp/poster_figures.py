@@ -12,6 +12,7 @@ colored mark beside a label carries the identity.
 """
 from __future__ import annotations
 
+import contextlib
 import itertools
 import json
 import math
@@ -2120,13 +2121,354 @@ def fig_hardware():
     save(fig, '21-hardware')
 
 
+# ==============================================================================================
+# COLUMN-WIDTH FIGURES -- the ones that go on the printed board.
+# ==============================================================================================
+#
+# The figures above are 8-16 in wide, which is right for a report and wrong for a poster cell.
+# A cell on a 24 x 36 in board gives a figure 5.59 x 2.40 in, so a 13 in figure is scaled to
+# 0.24x and its 13 pt type prints at 3.1 pt, against 18 pt body text beside it. Measured across
+# the seven the top board uses, the range was 2.5-3.9 pt. `poster_figures` sets 13 pt with the
+# comment "readable from two meters away"; the placement was undoing it.
+#
+# Scale cannot be fixed by giving the cell more room. The binding constraint is source width
+# against a 6.35 in column: even starving the prose entirely, the headline figure caps at 0.43x.
+# So these are drawn AT the size they print, one idea each, and the multi-panel versions stay in
+# the reports where the argument is made in full.
+#
+# Everything here reads the same records as its wide counterpart. A column figure that re-derived
+# its numbers would be a second copy of a result.
+
+COLUMN_W, COLUMN_H = 5.59, 2.40
+
+# SIB-200 topic between-model sd over the same sixteen -- the scale bar cell 7 is measured against.
+SIB_SD = 0.0457
+COLUMN_RC = {
+    'font.size': 9.5, 'axes.titlesize': 10.5, 'axes.labelsize': 9,
+    'legend.fontsize': 8.5, 'xtick.labelsize': 8.5, 'ytick.labelsize': 9,
+    'lines.linewidth': 1.9, 'lines.markersize': 6,
+}
+
+
+@contextlib.contextmanager
+def column_type():
+    """Poster-cell type for the duration of one figure."""
+    with plt.rc_context(COLUMN_RC):
+        yield
+
+
+def _column_fig(h=COLUMN_H):
+    return plt.subplots(figsize=(COLUMN_W, h))
+
+
+def _pick_cell(slug, task, steps):
+    """One reportable cell, with its learning rate chosen on dev where dev cells exist.
+
+    The same rule `fig_headline` uses, lifted out so the column figures cannot quietly select
+    differently from the wide ones. Taking max() over test cells re-selects on the items being
+    reported, which is what report 11 removed.
+    """
+    test = [r for r in ft_api.results()
+            if r['model_slug'] == slug and r.get('task') == task and r.get('steps') == steps]
+    if not test:
+        return None
+    dev = [r for r in ft_api.results(eval_split='validation')
+           if r['model_slug'] == slug and r.get('task') == task and r.get('steps') == steps]
+    if dev:
+        lr = max(dev, key=lambda r: r['mean'])['lr']
+        on_test = [r for r in test if r['lr'] == lr]
+        if on_test:
+            return on_test[0]
+    return max(test, key=lambda r: r['mean'])
+
+
+def _hbars(ax, rows, floor=None, floor_label=None, xlim=None):
+    """Horizontal bars with per-seed dots -- the shape that fits a wide, short cell.
+
+    Horizontal because the arm names are words: vertical bars in a 5.59 in box either rotate the
+    labels or truncate them, and a poster reader will not tilt their head.
+    """
+    ys = range(len(rows))
+    right = (xlim or (0, 1))[1] * 0.985
+    ax.barh(list(ys), [r['mean'] for r in rows],
+            color=[r['color'] for r in rows], height=0.62, zorder=2)
+    for y, r in zip(ys, rows):
+        for s in r.get('scores') or []:
+            ax.plot(s, y, 'o', color=SURFACE, markersize=4.2,
+                    markeredgecolor=INK2, markeredgewidth=0.8, zorder=4)
+        ax.text(right, y, f'{r["mean"]:.3f}', va='center', ha='right',
+                fontsize=9.5, color=INK, fontweight='bold', zorder=5)
+    ax.set_yticks(list(ys))
+    ax.set_yticklabels([r['label'] for r in rows], fontsize=9)
+    ax.invert_yaxis()
+    ax.grid(axis='y', visible=False)
+    if floor is not None:
+        ax.axvline(floor, ls=(0, (4, 3)), lw=1.5, color=INK2, zorder=3)
+        # Rotated along the rule. Set horizontally it collides with the title above the top bar
+        # and with the x tick labels below the bottom one -- there is no clear horizontal band in
+        # a cell this short.
+        ax.text(floor, (len(rows) - 1) / 2, f'  {floor_label}', rotation=90, ha='left',
+                va='center', fontsize=8.8, color=INK2, fontweight='bold', zorder=5)
+    if xlim:
+        ax.set_xlim(*xlim)
+
+
+def fig_headline_column():
+    """Cell 5. One task, four arms: does a small from-scratch model win on topic?
+
+    The wide figure carries both tasks side by side; the cell that uses this one asks only about
+    topic, and entities get their own cell with their own floor. Splitting them is what buys the
+    type size back.
+    """
+    arms = [('from-scratch 33.8M', 'yor-64M-62.5k-s0', C1),
+            ('mmBERT base 246M', 'mmBERT-base', C2),
+            ('untrained, our arch', 'yor-random-init', MUTED),
+            ('XLM-R base 277M', 'xlm-roberta-base', C3)]
+    rows = []
+    for label, slug, color in arms:
+        r = _pick_cell(slug, 'sib200', 1056)
+        if r:
+            rows.append({'label': label, 'mean': r['mean'],
+                         'scores': r.get('scores'), 'color': color})
+    with column_type():
+        fig, ax = _column_fig()
+        _hbars(ax, rows, floor=1 / 7, floor_label='chance', xlim=(0, 0.80))
+        ax.set_xlabel('SIB-200 topic, macro-F1 (dev-selected rate, 5 seeds)')
+        ax.set_title('64M Yoruba tokens, ahead of 3 trillion across 1,800 languages')
+        fig.tight_layout()
+        save(fig, '01-headline-column')
+
+
+def fig_floors_column():
+    """Cell 6. The same four arms on entities, with the untrained floor drawn in.
+
+    The floor is the point of the cell, so it is a rule across the bars rather than a bar of its
+    own -- it is a reference level, not a competitor.
+    """
+    arms = [('mmBERT base', 'mmBERT-base', C2),
+            ('XLM-R base', 'xlm-roberta-base', C3),
+            ('from-scratch 33.8M', 'yor-64M-62.5k-s0', C1)]
+    rows = []
+    for label, slug, color in arms:
+        r = _pick_cell(slug, 'masakhaner', 2150)
+        if r:
+            rows.append({'label': label, 'mean': r['mean'],
+                         'scores': r.get('scores'), 'color': color})
+    sweep = json.load(open(os.path.join(HERE, 'runs', 'ner_control_sweep.json'), encoding='utf-8'))
+    ours = [r for r in sweep if 'random_init' in r.get('model', '') and 'xlm' not in r.get('arm', '')]
+    floor = max(r['mean'] for r in (ours or sweep))
+    with column_type():
+        fig, ax = _column_fig()
+        _hbars(ax, rows, floor=floor, floor_label=f'untrained {floor:.3f}', xlim=(0, 1.0))
+        ax.set_xlabel('MasakhaNER entity F1')
+        ax.set_title('Most of every bar is capitalisation and name shape')
+        fig.tight_layout()
+        save(fig, '12-floors-column')
+
+
+def fig_gradient_column():
+    """Cell 3. Seventeen languages as one strip, covered against not.
+
+    The wide figure is a ranked bar per language, which needs 17 rows and cannot be read at 2.4 in.
+    Two strips of dots carry the finding -- the separation, the two means, and Wolof sitting inside
+    the covered range -- in a tenth of the height. The exception is drawn rather than described,
+    because a gradient with one exception is what the data is.
+    """
+    rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'gradient_table.json'),
+                                      encoding='utf-8')) if r['corpus'] != 'eng_1b']
+    cov = [r for r in rows if r['in_xlmr'] is True]
+    unc = [r for r in rows if r['in_xlmr'] is not True]
+    with column_type():
+        fig, ax = _column_fig(2.15)
+        for y, (grp, color, name) in enumerate([(unc, C2, 'not covered'), (cov, C3, 'covered')]):
+            ax.plot([r['penalty'] for r in grp], [y] * len(grp), 'o', color=color,
+                    markersize=8, markeredgecolor=SURFACE, markeredgewidth=1.4,
+                    zorder=3, clip_on=False)
+            m = sum(r['penalty'] for r in grp) / len(grp)
+            ax.plot([m], [y], '|', color=INK, markersize=22, markeredgewidth=2.2, zorder=4)
+            ax.text(m, y + 0.30, f'mean {m:.3f}', ha='center', fontsize=9,
+                    color=INK, fontweight='bold')
+            ax.text(0.90, y, name, ha='right', va='center', fontsize=9.5, color=INK2)
+        yor = next(r for r in rows if r['corpus'] == 'yor')
+        ax.annotate('Yoruba', (yor['penalty'], 0), textcoords='offset points', xytext=(0, -20),
+                    ha='center', fontsize=9, color=INK, fontweight='bold',
+                    arrowprops=dict(arrowstyle='->', color=INK2, lw=1.2))
+        wol = next(r for r in rows if r['corpus'] == 'wol')
+        ax.annotate('Wolof, the exception', (wol['penalty'], 0), textcoords='offset points',
+                    xytext=(-2, 24), ha='center', fontsize=8.5, color=MUTED,
+                    arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.1))
+        ax.set_ylim(-0.6, 1.6)
+        ax.set_yticks([])
+        ax.set_xlim(0.88, 1.95)
+        ax.grid(axis='y', visible=False)
+        ax.set_xlabel("XLM-R tokens per word, against each language's own 16k BPE")
+        ax.set_title('The penalty tracks coverage; learnability does not')
+        fig.tight_layout()
+        save(fig, '02-tokenizer-gradient-column')
+
+
+def fig_saturation_column():
+    """Cell 2. The English ladder: more text stops paying at or before 64M tokens."""
+    rows = [r for r in f.results('eng_1b_*')
+            if r.get('steps') and r.get('val_loss')]
+    by = {}
+    for r in rows:
+        by.setdefault(r.get('data_tokens') or r.get('n_tokens'), []).append(r['val_loss'])
+    pts = sorted((k, v) for k, v in by.items() if k)
+    xs = [p[0] for p in pts]
+    means = [sum(v) / len(v) for _, v in pts]
+    los = [min(v) for _, v in pts]
+    his = [max(v) for _, v in pts]
+    with column_type():
+        fig, ax = _column_fig(2.15)
+        ax.axvspan(64e6, xs[-1] * 1.15, color=GRID, alpha=0.65, zorder=0)
+        ax.fill_between(xs, los, his, color=C1, alpha=0.18, zorder=1)
+        ax.plot(xs, means, 'o-', color=C1, markeredgecolor=SURFACE,
+                markeredgewidth=1.4, zorder=3)
+        ax.set_xscale('log')
+        ax.set_xlabel('training tokens (English, fixed compute, 3 seeds a rung)')
+        ax.set_ylabel('val loss')
+        ax.set_title('Past ~64M tokens, more text buys nothing measurable')
+        ax.text(2.6e8, max(means) - 0.05, 'sixteen times the text,\nloss moves −0.080',
+                fontsize=8.5, color=INK2, va='top')
+        fig.tight_layout()
+        save(fig, '05-data-saturation-column')
+
+
+def fig_swap_column():
+    """Cell 8. Swap the vocabulary and nothing else; every seed of ours wins on both tasks."""
+    rows = json.load(open(os.path.join(HERE, 'runs', 'swap_downstream.json'), encoding='utf-8'))
+    # Topic lands under stage 'test' and entities under stage 'ner'; the arm is a phrase, not a
+    # slug. Read both off the file rather than assuming a shape.
+    tasks = [('sib200', 'Topic'), ('masakhaner', 'Entities')]
+    OURS = 'our vocabulary'
+    with column_type():
+        fig, ax = _column_fig(2.2)
+        for y, (task, tlabel) in enumerate(tasks):
+            for arm, color, off in ((OURS, C1, -0.17), ("XLM-R's vocabulary", C2, 0.17)):
+                pts = [r['mean'] for r in rows
+                       if r.get('arm') == arm and r.get('task') == task
+                       and r.get('stage') in ('test', 'ner')]
+                if not pts:
+                    continue
+                ax.plot(pts, [y + off] * len(pts), 'o', color=color, markersize=7,
+                        markeredgecolor=SURFACE, markeredgewidth=1.3, zorder=3)
+                m = sum(pts) / len(pts)
+                ax.plot([m], [y + off], '|', color=INK, markersize=15,
+                        markeredgewidth=2.0, zorder=4)
+                ax.text(m, y + off - 0.31, f'{m:.3f}', ha='center', fontsize=8.6,
+                        color=color, fontweight='bold')
+            ax.text(0.425, y, tlabel, ha='right', va='center', fontsize=9.5, color=INK2)
+        ax.set_yticks([])
+        ax.set_ylim(-0.62, 1.62)
+        ax.set_xlim(0.42, 0.86)
+        ax.grid(axis='y', visible=False)
+        ax.set_xlabel('score, four pretraining seeds a side, both arms dev-swept')
+        ax.set_title('Same text, same compute — only the vocabulary differs')
+        ax.plot([], [], 'o', color=C1, label='our 16k vocabulary')
+        ax.plot([], [], 'o', color=C2, label="XLM-R's 250k")
+        ax.legend(loc='lower right', ncol=2, frameon=False)
+        fig.tight_layout()
+        save(fig, '03-matched-steps-vs-compute-column')
+
+
+def fig_lottery_column():
+    """Cell 9. Twelve runs as points: the means do not separate, the spreads do."""
+    rows = json.load(open(os.path.join(HERE, 'runs', 'tokenizer_seeds.json'), encoding='utf-8'))
+    arms = {}
+    for r in rows:
+        bpc = r.get('bpc')
+        if bpc is None and r.get('val_loss'):
+            cpt = 2.1328 if r['arm'] != 'ours' else 3.7339
+            bpc = r['val_loss'] / math.log(2) / cpt
+        arms.setdefault(r['arm'], []).append(bpc)
+    order = [(k, v) for k, v in arms.items()]
+    order.sort(key=lambda kv: -st.pstdev(kv[1]))
+    with column_type():
+        fig, ax = _column_fig(2.15)
+        for y, (arm, vals) in enumerate(order):
+            color = C2 if y == 0 else C1
+            ax.plot(vals, [y] * len(vals), 'o', color=color, markersize=8,
+                    markeredgecolor=SURFACE, markeredgewidth=1.4, zorder=3)
+            m = sum(vals) / len(vals)
+            ax.plot([m], [y], '|', color=INK, markersize=24, markeredgewidth=2.2, zorder=4)
+            ax.text(m, y + 0.32, f'sd {st.stdev(vals):.3f}', ha='center',
+                    fontsize=9, color=INK, fontweight='bold')
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels(["XLM-R's 250k", 'our 16k'], fontsize=9.5)
+        ax.set_ylim(-0.6, 1.7)
+        ax.grid(axis='y', visible=False)
+        ax.set_xlabel('bits per character, six pre-registered seeds a side')
+        ax.set_title('Not a cost — a lottery. F = 15.1, p = 0.0098')
+        fig.tight_layout()
+        save(fig, '17-tokenizer-lottery-column')
+
+
+def fig_label_quantity_column():
+    """Cell 7. Between-model spread as labels are removed, against topic's for scale.
+
+    The wide figure is a sixteen-line slope chart; at 2.4 in the lines are indistinguishable, so
+    this draws the statistic the study's rule actually decides on -- between-model sd, which does
+    not grow with set size -- at the three label counts.
+
+    The set and the statistics come from , exactly as the wide figure takes
+    them. runs/label_quantity.json holds only the SUBSAMPLED levels; the full split lives in the
+    ordinary MasakhaNER records, and the matched sixteen are the models carrying every level. A
+    first draft read the json alone and drew two points instead of three, with 701 at 0.0190 --
+    the seventeen-model value -- against the board's 0.0195. Both are correct over their own set,
+    which is the trap this experiment is about.
+    """
+    S = label_quantity
+    with open(os.path.join(HERE, 'runs', 'label_quantity.json'), encoding='utf-8') as fh:
+        rows = [r for r in json.load(fh) if 'mean' in r]
+    band_all, _dropped = S.band_models()
+    trained = {slug for slug, _, ok in band_all if ok}
+    by_level = {}
+    for r in rows:
+        if r.get('kind') == 'band' and r['model_slug'] in trained:
+            by_level.setdefault(r['n_train_requested'], {})[r['model_slug']] = r
+    matched = set.intersection(*(set(v) for v in by_level.values()))
+    full = S.full_data_band(matched)
+    n_full = max(r['n_train'] for r in ft_api.results('*', task=S.TASK, lang=S.LANG)
+                 if r.get('steps') == S.STEPS and r.get('lr') == S.BAND_LR
+                 and not r.get('n_train_requested') and r['model_slug'] in matched)
+    levels = [(n_full, full)]
+    for n in sorted(by_level, reverse=True):
+        levels.append((n, S.spread([by_level[n][slug] for slug in matched])))
+
+    xs = list(range(len(levels)))
+    sds = [stats['between_sd'] for _, stats in levels]
+    with column_type():
+        fig, ax = _column_fig(2.15)
+        ax.plot(xs, sds, 'o-', color=C1, markersize=8, markeredgecolor=SURFACE,
+                markeredgewidth=1.4, zorder=3)
+        for x, sd in zip(xs, sds):
+            ax.text(x, sd + 0.0020, f'{sd:.4f}', ha='center', fontsize=9,
+                    color=INK, fontweight='bold')
+        ax.axhline(SIB_SD, ls=(0, (4, 3)), lw=1.6, color=C2, zorder=2)
+        ax.text(xs[-1], SIB_SD - 0.0024, f'SIB-200 topic, {SIB_SD:.4f}', ha='right', va='top',
+                fontsize=8.8, color=C2, fontweight='bold')
+        ax.set_xticks(xs)
+        ax.set_xticklabels([f'{n:,}' for n, _ in levels])
+        ax.set_xlim(-0.32, len(levels) - 0.68)
+        ax.set_ylim(0, SIB_SD * 1.22)
+        ax.set_xlabel(f'NER training labels ({len(matched)} from-scratch models, all levels)')
+        ax.set_ylabel('between-model sd')
+        ax.set_title('Threefold does nothing; tenfold gets 43% of the way')
+        fig.tight_layout()
+        save(fig, '18-label-quantity-column')
+
+
 if __name__ == '__main__':
     import sys
 
     ALL = (fig_headline, fig_gradient, fig_matched, fig_bimodal, fig_saturation, fig_cost,
            fig_why_long, fig_scaling, fig_early_signal, fig_metric_validity, fig_floors,
            fig_how_many_seeds, fig_speedup, fig_pipeline, fig_lr_transfer,
-           fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout, fig_hardware)
+           fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout, fig_hardware,
+           fig_headline_column, fig_floors_column, fig_gradient_column,
+           fig_saturation_column, fig_swap_column, fig_lottery_column,
+           fig_label_quantity_column)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were

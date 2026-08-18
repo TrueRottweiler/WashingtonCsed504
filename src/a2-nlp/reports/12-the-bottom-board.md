@@ -54,11 +54,26 @@ people out: `2.07×, of which 1.32× is efficiency` overflows a 6.35 in column a
 > **All four end when a model finishes training. None covers needing a hundred models and having
 > to believe the differences between them.**
 
-Author line, in the header band: *Jeffrey Stall · A2-NLP · CSED 504 · the upper board is the
-experiment this machinery served.*
+Author line, in the header band: *Jeffrey Stall · CSED 504 · the upper board is the experiment
+this machinery served.*
 
-The assignment asks for team member names. Both boards carry all three — **Jeffrey Stall, Patrick
-Kwok, Leon** — with the role split named once, on this board, in the strip.
+The assignment asks for team member names. Both boards carry all three in full — **Jeffrey Stall,
+Patrick Kwok, Leon Wan** — with the role split named once, on this board, in the strip.
+
+*(17 Aug: "A2-NLP" is off both author lines — it is our internal project code and means nothing to
+a reader, where the course number identifies the work. "Leon" is "Leon Wan" wherever the board
+lists the team, so the two boards do not render a teammate's name two ways side by side. The
+first-name reference in cell 5 is narrative and stays as it is.)*
+
+**Citations**, set as the footer line across the foot of the board. This board is the factory, so
+its footer names the stack the factory is built on; the top board's names the one the experiment
+used. Neither repeats the other:
+
+> **Built with** PyTorch and HuggingFace `tokenizers`, plus NumPy and matplotlib; no training
+> framework above them — the loop, the masking, the scheduler and the run records are this
+> project's own. Long jobs ran on a 2 × RTX PRO 6000 Blackwell workstation, benchmarked against
+> Colab A100 / L4 / T4, a MacBook Pro (M4 Pro, MPS) and an 8 GB laptop. · Nineteen references,
+> in full in report 09 §References.
 
 ---
 
@@ -251,7 +266,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > **148 GPU-hours. ≈71 kWh. ≈$7 of electricity.** Rent the same work on Colab: **$112 on an L4,
 > $111 on an A100** — or **≈1,100 compute units either way, under four months of the 300 a month
 > every student already gets free.** What the faster tier buys is **7 days against 30**, not a
-> cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon.
+> cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon Wan.
 
 *66 words · `runs/hardware.json`*
 
@@ -275,18 +290,23 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 ### Next · sources · AI
 
 > **Next:** a wall meter on the workstation, an audit of which sites dominate 69M tokens of
-> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** 19 references,
-> shortened. **AI:** an assistant wrote much of this code — **96 of 168 commits carry a
-> `Co-Authored-By` trailer**, which is `git log` rather than a promise. It made the building 3–5×
-> faster and the *verifying* no faster at all.
+> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** nineteen
+> references — models, data and statistics — in full in report 09; both footers carry the short
+> form. **AI:** we used **Claude Code** throughout to turn ideas and action points into working
+> code. It made the building much faster and the *verifying* no faster at all — every number here
+> still had to be checked against the records.
 
-*63 words · report 09 §Panel 10*
+*77 words · report 09 §Panel 10*
 
-> **Both numbers moved and one moved down.** It said 120 of 144. Squash-merging collapses a
-> branch's commits into one, so a pull request with four trailered commits arrives as a single
-> trailered commit — the ratio falls as the history is tidied. Worth knowing before quoting a
-> `git log` count as if it were a constant. The hardware figure was the old first "next"; it is
-> built, so a wall meter takes its place as the cheapest unmeasured thing left.
+> **The commit ratio is off the board as of 17 August, and getting it wrong three times is the
+> reason.** It said 120 of 144, then 96 of 168, and a recount on the 17th made it 101 of 173 —
+> squash-merging collapses a branch into one commit, so the ratio falls as the history is tidied.
+>
+> Worse, the method was wrong. **`git log --format='%b' | grep -c` returns 228, more trailers than
+> there are commits**, because a squashed commit carries one trailer per commit it absorbed:
+> counting *lines* counts co-authorships where the sentence claims *commits*. A precise-looking
+> number that has been wrong at every telling is worth less than the plain statement, and the
+> plain statement is what the assignment asks for. Report 09 keeps the derivation.
 
 ---
 

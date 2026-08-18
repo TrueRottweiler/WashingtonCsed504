@@ -63,12 +63,21 @@ runs the same stack whether they're on Windows, macOS, Linux, or Google Colab.
 
 If a hello notebook runs top-to-bottom without errors, your environment is ready.
 
-### Working on the A2 NLP study?
+### The A2 NLP study — *when is it worth training your own model?*
 
-Start at **[`src/a2-nlp/QUICKSTART.md`](src/a2-nlp/QUICKSTART.md)** — ten minutes, one GPU, works
-on free Colab. The factory's interface is [`src/a2-nlp/mlm_api.py`](src/a2-nlp/mlm_api.py) and
-nothing else needs importing. Findings and methodology are in
-[`src/a2-nlp/reports/`](src/a2-nlp/reports/).
+**[`src/a2-nlp/README.md`](src/a2-nlp/README.md)** is the entry point: what the study asks, what
+it found, how to reproduce it end to end, and the citations. Then
+**[`src/a2-nlp/QUICKSTART.md`](src/a2-nlp/QUICKSTART.md)** — ten minutes, one GPU, works on free
+Colab.
+
+The two interfaces are [`mlm_api.py`](src/a2-nlp/mlm_api.py) (pretraining) and
+[`ft_api.py`](src/a2-nlp/ft_api.py) (fine-tuning and evaluation); nothing else needs importing.
+Findings and methodology are in [`src/a2-nlp/reports/`](src/a2-nlp/reports/) — start with
+[the top board](src/a2-nlp/reports/13-the-top-board.md) for the argument and its limits.
+
+**Headline:** a 33.8M-parameter encoder trained from scratch on 64M Yoruba tokens reaches 0.688
+macro-F1 on SIB-200 topic classification against mmBERT's 0.582, and the reason is vocabulary fit
+rather than data volume.
 
 ---
 
