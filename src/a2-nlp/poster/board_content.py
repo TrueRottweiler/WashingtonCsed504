@@ -51,7 +51,10 @@ TOP = REPORTS / '13-the-top-board.md'
 # The two sections of a board file that hold settable text. Everything else in these documents is
 # commentary, and the appendices carry '### ' headings of their own -- so the parse is bounded to
 # these regions rather than run over the whole file.
-CELLS_HEAD = re.compile(r'^## The nine cells\s*$', re.M)
+# "The cells" as well as "The nine cells": the bottom board's 17 Aug redesign dropped the uniform
+# 3x3 (four chart panels, a stat rail, three statement cards), so its section stopped counting
+# itself. The top board still says nine and still has nine.
+CELLS_HEAD = re.compile(r'^## The (?:nine )?cells\b.*$', re.M)
 STRIP_HEAD = re.compile(r'^## The strip\b.*$', re.M)
 TITLE_HEAD = re.compile(r'^## Title block\s*$', re.M)
 NEXT_SECTION = re.compile(r'^## ', re.M)
@@ -70,6 +73,10 @@ FIG = re.compile(r'\*\*Figure:\*\*\s*(.+?)\s*$', re.M)
 # annotation citing a glob, because `runs/ft_sib200_*.json` puts an asterisk mid-line. Four cells
 # skipped the count check that way, and a check that quietly matches nothing is worse than none.
 WORDCOUNT = re.compile(r'^\*(\d+) words\b', re.M)
+# A markdown table inside a panel. The speedups panel is eight rows of measured numbers, and the
+# alternative to parsing them is typing them into the builder -- which is the failure this file
+# was written to end. Header row and the |---|---| rule are dropped; every other row is kept.
+TABLE_ROW = re.compile(r'^\|(.+)\|\s*$', re.M)
 
 # Report 12's writing guides: ~55 words in a cell with a figure, ~110 without, ~100 in a strip
 # block. Keep them -- they are what the prose is written to.
@@ -113,6 +120,7 @@ class Panel:
     body: str
     words: int
     strip: bool = False
+    table: tuple[tuple[str, ...], ...] = ()
 
     @property
     def big_lines(self) -> list[str]:
@@ -157,6 +165,24 @@ def _blockquote(chunk: str) -> str:
     return ' '.join(out).strip()
 
 
+def _table(chunk: str) -> tuple[tuple[str, ...], ...]:
+    """A panel's markdown table as rows of cells, or ().
+
+    The header row and the |---| rule come out: the builder sets its own column headings, and a
+    row of dashes is markdown punctuation rather than content. Emphasis is kept -- the builder
+    renders `**bold**` runs, and which half of a row carries the finding is a decision the build
+    sheet gets to make.
+    """
+    raw = [tuple(c.strip() for c in m.group(1).split('|'))
+           for m in TABLE_ROW.finditer(chunk)]
+    # Data is everything AFTER the |---| rule, and the header is whatever precedes it -- which
+    # may be empty. Dropping rows[0] instead assumed every table has a visible header row, and
+    # ate the first real row of the two panels whose header is '| | |'.
+    rule = next((i for i, r in enumerate(raw)
+                 if any('-' in c for c in r) and all(set(c) <= set('-: ') for c in r)), None)
+    return tuple(raw[rule + 1:]) if rule is not None else tuple(raw)
+
+
 def _figure(chunk: str) -> str | None:
     """The figure filename, or None where the panel says it is set as type instead."""
     m = FIG.search(chunk)
@@ -193,6 +219,7 @@ def _panels(region: str, *, strip: bool) -> list[Panel]:
             title=_plain(m.group(2).strip()),
             big=(big.group(1).strip() if big else ''),
             figure=_figure(chunk),
+            table=_table(chunk),
             body=body,
             words=int(counted.group(1)) if counted else len(body.split()),
             strip=strip,
@@ -314,8 +341,12 @@ def check(path: Path | None = None) -> list[str]:
     problems = []
     for name, panels in _boards(path):
         for n, p in panels.items():
-            if not p.body:
-                problems.append(f'{name} {n}: no panel text found')
+            # A table counts as panel text. Since the 18 August redesign a panel may be a list
+            # -- four language roles, five memory statements -- whose whole content is its
+            # markdown table, and a heading plus a lead sentence saying the same thing twice is
+            # what the redesign was removing. Empty of BOTH is still unprintable.
+            if not p.body and not p.table:
+                problems.append(f'{name} {n}: no panel text and no table found')
                 continue
             for line in p.big_lines:
                 if len(line) > BIG_LINE_CHARS:
