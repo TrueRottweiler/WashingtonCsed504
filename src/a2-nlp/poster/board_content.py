@@ -173,13 +173,14 @@ def _table(chunk: str) -> tuple[tuple[str, ...], ...]:
     renders `**bold**` runs, and which half of a row carries the finding is a decision the build
     sheet gets to make.
     """
-    rows = []
-    for m in TABLE_ROW.finditer(chunk):
-        cells = [c.strip() for c in m.group(1).split('|')]
-        if all(set(c) <= set('-: ') for c in cells):
-            continue
-        rows.append(tuple(cells))
-    return tuple(rows[1:]) if rows else ()
+    raw = [tuple(c.strip() for c in m.group(1).split('|'))
+           for m in TABLE_ROW.finditer(chunk)]
+    # Data is everything AFTER the |---| rule, and the header is whatever precedes it -- which
+    # may be empty. Dropping rows[0] instead assumed every table has a visible header row, and
+    # ate the first real row of the two panels whose header is '| | |'.
+    rule = next((i for i, r in enumerate(raw)
+                 if any('-' in c for c in r) and all(set(c) <= set('-: ') for c in r)), None)
+    return tuple(raw[rule + 1:]) if rule is not None else tuple(raw)
 
 
 def _figure(chunk: str) -> str | None:
@@ -340,8 +341,12 @@ def check(path: Path | None = None) -> list[str]:
     problems = []
     for name, panels in _boards(path):
         for n, p in panels.items():
-            if not p.body:
-                problems.append(f'{name} {n}: no panel text found')
+            # A table counts as panel text. Since the 18 August redesign a panel may be a list
+            # -- four language roles, five memory statements -- whose whole content is its
+            # markdown table, and a heading plus a lead sentence saying the same thing twice is
+            # what the redesign was removing. Empty of BOTH is still unprintable.
+            if not p.body and not p.table:
+                problems.append(f'{name} {n}: no panel text and no table found')
                 continue
             for line in p.big_lines:
                 if len(line) > BIG_LINE_CHARS:

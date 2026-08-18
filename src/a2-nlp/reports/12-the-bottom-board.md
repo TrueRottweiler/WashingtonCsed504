@@ -53,10 +53,17 @@ the face the top board's title is set in and not the Normal weight this board ha
 >
 > **501** the statistics · **502** the mechanics · **503** the language stack · **504** scale —
 > **All four end when a model finishes training. None covers needing a hundred models and having
-> to believe the differences between them.**
+> to believe the differences between them.** This board is the machinery; the board above it is
+> the experiment it served.
 
-Author line, in the header band: *Jeffrey Stall · Patrick Kwok · Leon Wan — CSED 504. This
-board is the machinery; the upper board is the experiment it served.*
+Author line, in the header band: *Jeffrey Stall · Patrick Kwok · Leon Wan*
+
+**The names sit directly under the title**, at 20 pt, which is where a reader of any research
+poster looks for them. Until 18 August they were below the tagline and above a gold rule the
+template master draws, in the smallest type in the band — three names in 9.5 pt on a board two
+feet wide. The course, the institution and the term moved to the line under them; the clause about
+which board is which moved into the takeaway, because it is context for somebody standing in front
+of both and not part of an author line.
 
 **Goals**
 
@@ -64,7 +71,7 @@ board is the machinery; the upper board is the experiment it served.*
 > benchmark — and measure it honestly enough that the numbers survive being checked.
 
 The assignment asks for team member names. Both boards carry all three in full — **Jeffrey Stall,
-Patrick Kwok, Leon Wan** — with the role split named once, on this board, in the strip.
+Patrick Kwok, Leon Wan** — once each, in the header band.
 
 *(17 Aug: "A2-NLP" is off both author lines — it is our internal project code and means nothing to
 a reader, where the course number identifies the work. "Leon" is "Leon Wan" wherever the board
@@ -75,43 +82,35 @@ first-name reference in cell 5 is narrative and stays as it is.)*
 its footer names the stack the factory is built on; the top board's names the one the experiment
 used. Neither repeats the other:
 
-> **Built with** PyTorch and HuggingFace `tokenizers`, plus NumPy and matplotlib; no training
-> framework above them — the loop, the masking, the scheduler and the run records are this
-> project's own. Long jobs ran on a 2 × RTX PRO 6000 Blackwell workstation, benchmarked against
+> **AI statement.** We used **Claude Code** throughout to turn ideas into working code. It made
+> the building faster and the **verifying no faster at all** — every number on this board is
+> regenerated from committed records by a gate that fails the build when a claim and a record
+> disagree. · **Built with** PyTorch and HuggingFace `tokenizers`, plus NumPy and matplotlib; no
+> training framework above them — the loop, the masking, the scheduler and the run records are
+> this project's own. Long jobs ran on a 2 × RTX PRO 6000 Blackwell workstation, benchmarked
+> against
 > Colab A100 / L4 / T4, a MacBook Pro (M4 Pro, MPS) and an 8 GB laptop. · Nineteen references,
 > in full in report 09 §References.
 
 ---
 
-## The cells — v2 of the redesign, 18 August
+## The cells — v3 of the redesign, 18 August
 
-> **What changed from the 17 August version, and why.** Printed at 24 × 36 the charts were too
-> large: a 10.33 in figure is most of a two-column row, and five of them made the board a slideshow
-> of charts with captions. Jeffrey's read, and it is the design now: **the same charts at one
-> column, 6.35 in, about two thirds of the area** — at which width five of them fit three-across,
-> two chart rows do the work three were doing, and the room that frees pays for a full-width
-> speedups table and captions twice as long.
+> **What changed and why.** Six rows now rather than five: memory earns a full-width band of its
+> own, because when a card is too small to *load* a model is a different question from when it is
+> merely slow, and that distinction is the most transferable thing on this half of the poster.
 >
-> Three consequences worth writing down because they are rules now rather than choices.
+> Three panels were rewritten because they did not land — Jeffrey read them cold and could not
+> follow them, which is the only test that counts. The seeds panel had compressed a combinatorial
+> argument nobody has met yet into two sentences; the accumulation panel leaned on "divergence"
+> and a Fisher exact test; the seventeen-languages panel was a paragraph where it wanted a list.
 >
-> **The grid is the top board's grid** — columns at 1.50 / 8.75 / 16.13, 6.35 in wide. The two
-> halves hang one above the other and a reader's eye runs down a column across both, which is worth
-> more than any styling decision either board makes alone.
->
-> **No containers.** The top board has none: headings, a rule, whitespace. A rounded rectangle
-> around every panel was the single thing that read as belonging to a different poster. The stat
-> rail keeps its purple fill, because that is their KEY DETAILS device and matching it is the point.
->
-> **A 6.35 in chart holds axis labels and value labels and nothing longer.** Every sentence that
-> used to sit inside a drawing — figure 25's four-part key, figure 26's callout, figure 26's two
-> footnotes — is in the caption now, set in the board's own 18 pt rather than in whatever a
-> matplotlib text call happened to be scaled to. The chart carries the picture; the caption carries
-> the claim.
+> The rule those three share: **a panel that needs the reader to already know a piece of jargon is
+> a panel that does not work at two meters.** Report 09 keeps every one of the arguments in full.
 
-Layout, top to bottom: a chart row, the full-width speedups table, a second chart row, then the
-two prose rows. That is the order the work happened in, and the full-width band between the chart
-rows keeps them from reading as one six-panel block. Geometry lives in
-`build_posters.FACTORY_GEO`; the words below are the words on the wall, as ever.
+Layout, top to bottom: a chart row, the speedups band, a chart row, the memory band, then two
+prose rows. Geometry lives in `build_posters.FACTORY_GEO`; the words below are the words on the
+wall, as ever.
 
 ### 1 · You do not need the workstation
 
@@ -127,12 +126,11 @@ rows keeps them from reading as one six-panel block. Geometry lives in
 
 **Figure:** `23-poster-run.svg`
 
-> Preparing the corpus — train the tokenizer, encode it, load it onto the card — takes **53
-> seconds**. One pretraining run takes **37 to 85 minutes** depending on the model. A gap of **41×
-> to 96×** is not a judgment call: everything cheap stays in the notebook, everything expensive
-> goes in a queue, and **both paths write the same record**.
+> Preparing the corpus — tokenizer, encoding, loading — takes **53 seconds**. One pretraining run
+> takes **37 to 85 minutes**. A gap of **41× to 96×** is not a judgment call: cheap work stays in
+> the notebook, expensive work goes in a queue, and **both write the same record**.
 
-*60 words · `runs/pipeline_bench.json`*
+*48 words · `runs/pipeline_bench.json`*
 
 ### 3 · The factory, in numbers
 
@@ -141,142 +139,141 @@ rows keeps them from reading as one six-panel block. Geometry lives in
 > 71 kWh at the wall · **62,500** steps a run — 1.024B tokens of updates, the unit that makes two
 > machines comparable · **0** identity collisions, because a vocabulary carries a hash
 
-*The rail: six value–label rows, split on the middots by the builder. The labels run two to three
-times longer than the first version's — a number nobody can read the units of is decoration, and
-"197 pretraining runs" does not say that every one of them started from random weights.*
+*The rail: six value–label rows, split on the middots by the builder.*
 
 ### 4 · What we made faster
 
-> **2.07× on the same four cells** — only **1.32×** of it is efficiency; the rest is a second card
-> nobody had used. Every row had to make the *same* experiment faster: raising the batch while
-> holding **steps** fixed would have been a bigger run that scores better, not a speed-up.
+> **2.07× on the four-cell benchmark** — and only **1.32×** of it is efficiency; the rest is a
+> second card nobody had used. The list is longer than that one number, and two of its best rows
+> are decisions **not** to do something.
 
 | what changed | measured | kept? |
 |---|---|---|
-| dataset resident on the card, no DataLoader | 13.8k → **18.5k img/s** | yes |
-| tokenize once, up front, into a flat array | 53 s against 85 min — **96×** | yes |
+| dataset on the card, no loader | 13.8k → **18.5k img/s** | yes |
+| images as `uint8`, cast per batch | 4× less memory, free cast | yes |
+| augment on the GPU | no PIL, no host copy | yes |
+| tokenize once, up front | 53 s vs 85 min — **96×** | yes |
+| token dtype from the vocab | 16k → **2 bytes a token** | yes |
 | batch 64 → 128 | **1.31×** — 2048 is *slower* | yes |
-| both cards, longest-budget-first | **1.57×**, 91% and 93% busy | yes |
-| bf16 instead of fp16 | **1.34×**, and no loss-scale | yes |
+| both cards, longest first | **1.57×**, 91% / 93% busy | yes |
+| bf16 instead of fp16 | **1.34×**, no loss-scale | yes |
+| TF32 · benchmark · fused Adam | free on Ampere and later | yes |
 | fp16 **+** channels_last | **3.5× slower** on sm_89 | no |
-| drop the per-step `.item()` | **2%** — a live loss is worth it | no |
+| drop the per-step `.item()` | **2%** — not worth it | no |
 | `torch.compile` | no Triton on Windows | can't |
 
-*50 words · report 09 §Optimization · `runs/pipeline_bench.json`*
+*42 words · report 09 §Optimization*
 
 ### 5 · You cannot judge a run early
 
 **Figure:** `27-poster-cliffs.svg`
 
 > Every run that learns sits flat and then falls off a cliff — and **no two fall at the same
-> step**. The earliest is **2,200**, the latest **48,500**: 15% to 90% of the budget. So "still
-> flat at step k" is evidence of nothing. **35 of 195 runs never learned**, and the seven that
-> blew up did not do it before a quarter of the budget was gone.
+> step**. The earliest is **2,200**, the latest **48,500**. So "still flat at step k" is evidence
+> of nothing. **35 of 195 runs never learned**, and we could not have told which.
 
-*68 words · `runs/early_signal.json`*
+*51 words · `runs/early_signal.json`*
 
 ### 6 · The setting four languages want destroys the fifth
 
 **Figure:** `25-poster-transfer.svg`
 
-> Five languages, six learning rates, sixty runs. Every cell is scored against **that language's
-> own best**: ★ its winner, ✕ more than 1.5 nats behind it, ◐ one seed of two, and a number for how
-> far behind. **Four languages land at their best in the outlined column. Igbo collapses there** —
-> and no winner clears its own seed noise.
+> Five languages, six learning rates, sixty runs, each cell scored against **that language's own
+> best**: ★ its winner, ✕ far behind it, ◐ one seed of two. **Four land at their best in the
+> outlined column. Igbo collapses there** — the same setting, a wasted night.
 
-*60 words · `runs/lr_transfer.json` · `runs/budget.json`*
+*46 words · `runs/lr_transfer.json`*
 
 ### 7 · One screen, both cards, a rush order at 9 p.m.
 
 **Figure:** `28-poster-dashboard.svg`
 
-> On 9 August there were **44.7 GPU-hours committed across 69 runs** and Patrick needed a
-> learning-rate sweep before he could write anything. A fleet pins to one card, so the urgent work
-> took **card 1** while the overnight queue kept card 0. Twenty minutes to running — and the
-> promise was a measured **"fifty minutes"**, not "sometime tonight".
+> On 9 August, **44.7 GPU-hours were committed across 69 runs** and Patrick needed a sweep before
+> he could write. A fleet pins to one card, so the urgent work took **card 1** and the queue kept
+> card 0. Twenty minutes to running, and a measured **"fifty minutes"**.
 
-*58 words · report 09 §The rush order · `dashboard.py`*
+*47 words · report 09 §The rush order*
 
-### 8 · An identity is everything that changes the answer
+### 8 · When memory is a wall, and when it is only a speed limit
+
+> What has to **fit** is the model. Everything above that is a choice.
+
+| | |
+|---|---|
+| **The floor is the model** — weights, gradients, optimizer state: 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B model: **84–112 GB**, which no consumer card has. *(arithmetic)* |
+| **Everything above it is batch, and batch is optional.** | Accumulation runs a 16,384-token step as smaller passes — same update, **within 2%** of the cost. |
+| **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
+| **More memory does not buy speed.** | Batch 2048 uses **89.7 GB** and is *slower* than 128. |
+| **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**, 6× under the truth. |
+
+*13 words · report 09 §Memory · `runs/hardware.json`*
+
+### 9 · An identity is everything that changes the answer
 
 > Two runs silently overwrote each other — same filename, different vocabularies, and neither
 > record said so. A filename is an identity, so the vocabulary carries a **hash** rather than a
-> label: `15abd33de5af`. **197 pretraining and 892 fine-tuning runs later, no collision.**
+> label. **197 pretraining and 892 fine-tuning runs later, no collision.**
 
-*41 words · `mlm_api.results()` · `ft_api.results()`*
+*40 words · `mlm_api.results()` · `ft_api.results()`*
 
-### 9 · What "three seeds" really means
+### 10 · A result has to beat your own noise
 
-> **Run it three times against three, and the best you can ever claim is "one chance in ten."**
-> There are only 20 ways to sort six results into two groups of three, and two look this good by
-> luck alone. We required a gap **2.27× the seed spread** instead, and **retired two of our own
-> claims** that failed it.
+> Run the same recipe twice and it lands in two different places. That is the seed, not the change
+> you made. So we measured **our own noise first** and made every claim clear it by **2.27×** — at
+> three runs a side, no test can call anything significant. **Two of our own claims did not clear
+> it. We retired them.**
 
-*59 words · `runs/claims_audit.json`*
+*60 words · `runs/claims_audit.json`*
 
-### 10 · A factory that makes one thing is not a factory
+### 11 · A factory that makes one thing is not a factory
 
-> Seventeen languages in four scripts, because one language is an anecdote and seventeen is a
-> slope. English runs a ladder from **4M to 1,024M tokens**, so the Yoruba result has a **ruler**
-> to measure against. **Twelve languages trained in 48 minutes** — 96 on one card. Adding one is a
-> function call.
+| | |
+|---|---|
+| **English is the ruler.** | A ladder from 4M to 1,024M tokens — something to measure Yoruba against. |
+| **French, Indonesian, Mandarin are the control.** | They cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
+| **Twelve African languages are the gradient.** | One is an anecdote; seventeen is a slope. |
+| **Adding one is a function call.** | **Twelve trained in 48 minutes.** |
 
-*52 words · `runs/gradient_table.json` · report 09 §Why seventeen*
+*Four rows, no prose — the heading is the claim · `runs/gradient_table.json` · report 09 §Why seventeen*
 
 ---
 
-## The strip — the bottom row, which is what a reader leaves with
+## The strip — the bottom row of panels
 
-*Set at the same 18 pt as every other panel now. The strip ran two steps down when it lived in a
-4.45 in box; with the boxes gone it is three more columns on the same grid, and setting it smaller
-was only ever compensating for a box that was too short.*
+### Nine functions, nothing else to import
 
-### Two words that sound alike and do opposite jobs
+> More than sixteen thousand lines behind **nine calls**. Leon read the documentation and asked
+> whether there was an interface he should be using — **a tool nobody can find does not exist**.
+> Only **3%** of the factory is masking-specific: a second study, on next-token prediction,
+> **reuses it unchanged**.
 
-> **Accumulation** runs one 16,384-token step as several smaller passes. It fixes **memory** — it
-> is why an 8 GB laptop and a 24 GB Mac train the identical step, at **6.1** and **16.2 GB**.
-> **Clipping** caps the gradient norm and is supposed to fix **divergence** — at fifteen seeds a
-> side it **did not**: 4 of 15 against 3, Fisher **p = 1.00**.
+*48 words · counted at render time from `mlm_api.py` · `mlm_data.py`*
 
-*63 words · `runs/clip_prevention.json` · report 09 §Memory*
+### What we do not claim, and what we would do next
 
-> **Why this replaced "nine functions, nothing else to import" on 18 August.** Jeffrey's call:
-> the interface panel is a story about our repository, and this is the tradeoff a student with
-> 8 GB of VRAM actually hits. It also keeps a measured *negative* on the board — clipping does
-> not do the job its reputation gives it. The layering argument the interface panel carried
-> survives in cell 10, where adding a language is one function call with a measurement attached.
-> Report 09 §The interface keeps the nine signatures and figure 19.
+> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. The corpus is
+> scraped web text nobody consented to. The audit gate prints **9 claims: 6 supported, 2 not, 1
+> underpowered**. Next: a wall meter, a corpus audit, the evaluation we could not do.
 
-### What we do not claim
+*48 words · `runs/claims_audit.json` · report 09 §Ethics*
 
-> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number, every claim
-> relative. The corpus is scraped web text nobody consented to. And the audit gate prints
-> **9 claims: 6 supported, 2 not, 1 underpowered** — two of the failures ours, printed rather than
-> dropped.
+### Sources
 
-*49 words · `runs/claims_audit.json` · report 09 §Ethics*
+> Y. Liu et al., "RoBERTa: A robustly optimized BERT pretraining approach," arXiv:1907.11692,
+> 2019. · A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL,
+> 2020, pp. 8440–8451. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
+> 2025. · G. Penedo et al., "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025. ·
+> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022, pp. 4488–4508. · D. I. Adelani et al.,
+> "SIB-200," EACL, 2024, pp. 226–245.
 
-### Next · sources · AI
+*Nineteen references in full in report 09 §References. Set as a reference list by the builder,
+one entry a line, split on the middots.*
 
-> **Next:** a wall meter, a corpus audit, a Yoruba-speaking evaluation we could not do.
-> **Sources:** RoBERTa (Liu 2019), XLM-R (Conneau 2020), FineWeb-2 (Penedo 2025), MasakhaNER and
-> SIB-200 (Adelani 2022, 2024) — nineteen in report 09. **AI: Claude Code** throughout; it made
-> building faster and **verifying no faster at all**.
-
-*49 words · report 09 §Panel 10*
-
-> **The commit ratio is off the board as of 17 August, and getting it wrong three times is the
-> reason.** It said 120 of 144, then 96 of 168, and a recount on the 17th made it 101 of 173 —
-> squash-merging collapses a branch into one commit, so the ratio falls as the history is tidied.
->
-> Worse, the method was wrong. **`git log --format='%b' | grep -c` returns 228, more trailers
-> than there are commits**, because a squashed commit carries one trailer per commit it absorbed:
-> counting *lines* counts co-authorships where the sentence claims *commits*. A precise-looking
-> number that has been wrong at every telling is worth less than the plain statement, and the
-> plain statement is what the assignment asks for. Report 09 keeps the derivation.
-
-> **The team names came off this block on 18 August.** They are in the header band, on the author
-> line, where a reader looks for them — and the assignment asks for them once, not twice.
+> **What moved off this block on 18 August.** The team names went to the header, where a reader
+> looks for them and where the assignment asks for them once. "Next" folded into the panel beside
+> it, because a limit and the thing that would fix it are the same sentence. The AI statement went
+> to the footer, which is now 12 pt rather than 7.2 — a compliance line nobody can read is not a
+> compliance line.
 
 ---
 
@@ -287,18 +284,19 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 
 | required | where it is on this board |
 |---|---|
-| Team member names | header band, on the author line — once, not twice |
+| Team member names | header band, directly under the title |
 | Problem / motivation | title block, and cells 1 and 2 |
 | Goals | title block, and report 09 §Goals in full |
-| Tool stack | cells 2, 4, 7 and strip 1 |
-| Pre-existing vs from scratch | cell 10; the top board's panels 3 and 5 |
-| How performance was explored | cells 1, 4, 5, 6 |
-| Dataset EDA | cell 3's inventory and cell 10; the top board's panel 2 carries the corpus EDA |
-| Results / summary statistics | cells 1–10, every one a measured number |
-| Discussion / limitations | cells 5, 9 and strip 2 |
+| Tool stack | cells 2, 4, 7, 8 and strip 1 |
+| Pre-existing vs from scratch | cell 11 and strip 1; the top board's panels 3 and 5 |
+| How performance was explored | cells 1, 4, 5, 6, 8 |
+| Dataset EDA | cell 3's inventory and cell 11; the top board's panel 2 carries the corpus EDA |
+| Results / summary statistics | cells 1–11, every one a measured number |
+| Discussion / limitations | cells 5, 8, 10 and strip 2 |
 | **Ethical impact** | **strip 2**, with the full account in report 09 |
-| Next steps | strip 3 |
-| Citations + AI statement | strip 3, and the footer, with all 19 references in report 09 |
+| Next steps | strip 2, folded in beside the limits they answer |
+| Citations | **strip 3**, in full bibliographic form, with all 19 in report 09 |
+| **AI statement** | the footer, at 12 pt |
 
 ---
 

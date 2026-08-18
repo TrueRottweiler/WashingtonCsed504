@@ -2614,11 +2614,11 @@ WHOLE_COHORT_STEP = 11_000
 # POSTER_BOX is read off build_posters.FACTORY_GEO -- panel width less 0.62 in of gutter, panel
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
-    '23-poster-run': (6.35, 3.25),
-    '25-poster-transfer': (6.35, 3.25),
-    '26-poster-hardware': (6.35, 3.25),
-    '27-poster-cliffs': (6.35, 3.25),
-    '28-poster-dashboard': (6.35, 3.25),
+    '23-poster-run': (6.35, 3.05),
+    '25-poster-transfer': (6.35, 3.05),
+    '26-poster-hardware': (6.35, 3.05),
+    '27-poster-cliffs': (6.35, 3.05),
+    '28-poster-dashboard': (6.35, 3.05),
 }
 
 # And what to ASK matplotlib for so that the file it writes measures POSTER_BOX. Not derived --
@@ -2627,11 +2627,11 @@ POSTER_BOX = {
 # Calibrated by rendering, measuring and correcting; scratchpad/fitsize.py does that and writes
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
-    '23-poster-run': (5.12, 3.59),
-    '25-poster-transfer': (6.91, 3.29),
-    '26-poster-hardware': (5.54, 3.19),
-    '27-poster-cliffs': (7.31, 3.24),
-    '28-poster-dashboard': (7.74, 3.96),
+    '23-poster-run': (5.42, 3.33),
+    '25-poster-transfer': (6.91, 3.03),
+    '26-poster-hardware': (4.99, 2.92),
+    '27-poster-cliffs': (7.31, 2.98),
+    '28-poster-dashboard': (7.71, 3.41),
 }
 
 
@@ -2679,7 +2679,7 @@ def fig_poster_run():
             ax.plot(v, y, 'o', color=color, markersize=19, markeredgecolor=SURFACE,
                     markeredgewidth=3, zorder=3)
             txt = f'{v:.0f} s' if v < 90 else f'{v / 60:.0f} min'
-            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=19, fontweight='bold')
+            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=15, fontweight='bold')
 
         # The span is anchored on the SLOWER run, so the ratio on the wall is the one the
         # caption beside it quotes. Anchored on the faster one it would read 41x against a
@@ -2689,9 +2689,9 @@ def fig_poster_run():
         ax.annotate('', xy=(run, 4.62), xytext=(prep, 4.62),
                     arrowprops=dict(arrowstyle='<->', color=INK2, lw=2.2))
         ax.text((prep * run) ** 0.5, 4.78, f'{run / prep:.0f}×', ha='center', color=INK,
-                fontsize=22, fontweight='bold')
+                fontsize=18, fontweight='bold')
         ax.text(prep * 0.80, 4.62, f'prepare {prep:.0f} s', ha='right', va='center', color=C4,
-                fontsize=14, fontweight='bold')
+                fontsize=13, fontweight='bold')
 
         ax.set_xscale('log')
         ax.set_xlim(0.7, run * 10)
@@ -2815,13 +2815,13 @@ def fig_poster_hardware():
     machines, _, _, _ = _hardware_machines()
     rows = [
         # (device key, what it is, what it costs you)
-        (WS, 'the workstation', '\\$24k'),
+        (WS, 'workstation', '\\$24k'),
         ('NVIDIA A100-SXM4-80GB', 'Colab A100', None),
         ('NVIDIA L4', 'Colab L4', None),
         ('NVIDIA RTX 2000 Ada Generation Laptop GPU', 'laptop, 8 GB', 'yours'),
-        ('NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)', 'laptop, battery', 'yours'),
+        ('NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)', 'on battery', 'yours'),
         ('Tesla T4', 'Colab T4, free', 'free'),
-        ('Apple arm64 (MPS)', 'MacBook M4 Pro', 'yours'),
+        ('Apple arm64 (MPS)', 'MacBook M4', 'yours'),
     ]
     # The workstation's second column -- 197 completed training runs rather than a benchmark --
     # is a methodology point and stays in the report. A poster row that reads "the same box
@@ -2841,7 +2841,12 @@ def fig_poster_hardware():
             price = ('\\$' + format(_project_hours_on(rate, machines) * uph * usd, ',.0f')
                      if uph and usd else '—')
         bars.append(rec['poc']['full_run_hours'])
-        labels.append(name)
+        # The rate goes on the machine's own label -- at 6.35 in there is no column left for it,
+        # and it belongs there anyway, since the bar is computed FROM it. On ONE line: seven
+        # two-line labels in the 2.3 in the plot area gets is 0.33 in a row against 0.33 in of
+        # type, and on the proof they printed through each other.
+        rate_k = rec['poc']['tokens_per_s'] / 1000
+        labels.append(f'{name} · {rate_k:.0f}k tok/s')
         costs.append(f'{price} · {days:.0f}d')
         # Colour carries what it costs you, and the row label says the same thing in words, so
         # nothing here is encoded in colour alone.
@@ -2854,7 +2859,7 @@ def fig_poster_hardware():
         ax.barh(y, bars, 0.62, color=colors, zorder=3)
         for yy, v in zip(y, bars):
             ax.text(v + 0.35, yy, f'{v:.1f} h', va='center', color=INK,
-                    fontsize=16, fontweight='bold')
+                    fontsize=14, fontweight='bold')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2871,12 +2876,12 @@ def fig_poster_hardware():
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
         for yy, cost in zip(y, costs):
-            ax.text(25.4, yy, cost, va='center', color=INK2, fontsize=13)
+            ax.text(25.4, yy, cost, va='center', color=INK2, fontsize=12)
         ax.text(25.4, len(bars) - 0.30, 'the whole project', va='bottom',
                 color=MUTED, fontsize=12)
 
         ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=14, color=INK)
+        ax.set_yticklabels(labels, fontsize=11, color=INK)
         ax.set_xlabel('hours for ONE run  (the 33.8M model)')
         ax.set_xlim(0, 35.6)
         ax.set_ylim(-0.65, len(bars) + 0.10)
@@ -2947,9 +2952,9 @@ def fig_poster_cliffs():
                 color=C1, fontsize=13, va='center', ha='right')
 
         ax.text(60_000, 6.75, 'never learned', ha='right', va='center', color=C2,
-                fontsize=19, fontweight='bold')
+                fontsize=16, fontweight='bold')
         ax.text(1_500, 2.45, 'learned', ha='left', va='center', color=C1,
-                fontsize=19, fontweight='bold')
+                fontsize=16, fontweight='bold')
         ax.set_xlabel('optimizer steps')
         ax.set_ylabel('validation loss')
         ax.set_xlim(0, 62_500)
@@ -2969,21 +2974,25 @@ def fig_poster_dashboard():
     """One screen, both cards, and a rush order at 9 p.m. -- drawn rather than screenshotted.
 
     The real dashboard is a 3000 px web page. Placed in a 6.35 in column that is 470 px to the
-    inch, so its type would print at about 4 pt; cropping cannot fix a pixel density. So this is
-    the dashboard redrawn at poster type in its own visual language -- the queue rows with their
-    status dots, both cards with their utilization bars -- with the two parts that carry the
-    argument boxed and labelled underneath.
+    inch, so its type would print at about 4 pt; cropping cannot fix a pixel density. This is the
+    same screen redrawn at print resolution: the queue with its status dots, both cards with their
+    utilization bars, and the comparison chart that takes up half of the real one.
 
-    The argument is not that we had a dashboard. It is that on 9 August there were 44.7 GPU-hours
-    committed across 69 runs and Patrick needed a learning-rate sweep before he could write
-    anything, and the answer was twenty minutes rather than ten hours: a fleet can be pinned to one
-    card, so an urgent job takes a lane instead of the road, and estimate() runs twenty real steps
-    on the actual card, so what he was told was a measured fifty minutes rather than a shrug.
+    The chrome is small on purpose. A first version set it at poster type and stopped looking like
+    a tool -- what makes a screenshot legible as a screenshot is density. The argument is carried
+    by the two boxed callouts and the caption beside the panel, which are at poster sizes; the rows
+    are there to be recognised rather than read from two meters.
 
-    The fleet totals are deliberately NOT here. The stat rail sits in the row above carrying them
-    off the build sheet, and a second copy computed a different way is how two numbers for one
-    quantity get onto one board.
+    The chart is five real runs -- the English ladder from 4M to 1,024M tokens, seed 0 -- because
+    that is what the dashboard is FOR: watching several configurations of one experiment separate
+    while they are still running. It is also the ladder cell 11 calls the ruler.
     """
+    ladder = [('4M', 'eng_1b_4M_62.5k_afriberta_s0', C1),
+              ('16M', 'eng_1b_16M_62.5k_afriberta_s0', C4),
+              ('64M', 'eng_1b_64M_62.5k_afriberta_s0', C3),
+              ('256M', 'eng_1b_256M_62.5k_afriberta_s0', C5),
+              ('1024M', 'eng_1b_1024M_62.5k_afriberta_s0', C2)]
+
     with _poster_rc():
         fig, ax = plt.subplots(figsize=_poster_figsize('28-poster-dashboard'))
         ax.set_xlim(0, 100)
@@ -2991,61 +3000,74 @@ def fig_poster_dashboard():
         ax.axis('off')
 
         # --- the queue ------------------------------------------------------------------------
-        ax.add_patch(plt.Rectangle((0, 63), 100, 37, facecolor=SURFACE, edgecolor=GRID,
-                                   lw=1.2, zorder=1))
-        ax.text(2.5, 95.5, 'QUEUE', color=MUTED, fontsize=13, fontweight='bold', va='center')
-        ax.text(23, 95.5, f'{RUSH["queued_runs"]} runs · {RUSH["queued_h"]:.1f} GPU-hours '
-                          'committed', color=INK, fontsize=14, va='center')
-        rows = [('yor 16k · seed 0', 'card 0', 1.00, C3),
-                ('yor 16k · seed 1', 'card 0', 0.62, C1),
-                ('yor 250k · seed 0', 'card 0', 0.00, MUTED),
-                ('lr sweep · 5 cells', 'card 1', 0.34, C4)]
-        for i, (name, card, frac, colour) in enumerate(rows):
-            y = 87.0 - i * 6.4
-            ax.plot([3.4], [y], 'o', color=colour, markersize=9, zorder=3)
-            ax.text(7.5, y, name, color=INK, fontsize=14, va='center')
-            ax.text(44, y, card, color=MUTED, fontsize=13, va='center')
-            ax.add_patch(plt.Rectangle((57, y - 1.4), 33, 2.8, facecolor=GRID, lw=0, zorder=2))
+        ax.add_patch(plt.Rectangle((0, 71), 100, 29, facecolor=SURFACE, edgecolor=GRID,
+                                   lw=1.0, zorder=1))
+        ax.text(1.8, 96.5, 'QUEUE', color=MUTED, fontsize=9.5, fontweight='bold', va='center')
+        ax.text(17, 96.5, f'{RUSH["queued_runs"]} runs · {RUSH["queued_h"]:.1f} GPU-hours '
+                          'committed', color=INK, fontsize=10.5, va='center')
+        rows = [('yor 16k · seed 0', 'card 0', 1.00, C3, 'done'),
+                ('yor 16k · seed 1', 'card 0', 0.62, C1, '62%'),
+                ('yor 250k · seed 0', 'card 0', 0.00, MUTED, 'queued'),
+                ('lr sweep · 5 cells', 'card 1', 0.34, C4, '34%')]
+        for i, (nm, card, frac, colour, state) in enumerate(rows):
+            y = 90.0 - i * 4.6
+            ax.plot([2.6], [y], 'o', color=colour, markersize=6, zorder=3)
+            ax.text(5.6, y, nm, color=INK, fontsize=10.5, va='center')
+            ax.text(36, y, card, color=MUTED, fontsize=10, va='center')
+            ax.add_patch(plt.Rectangle((48, y - 1.0), 36, 2.0, facecolor=GRID, lw=0, zorder=2))
             if frac:
-                ax.add_patch(plt.Rectangle((57, y - 1.4), 33 * frac, 2.8, facecolor=colour,
+                ax.add_patch(plt.Rectangle((48, y - 1.0), 36 * frac, 2.0, facecolor=colour,
                                            lw=0, zorder=3))
-            ax.text(92, y, 'done' if frac == 1 else ('queued' if frac == 0 else f'{frac:.0%}'),
-                    color=MUTED, fontsize=12, va='center')
+            ax.text(86, y, state, color=MUTED, fontsize=10, va='center')
 
         # --- the two cards --------------------------------------------------------------------
         for i, (label, util, watt) in enumerate((('cuda:0', 0.91, 298), ('cuda:1', 0.93, 301))):
             x = i * 51
-            ax.add_patch(plt.Rectangle((x, 38), 49, 15, facecolor=SURFACE, edgecolor=GRID,
-                                       lw=1.2, zorder=1))
-            ax.text(x + 2.5, 48.5, label, color=INK, fontsize=15, fontweight='bold', va='center')
-            ax.text(x + 46.5, 48.5, f'{util:.0%}', color=INK, fontsize=15, fontweight='bold',
+            ax.add_patch(plt.Rectangle((x, 57), 49, 11, facecolor=SURFACE, edgecolor=GRID,
+                                       lw=1.0, zorder=1))
+            ax.text(x + 2, 65, label, color=INK, fontsize=11, fontweight='bold', va='center')
+            ax.text(x + 47, 65, f'{util:.0%}', color=INK, fontsize=11, fontweight='bold',
                     va='center', ha='right')
-            ax.add_patch(plt.Rectangle((x + 2.5, 43.2), 44, 2.9, facecolor=GRID, lw=0, zorder=2))
-            ax.add_patch(plt.Rectangle((x + 2.5, 43.2), 44 * util, 2.9, facecolor=C3, lw=0,
+            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45, 2.0, facecolor=GRID, lw=0, zorder=2))
+            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45 * util, 2.0, facecolor=C3, lw=0,
                                        zorder=3))
-            ax.text(x + 2.5, 40.3, f'{watt} / 300 W', color=MUTED, fontsize=12, va='center')
+            ax.text(x + 2, 59.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=9.5,
+                    va='center')
 
-        # --- the pointing. Boxes with their labels directly beneath, no arrows across the
-        # --- figure: the first cut ran three annotations through the same lower third.
-        # 64.0 to 71.6, not 63.6 to 70.2: at 14 pt the row's own text spans 65.4 to 70.2, so
-        # the first box printed its top edge through the words it was pointing at.
-        ax.add_patch(plt.Rectangle((1.6, 64.0), 96.8, 7.6, facecolor='none', edgecolor=C2,
-                                   lw=2.6, zorder=6))
-        ax.text(0, 58.5, 'an urgent sweep takes a LANE, not the road',
-                color=C2, fontsize=14, fontweight='bold', va='center')
-        ax.add_patch(plt.Rectangle((-0.6, 37.4), 101.2, 16.2, facecolor='none', edgecolor=C2,
-                                   lw=2.6, zorder=6))
-        ax.text(0, 32.5, 'the overnight queue keeps working beside it',
-                color=C2, fontsize=14, fontweight='bold', va='center')
+        # --- the callouts, boxed with their labels beneath ------------------------------------
+        # 73.9 to 78.5. Rows sit at 90.0 - 4.6i, so the fourth is at 76.2 and a box starting at
+        # 71.6 put its top edge through the words it was drawn around.
+        ax.add_patch(plt.Rectangle((1.2, 73.9), 97.6, 4.6, facecolor='none', edgecolor=C2,
+                                   lw=2.2, zorder=6))
+        ax.text(0, 53.0, 'an urgent sweep takes a LANE, not the road', color=C2,
+                fontsize=13, fontweight='bold', va='center')
 
-        # --- what came back -------------------------------------------------------------------
-        ax.plot([0, 100], [24, 24], color=GRID, lw=1.4)
-        ax.text(0, 15, '20 minutes', color=INK, fontsize=25, fontweight='bold', va='center')
-        ax.text(0, 6, 'from asking to running', color=INK2, fontsize=13, va='center')
-        ax.text(100, 15, '"50 minutes"', color=C3, fontsize=25, fontweight='bold',
-                va='center', ha='right')
-        ax.text(100, 6, 'measured by estimate()', color=INK2,
-                fontsize=13, va='center', ha='right')
+        # --- and the chart, which is half the real screen --------------------------------------
+        sub = ax.inset_axes([0.0, 0.0, 1.0, 0.44])
+        for (label, tag, colour), dy in zip(ladder, (0.0, 0.0, 0.30, 0.02, -0.28)):
+            try:
+                curve = f.curve(tag)
+            except (FileNotFoundError, KeyError):
+                continue
+            # mlm_api.curve() returns the logged dicts; early_signal.load() is the one that
+            # hands back (step, loss) pairs. Same runs, two shapes, and this read the wrong one.
+            xs = [p['step'] for p in curve]
+            ys = [p['val']['loss'] for p in curve]
+            sub.plot(xs, ys, color=colour, lw=1.8)
+            sub.plot([xs[-1]], [ys[-1]], 'o', color=colour, markersize=5)
+            # Staggered: three of the five land within 0.4 nats of each other and their end
+            # labels printed on top of one another.
+            sub.text(xs[-1] * 1.10, ys[-1] + dy, label, color=colour, fontsize=9.5,
+                     fontweight='bold', va='center')
+        sub.set_xscale('log')
+        sub.set_xlim(300, 160_000)
+        sub.set_xticks([1_000, 10_000])
+        sub.set_xticklabels(['1k', '10k'], fontsize=9.5)
+        sub.tick_params(labelsize=9.5)
+        sub.set_title('five corpus sizes, one experiment, still running',
+                      fontsize=10.5, color=INK2, loc='left', pad=4)
+        for spine in ('top', 'right'):
+            sub.spines[spine].set_visible(False)
         save(fig, '28-poster-dashboard')
 
 if __name__ == '__main__':
