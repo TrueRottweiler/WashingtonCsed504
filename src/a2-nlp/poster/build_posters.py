@@ -563,12 +563,18 @@ def add_stat(
     name: str = "Stat",
 ):
     add_rect(slide, x, y, w, h, fill=fill, radius=True, name=f"{name}_Box")
+    # The value box and the label box must not share vertical space. They used to -- value from
+    # y+0.13 to y+0.13+h*0.55 and label from y+h*0.60, an overlap of ~0.09 in on the 0.80 in cell
+    # band -- and it went unseen for a whole review cycle because every big number on both boards
+    # was digits, and digits have no descenders. "fingerprint" does, and its g and p ran straight
+    # through the gold hash line under it. The overflow gate cannot catch this class: it measures
+    # each shape against its own box, and both shapes fit; the collision is BETWEEN shapes.
     add_text(
         slide,
         x + 0.14,
-        y + 0.13,
+        y + 0.08,
         w - 0.28,
-        h * 0.55,
+        h * 0.52,
         value,
         value_size,
         color=value_color,
@@ -581,9 +587,9 @@ def add_stat(
     add_text(
         slide,
         x + 0.18,
-        y + h * 0.60,
+        y + h * 0.68,
         w - 0.36,
-        h * 0.27,
+        h * 0.24,
         label,
         9.4,
         color=label_color,
