@@ -73,6 +73,10 @@ FIG = re.compile(r'\*\*Figure:\*\*\s*(.+?)\s*$', re.M)
 # annotation citing a glob, because `runs/ft_sib200_*.json` puts an asterisk mid-line. Four cells
 # skipped the count check that way, and a check that quietly matches nothing is worse than none.
 WORDCOUNT = re.compile(r'^\*(\d+) words\b', re.M)
+# A markdown table inside a panel. The speedups panel is eight rows of measured numbers, and the
+# alternative to parsing them is typing them into the builder -- which is the failure this file
+# was written to end. Header row and the |---|---| rule are dropped; every other row is kept.
+TABLE_ROW = re.compile(r'^\|(.+)\|\s*$', re.M)
 
 # Report 12's writing guides: ~55 words in a cell with a figure, ~110 without, ~100 in a strip
 # block. Keep them -- they are what the prose is written to.
@@ -116,6 +120,7 @@ class Panel:
     body: str
     words: int
     strip: bool = False
+    table: tuple[tuple[str, ...], ...] = ()
 
     @property
     def big_lines(self) -> list[str]:
@@ -160,6 +165,23 @@ def _blockquote(chunk: str) -> str:
     return ' '.join(out).strip()
 
 
+def _table(chunk: str) -> tuple[tuple[str, ...], ...]:
+    """A panel's markdown table as rows of cells, or ().
+
+    The header row and the |---| rule come out: the builder sets its own column headings, and a
+    row of dashes is markdown punctuation rather than content. Emphasis is kept -- the builder
+    renders `**bold**` runs, and which half of a row carries the finding is a decision the build
+    sheet gets to make.
+    """
+    rows = []
+    for m in TABLE_ROW.finditer(chunk):
+        cells = [c.strip() for c in m.group(1).split('|')]
+        if all(set(c) <= set('-: ') for c in cells):
+            continue
+        rows.append(tuple(cells))
+    return tuple(rows[1:]) if rows else ()
+
+
 def _figure(chunk: str) -> str | None:
     """The figure filename, or None where the panel says it is set as type instead."""
     m = FIG.search(chunk)
@@ -196,6 +218,7 @@ def _panels(region: str, *, strip: bool) -> list[Panel]:
             title=_plain(m.group(2).strip()),
             big=(big.group(1).strip() if big else ''),
             figure=_figure(chunk),
+            table=_table(chunk),
             body=body,
             words=int(counted.group(1)) if counted else len(body.split()),
             strip=strip,

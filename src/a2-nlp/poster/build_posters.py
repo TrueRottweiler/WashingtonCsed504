@@ -90,6 +90,10 @@ RED = "B63A3A"
 LINE = "D9D2E3"
 
 HEADLINE_FONT = "Encode Sans Normal"
+# What the template's theme actually names as its major font. We had been setting the Normal
+# weight and turning bold on, which is a different, lighter letterform than the one the top board
+# sets its title in -- side by side on a wall the two titles did not look like one poster.
+TITLE_BLACK = "Encode Sans Normal Black"
 SUBHEAD_FONT = "Uni Sans Book"
 BODY_FONT = "Open Sans"
 
@@ -366,6 +370,9 @@ def add_header(
     landscape: bool = False,
     subtitle_pt: float = 18.0,
     author_pt: float = 9.5,
+    title_pt: float = 48.0,
+    title_font: str | None = None,
+    title_caps: bool = False,
 ) -> None:
     """The purple band: eyebrow or wordmark, title, subtitle, author line.
 
@@ -421,13 +428,13 @@ def add_header(
         add_text(
             slide,
             1.50,
-            2.10,
+            1.80,
             19.3,
-            2.05,
-            content["title"],
-            48,
+            2.50,
+            content["title"].upper() if title_caps else content["title"],
+            title_pt,
             color=PAPER,
-            font=HEADLINE_FONT,
+            font=title_font or HEADLINE_FONT,
             bold=True,
             valign=MSO_ANCHOR.MIDDLE,
             name="Header_Title",
@@ -435,7 +442,7 @@ def add_header(
         add_text(
             slide,
             1.53,
-            4.35,
+            4.45,
             19.0,
             0.62,
             content["subtitle"],
@@ -447,9 +454,9 @@ def add_header(
         add_text(
             slide,
             1.53,
-            5.22,
+            5.40,
             18.0,
-            0.35,
+            0.38,
             # The rubric asks for team member names, so this comes off the board's author line
             # rather than being a generic string. It said "A2-NLP Project Team" for a fortnight.
             content.get("author")
@@ -1825,35 +1832,70 @@ def build_board(content: dict, kind: str) -> tuple[Presentation, list[FigureSpec
 # The columns are 0.90 and 23.10 at the edges with a 0.30 gutter, which is wider than v2's 1.50
 # margin on purpose -- Jeffrey asked for less margin and more chart, and 1.20 in of returned
 # width is most of a value label.
+# The top board's column grid, not one of our own. Columns at 1.50 / 8.75 / 16.13, 6.35 in wide,
+# 0.90 gutters, which is what the UW template lays out and what report 13's board uses. The two
+# halves of the poster hang one above the other, so sharing a grid is worth more than any styling
+# decision either board makes alone -- a reader's eye runs down a column across both.
+COL_X = (1.50, 8.75, 16.13)
+COL_W = 6.35
+SPAN2 = 13.60          # two columns and the gutter between them
+SPAN3 = 20.98          # the full measure
+
+# Row tops and heights. The order is Jeffrey's: charts, the speedups table, charts, then the two
+# text rows -- which follows the order the work happened in and puts a full-width band between the
+# two chart rows so they do not read as one six-panel block.
+# 8.40, not 8.05: the template master paints its purple band down to 8.24, and at 8.05 the first
+# line of every heading in the top row printed behind it. Measured off the proof -- furniture this
+# file did not draw is still geometry it has to live inside.
+_ROW = {'a': (8.40, 6.60), 'd': (15.33, 3.90), 'b': (19.56, 6.60),
+        'e': (26.49, 3.62), 'c': (30.44, 3.62)}
+
+
+def _across(row, w=COL_W, n=3):
+    """The n column boxes of a row, or one box spanning the full measure."""
+    y, h = _ROW[row]
+    if n == 1:
+        return ((COL_X[0], y, w, h),)
+    return tuple((COL_X[i], y, w, h) for i in range(n))
+
+
 FACTORY_GEO = {
-    # (x, y, w, h)
-    "hero_chart": (0.90, 8.95, 13.70, 6.90),
-    "rail": (14.85, 8.95, 8.25, 6.90),
-    "row_b": ((0.90, 16.15, 10.95, 6.05), (12.15, 16.15, 10.95, 6.05)),
-    "row_c": ((0.90, 22.50, 10.95, 6.05), (12.15, 22.50, 10.95, 6.05)),
-    # Three across, at the narrower 7.24 in measure the statement cards and the strip share.
-    "cards": tuple((x, 28.85, 7.24, 2.55) for x in (0.90, 8.38, 15.86)),
-    "strip": tuple((x, 31.70, 7.24, 2.40) for x in (0.90, 8.38, 15.86)),
+    "row_a": _across('a'),
+    "row_d": _across('d', SPAN3, 1),
+    "row_b": _across('b'),
+    "row_e": _across('e'),
+    "row_c": _across('c'),
 }
 
-# Which panel goes in which box. Written down rather than derived from the numbering, because the
-# board file's order and the wall's order agreeing is a property worth being able to break: if a
-# panel is ever moved on the wall, this is the one line that changes.
+# Which panel goes in which box, in the order the rows are drawn. Written down rather than derived
+# from the numbering: the board file's order and the wall's order agreeing is a property worth
+# being able to break, and this is the one place that changes when a panel moves.
 FACTORY_PLAN = {
-    "hero_chart": "1", "rail": "2",
-    "row_b": ("3", "4"), "row_c": ("5", "6"),
-    "cards": ("7", "8", "9"), "strip": ("strip1", "strip2", "strip3"),
+    "row_a": ("1", "2", "3"),                        # hardware · pipeline · the rail
+    "row_d": ("4",),                                 # what we made faster, full width
+    "row_b": ("5", "6", "7"),                        # early stopping · transfer · dashboard
+    "row_e": ("8", "9", "10"),                       # identity · seeds · units
+    "row_c": ("strip1", "strip2", "strip3"),         # interface · limits · next
 }
 
-# Type sizes. The template's own guide is 40 pt for a section header and 18 pt for body; a chart
-# panel's heading runs a step under that so the chart keeps the room, and the statement cards and
-# the strip step down again because they are read at the end.
+# What kind of block each panel is. A chart panel gets a figure; a rail is the purple stat block;
+# a table is the speedups grid; everything else is a heading and prose. Only the two that cannot
+# be told apart from the panel itself are listed -- a figure is a chart, and no figure is prose.
+FACTORY_KIND = {"3": "rail", "4": "table"}
+
+# Type. The top board sets section headers at 40 pt, but its headers are single words -- ABSTRACT,
+# RESULTS -- and ours are whole statements. At 6.35 in a 40 pt sentence wraps to three lines and
+# eats the chart, so panel headings run at 32 and the title takes the size back.
+#
+# The title also goes ALL CAPS in the theme's own major font, which is the Black weight and not
+# the Normal weight we had been bolding. Headings stay sentence case: an all-caps SENTENCE at
+# 32 pt is slower to read than the same words set in a heavier face, and these are sentences.
 FACTORY_PT = {
-    "hero_head": 38.0, "hero_cap": 18.0,
-    "panel_head": 30.0, "panel_cap": 18.0,
-    "rail_head": 24.0, "rail_value": 34.0, "rail_label": 15.0,
-    "card_head": 22.0, "card_body": 15.0,
-    "strip_head": 18.0, "strip_body": 14.0,
+    "title": 72.0,
+    "panel_head": 32.0, "panel_cap": 16.0,
+    "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
+    "table_head": 32.0, "table_row": 16.0, "table_lead": 18.0,
+    "card_head": 32.0, "card_body": 18.0,
 }
 
 
@@ -1899,76 +1941,60 @@ def add_rich_text(
     paragraph.alignment = align
     paragraph.space_after = Pt(0)
     paragraph.line_spacing = line_spacing
-    for i, chunk in enumerate(re.split(r"\*\*", text.replace("`", ""))):
+    # Both emphases, not just bold. The build sheet writes `**1.31x**` for a measurement and
+    # `*slower*` for a distinction, and a parse that knew only the first printed the second one's
+    # asterisks on the wall. Split keeps the delimiters so each run knows which it is.
+    for chunk in re.split(r"(\*\*[^*]+\*\*|\*[^*]+\*)", text.replace("`", "")):
         if not chunk:
             continue
+        bold = chunk.startswith("**")
+        italic = not bold and chunk.startswith("*")
         run = paragraph.add_run()
-        run.text = chunk
+        run.text = chunk.strip("*")
         run.font.name = font
         run.font.size = Pt(size)
-        run.font.bold = bool(i % 2)
+        run.font.bold = bold
+        run.font.italic = italic
         run.font.color.rgb = rgb(color)
     return shape
 
 
-def add_chart_panel(
-    slide,
-    figures: list[FigureSpec],
-    panel: Panel,
-    box: tuple[float, float, float, float],
-    *,
-    head_pt: float,
-    head_h: float,
-    cap_pt: float,
-    cap_h: float,
-    name: str,
-) -> None:
-    """Heading, chart, caption. The chart gets whatever the other two do not need.
+def _panel_head(slide, x, y, w, text, pt, name, *, rule=True) -> float:
+    """A heading and the hairline under it. Returns the y where the panel's content starts.
 
-    The panel is filled PAPER rather than PANEL so the figure's own near-white ground does not
-    print as a lighter rectangle inside a darker one -- at two meters that inner edge reads as a
-    second frame and makes the chart look pasted on.
+    This is what replaced the rounded rectangle. A box around every panel was the thing that read
+    as belonging to a different poster than the one hanging above it -- the top board has no
+    containers at all, just headings and whitespace over a shared grid. A 1 pt gold rule does the
+    separating that a border was doing, and gives the chart back the 0.6 in the border and its
+    padding were taking out of a 6.35 in column.
+    """
+    # 1.12, measured: two lines at 32 pt is 77.3 pt and 0.98 in is 70.6. Every heading on the
+    # board wraps to two, so the second line is the size to budget rather than the exception.
+    head_h = 1.12 if pt >= 30 else 0.62
+    add_text(slide, x, y, w, head_h, text, pt, color=UW_PURPLE, font=HEADLINE_FONT,
+             bold=True, name=f"{name}_Heading")
+    if rule:
+        add_line(slide, x, y + head_h + 0.04, x + w, y + head_h + 0.04, UW_GOLD, 1.25)
+    return y + head_h + 0.18
+
+
+def add_chart_panel(slide, figures, panel, box, *, name: str) -> None:
+    """Heading, rule, chart, caption. The chart is drawn at exactly the size it lands.
+
+    The caption is the panel's argument now. At 6.35 in a chart holds axis labels and value labels
+    and nothing longer, so the sentences that used to sit inside the drawing -- figure 25's
+    four-part key, figure 26's callout -- moved out here. That division is better than the one it
+    replaced: the chart carries the picture and the caption carries the claim, and the caption is
+    set in the same 18 pt as every other word on the board rather than in whatever a matplotlib
+    text call happened to be scaled to.
     """
     x, y, w, h = box
-    add_rect(slide, x, y, w, h, fill=PAPER, line=LINE, radius=True, name=f"{name}_Box")
-    add_rect(slide, x, y, 0.11, h, fill=UW_PURPLE, name=f"{name}_Accent")
-
-    inner_x, inner_w = x + 0.34, w - 0.62
-    add_text(
-        slide,
-        inner_x,
-        y + 0.16,
-        inner_w,
-        head_h,
-        panel.title,
-        head_pt,
-        color=UW_PURPLE,
-        font=HEADLINE_FONT,
-        bold=True,
-        name=f"{name}_Heading",
-    )
-    add_rich_text(
-        slide,
-        inner_x,
-        y + h - cap_h - 0.16,
-        inner_w,
-        cap_h,
-        panel.body,
-        cap_pt,
-        color=INK,
-        name=f"{name}_Caption",
-    )
-    top = y + 0.16 + head_h + 0.10
-    figures.append(
-        FigureSpec(
-            _figure_source(panel.figure),
-            inner_x,
-            top,
-            inner_w,
-            (y + h - cap_h - 0.24) - top,
-            name,
-        )
-    )
+    top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["panel_head"], name)
+    cap_h = 1.75
+    fig_h = (y + h - 0.14) - cap_h - 0.16 - top
+    figures.append(FigureSpec(_figure_source(panel.figure), x, top, w, fig_h, name))
+    add_rich_text(slide, x, top + fig_h + 0.16, w, cap_h, panel.body,
+                  FACTORY_PT["panel_cap"], color=INK, name=f"{name}_Caption")
 
 
 def _figure_source(filename: str) -> Path:
@@ -1979,191 +2005,131 @@ def _figure_source(filename: str) -> Path:
     return source
 
 
-def add_rail(slide, panel: Panel, box: tuple[float, float, float, float]) -> None:
+def add_rail(slide, panel, box, *, name: str = "Rail") -> None:
     """The stat rail: the scale of the factory as gold numbers on purple.
 
-    Six value-label pairs, split off the middots in the panel's own body, so the rail cannot say
-    something the build sheet does not. The value is whatever the row leads with in bold and the
-    label is the rest of it -- which means adding a seventh number to the board is a sentence in
-    a markdown file, not a change here.
+    The one panel that keeps a fill, and it keeps it because the top board has the same device --
+    its KEY DETAILS block is a purple panel with a gold heading and white text. Matching it is
+    alignment; the rounded rectangles around everything else were not.
 
-    The numbers are right-aligned in a fixed gutter so they form a column. Left-aligned they
-    ragged against six different digit counts and the eye had nothing to run down.
+    Rows are value-label pairs split off the middots in the panel's own body, so the rail cannot
+    say something the build sheet does not. The labels run two to three times longer than v1's --
+    "pretraining runs" became a sentence that says what a pretraining run IS -- which is the whole
+    of Jeffrey's note: a number nobody can read the units of is decoration.
     """
     x, y, w, h = box
-    add_rect(slide, x, y, w, h, fill=UW_PURPLE, radius=True, name="Rail_Box")
-    add_text(
-        slide,
-        x + 0.35,
-        y + 0.28,
-        w - 0.70,
-        0.50,
-        panel.title,
-        FACTORY_PT["rail_head"],
-        color=UW_GOLD,
-        font=HEADLINE_FONT,
-        bold=True,
-        name="Rail_Heading",
-    )
+    add_rect(slide, x, y, w, h, fill=UW_PURPLE, name=f"{name}_Box")
+    add_text(slide, x + 0.30, y + 0.24, w - 0.60, 0.60, panel.title,
+             FACTORY_PT["rail_head"], color=UW_GOLD, font=HEADLINE_FONT, bold=True,
+             name=f"{name}_Heading")
 
     rows = []
     for part in panel.body.split(" · "):
         m = re.match(r"\s*\*\*(.+?)\*\*\s*(.*)", part.strip(), re.S)
         if m:
             rows.append((m.group(1).strip(), " ".join(m.group(2).split())))
-    top = y + 0.95
-    pitch = (h - 1.25) / max(len(rows), 1)
+    top = y + 0.98
+    pitch = (h - 1.22) / max(len(rows), 1)
     for i, (value, label) in enumerate(rows):
         row_y = top + i * pitch
-        add_text(
-            slide,
-            x + 0.35,
-            row_y,
-            2.45,
-            pitch,
-            value,
-            FACTORY_PT["rail_value"],
-            color=UW_GOLD,
-            font=HEADLINE_FONT,
-            bold=True,
-            align=PP_ALIGN.RIGHT,
-            valign=MSO_ANCHOR.MIDDLE,
-            name=f"Rail_Value{i + 1}",
-        )
-        add_text(
-            slide,
-            x + 2.98,
-            row_y,
-            w - 3.33,
-            pitch,
-            label,
-            FACTORY_PT["rail_label"],
-            color=PAPER,
-            font=BODY_FONT,
-            valign=MSO_ANCHOR.MIDDLE,
-            name=f"Rail_Label{i + 1}",
-        )
+        add_text(slide, x + 0.28, row_y, 1.72, pitch, value, FACTORY_PT["rail_value"],
+                 color=UW_GOLD, font=HEADLINE_FONT, bold=True, align=PP_ALIGN.RIGHT,
+                 valign=MSO_ANCHOR.MIDDLE, name=f"{name}_Value{i + 1}")
+        add_text(slide, x + 2.14, row_y, w - 2.44, pitch, label, FACTORY_PT["rail_label"],
+                 color=PAPER, font=BODY_FONT, valign=MSO_ANCHOR.MIDDLE,
+                 name=f"{name}_Label{i + 1}")
 
 
-def add_statement_card(
-    slide,
-    panel: Panel,
-    box: tuple[float, float, float, float],
-    *,
-    head_pt: float,
-    head_h: float,
-    body_pt: float,
-    fill: str,
-    line: str,
-    name: str,
-) -> None:
+def add_text_panel(slide, panel, box, *, name: str) -> None:
     """A heading that is the finding, and the sentences behind it. No figure, by choice.
 
-    These three panels each spent v2 with a chart slot they had nothing to put in, or a chart
-    that restated the sentence above it. A statement card is what they always were.
+    Statement cards and the strip blocks are the same thing now. They were different sizes when
+    they lived in different-sized boxes; with the boxes gone they are both a heading and a
+    paragraph in a 6.35 in column, and setting the strip two steps down was only ever compensating
+    for a box that was too short.
     """
     x, y, w, h = box
-    add_rect(slide, x, y, w, h, fill=fill, line=line, radius=True, name=f"{name}_Box")
-    add_text(
-        slide,
-        x + 0.28,
-        y + 0.14,
-        w - 0.52,
-        head_h,
-        panel.title,
-        head_pt,
-        color=UW_PURPLE,
-        font=HEADLINE_FONT,
-        bold=True,
-        name=f"{name}_Heading",
-    )
-    body_y = y + 0.14 + head_h + 0.06
-    add_rich_text(
-        slide,
-        x + 0.28,
-        body_y,
-        w - 0.52,
-        (y + h - 0.14) - body_y,
-        panel.body,
-        body_pt,
-        color=INK,
-        name=f"{name}_Body",
-    )
+    top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["card_head"], name)
+    add_rich_text(slide, x, top, w, (y + h - 0.06) - top, panel.body,
+                  FACTORY_PT["card_body"], color=INK, name=f"{name}_Body")
+
+
+# The speedups table's three columns, as a fraction of one half-block's width. `change` takes most
+# of it because that column is prose and the other two are a measurement and one word.
+TABLE_COLS = (0.00, 0.520, 0.860)
+
+
+def add_table_panel(slide, panel, box, *, name: str) -> None:
+    """The speedups table: eight measured changes, in two blocks of four side by side.
+
+    Two blocks rather than one column of eight. At 20.98 in a single eight-row table sets rows
+    0.30 in apart with 15 in of white to the right of every entry, and the eye loses which
+    measurement belongs to which change. Four rows in each half keeps the row band short enough to
+    track and puts the type at 18 pt instead of the 13 it would need in one column.
+
+    Rows come off the build sheet's own markdown table, so a corrected measurement is a one-line
+    edit in report 12 rather than a value typed in here.
+    """
+    x, y, w, h = box
+    top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["table_head"], name)
+    add_rich_text(slide, x, top, w, 0.66, panel.body, FACTORY_PT["table_lead"],
+                  color=INK, name=f"{name}_Lead")
+
+    rows = list(panel.table)
+    half = (len(rows) + 1) // 2
+    block_w = (w - 0.60) / 2
+    row_h = 0.38
+    for b, chunk in enumerate((rows[:half], rows[half:])):
+        bx = x + b * (block_w + 0.60)
+        for c, head in enumerate(("what changed", "measured", "kept?")):
+            add_text(slide, bx + TABLE_COLS[c] * block_w, top + 0.72, block_w * 0.30, 0.24,
+                     head.upper(), 11.0, color=MUTED, font=SUBHEAD_FONT, bold=True,
+                     name=f"{name}_H{b}{c}")
+        for r, cells in enumerate(chunk):
+            ry = top + 0.98 + r * row_h
+            add_line(slide, bx, ry - 0.04, bx + block_w, ry - 0.04, LINE, 0.75)
+            for c, text in enumerate(cells[:3]):
+                cw = (TABLE_COLS[c + 1] if c + 1 < len(TABLE_COLS) else 1.0) - TABLE_COLS[c]
+                add_rich_text(slide, bx + TABLE_COLS[c] * block_w, ry, cw * block_w - 0.10,
+                              row_h - 0.04, text, FACTORY_PT["table_row"],
+                              color=INK if c < 2 else MUTED, name=f"{name}_R{b}{r}C{c}")
 
 
 def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[FigureSpec]]:
-    """The bottom board. Five charts at print size, a stat rail, three statements, the strip.
+    """The bottom board, v2. Five charts at column width, a rail, a table, six blocks of prose.
 
-    THIS IS THE ONE TO PRINT for the factory half, and it is now the only one -- the three
-    design-* alternates were built against SLOTS, which names semantic positions from before the
-    grid was measured, and they can only ever show a subset of a board they predate.
+    The rows are drawn in the order FACTORY_PLAN lists them, which is the order the work happened
+    in rather than the order the panels are numbered: the two chart rows are separated by the
+    full-width speedups band so they do not read as one six-panel block.
     """
     prs, slide = open_template(PORTRAIT_TEMPLATE, 0)
     figures: list[FigureSpec] = []
-    add_header(slide, content, subtitle_pt=22.0, author_pt=16.0)
+    add_header(slide, content, title_pt=FACTORY_PT["title"], title_caps=True,
+               title_font=TITLE_BLACK, subtitle_pt=22.0, author_pt=16.0)
     if content.get("goals"):
-        # y = 6.52 clears a gold rule the template master draws at 6.08-6.39.
-        add_text(
-            slide,
-            1.53,
-            6.42,
-            19.0,
-            0.72,
-            content["goals"],
-            14.0,
-            color=UW_GOLD,
-            font=BODY_FONT,
-            name="Header_Goals",
-        )
-    add_takeaway(slide, content, 1.50, 7.20, 21.0, 1.70)
+        # y = 6.42 clears a gold rule the template master draws at 6.08-6.39.
+        add_text(slide, 1.53, 6.42, 19.0, 0.60, content["goals"], 14.0,
+                 color=UW_GOLD, font=BODY_FONT, name="Header_Goals")
+    # Compressed from 1.70 in: the body starts at 8.30 to sit level with the top board's first
+    # section, and this box is what was in the way.
+    add_takeaway(slide, content, 1.50, 7.12, 21.0, 0.80)
 
     panels = content["panels"]
-
-    def get(key: str) -> Panel | None:
-        return panels.get(key)
-
-    hero = get(FACTORY_PLAN["hero_chart"])
-    if hero and hero.figure:
-        add_chart_panel(
-            slide, figures, hero, FACTORY_GEO["hero_chart"],
-            head_pt=FACTORY_PT["hero_head"], head_h=0.80,
-            cap_pt=FACTORY_PT["hero_cap"], cap_h=0.80, name="Hero",
-        )
-
-    rail = get(FACTORY_PLAN["rail"])
-    if rail:
-        add_rail(slide, rail, FACTORY_GEO["rail"])
-
-    for row in ("row_b", "row_c"):
-        for box, key in zip(FACTORY_GEO[row], FACTORY_PLAN[row]):
-            panel = get(key)
-            if panel and panel.figure:
-                add_chart_panel(
-                    slide, figures, panel, box,
-                    head_pt=FACTORY_PT["panel_head"], head_h=0.98,
-                    cap_pt=FACTORY_PT["panel_cap"], cap_h=1.00, name=f"Cell{key}",
-                )
-
-    for box, key in zip(FACTORY_GEO["cards"], FACTORY_PLAN["cards"]):
-        panel = get(key)
-        if panel:
-            add_statement_card(
-                slide, panel, box,
-                # 0.78, not 0.62: two of the three headings are 48 characters, which is two
-                # lines at 22 pt, and the overflow gate said so -- 53.2 pt of text in 44.6 pt.
-                head_pt=FACTORY_PT["card_head"], head_h=0.78,
-                body_pt=FACTORY_PT["card_body"], fill=PANEL, line=LINE, name=f"Cell{key}",
-            )
-
-    for i, (box, key) in enumerate(zip(FACTORY_GEO["strip"], FACTORY_PLAN["strip"])):
-        panel = get(key)
-        if panel:
-            add_statement_card(
-                slide, panel, box,
-                head_pt=FACTORY_PT["strip_head"], head_h=0.50,
-                body_pt=FACTORY_PT["strip_body"], fill=GOLD_TINT, line=UW_GOLD,
-                name=f"Strip{i + 1}",
-            )
+    for row, keys in FACTORY_PLAN.items():
+        for box, key in zip(FACTORY_GEO[row], keys):
+            panel = panels.get(key)
+            if panel is None:
+                continue
+            name = f"Cell{key}"
+            kindof = FACTORY_KIND.get(key, "chart" if panel.figure else "text")
+            if kindof == "rail":
+                add_rail(slide, panel, box, name=name)
+            elif kindof == "table":
+                add_table_panel(slide, panel, box, name=name)
+            elif kindof == "chart":
+                add_chart_panel(slide, figures, panel, box, name=name)
+            else:
+                add_text_panel(slide, panel, box, name=name)
 
     add_footer(slide, content)
     return prs, figures
@@ -2177,6 +2143,10 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
 # slots named before the grid was measured -- "question", "causal" -- so they can only ever show
 # a subset of a board they predate, and a subset they choose themselves. Rendering three of them
 # beside the real one produced four files a reader has to be told which of to print.
+# A version suffix per half. The factory board is on its second redesign and Jeffrey keeps the
+# previous one to compare against, so its files carry the version and do not collide.
+VERSION = {"factory": "_v2", "yoruba": ""}
+
 BUILDERS = {
     "factory": [("board", build_factory_poster)],
     "yoruba": [
@@ -2560,9 +2530,6 @@ def main() -> None:
         print(f"note: {note}")
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)
-    for pattern in ("*.pptx", "*.pdf", "*-preview.png"):
-        for old in OUTPUTS.glob(pattern):
-            old.unlink()
 
     jobs: list[tuple[Path, list[FigureSpec], bool]] = []
     for kind in ("yoruba-findings", "model-factory"):
@@ -2570,7 +2537,14 @@ def main() -> None:
         for design_name, builder in BUILDERS[which]:
             content = content_from_board(which)
             prs, figures = builder(content, which)
-            path = OUTPUTS / f"{design_name}-{kind}.pptx"
+            path = OUTPUTS / f"{design_name}-{kind}{VERSION[which]}.pptx"
+            # Only what this run writes. The glob that used to sit above this loop deleted
+            # every pptx, pdf and preview in the directory, including a saved earlier version
+            # somebody had put there on purpose.
+            for stale in (path, path.with_suffix(".pdf"),
+                          path.with_name(path.stem + "-preview.png")):
+                if stale.exists():
+                    stale.unlink()
             save_base_presentation(prs, path)
             landscape = prs.slide_width > prs.slide_height
             jobs.append((path, figures, landscape))

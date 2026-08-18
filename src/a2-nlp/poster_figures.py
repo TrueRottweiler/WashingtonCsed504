@@ -23,6 +23,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import early_signal
 import ft_api
 import mlm_api as f
 import study_label_quantity as label_quantity
@@ -2613,11 +2614,11 @@ WHOLE_COHORT_STEP = 11_000
 # POSTER_BOX is read off build_posters.FACTORY_GEO -- panel width less 0.62 in of gutter, panel
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
-    '22-poster-cost': (10.33, 3.57),
-    '23-poster-run': (10.33, 3.57),
-    '24-poster-earlystop': (10.33, 3.57),
-    '25-poster-transfer': (10.33, 3.57),
-    '26-poster-hardware': (13.08, 4.80),
+    '23-poster-run': (6.35, 3.25),
+    '25-poster-transfer': (6.35, 3.25),
+    '26-poster-hardware': (6.35, 3.25),
+    '27-poster-cliffs': (6.35, 3.25),
+    '28-poster-dashboard': (6.35, 3.25),
 }
 
 # And what to ASK matplotlib for so that the file it writes measures POSTER_BOX. Not derived --
@@ -2626,11 +2627,11 @@ POSTER_BOX = {
 # Calibrated by rendering, measuring and correcting; scratchpad/fitsize.py does that and writes
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
-    '22-poster-cost': (9.6, 4.0),
-    '23-poster-run': (9.33, 4.0),
-    '24-poster-earlystop': (12.21, 3.66),
-    '25-poster-transfer': (11.93, 2.68),
-    '26-poster-hardware': (11.22, 4.16),
+    '23-poster-run': (5.12, 3.59),
+    '25-poster-transfer': (6.91, 3.29),
+    '26-poster-hardware': (5.54, 3.19),
+    '27-poster-cliffs': (7.31, 3.24),
+    '28-poster-dashboard': (7.74, 3.96),
 }
 
 
@@ -2648,57 +2649,6 @@ def _poster_rc():
     })
 
 
-def fig_poster_cost():
-    """Panel 1, the hero: what the work cost three ways, and what the faster tier actually buys.
-
-    The point is not that renting is cheap. It is that the two paid tiers cost the SAME and
-    differ only in the wait -- so the note under the rental dot carries both tiers' days, which
-    is the whole claim in a phrase a reader takes at distance.
-    """
-    hours = sum(_workstation_hours_by_preset().values())
-    power = hours * WALL_KW * USD_PER_KWH
-    tiers = _rent_by_tier()
-    rent = min(v['usd'] for v in tiers.values())
-
-    items = [(f'Electricity for\n{hours:.0f} GPU-hours', power, C3),
-             ('Renting the same\nwork on Colab', rent, C1),
-             ('Buying the\nworkstation', 24_000.0, C2)]
-
-    with _poster_rc():
-        fig, ax = plt.subplots(figsize=_poster_figsize('22-poster-cost'))
-        for i, (label, v, color) in enumerate(items):
-            y = len(items) - 1 - i
-            ax.plot([1, v], [y, y], color=color, lw=3.0, alpha=0.35, zorder=1)
-            ax.plot(v, y, 'o', color=color, markersize=22, markeredgecolor=SURFACE,
-                    markeredgewidth=3, zorder=3)
-            # Escaped. A PAIR of dollar signs is a mathtext span to matplotlib and both prices
-            # vanish into italics -- it has happened three times in this file, and this figure
-            # is nothing but prices.
-            ax.text(v * 1.6, y + 0.10, '\\$' + format(v, ',.0f'), va='center', color=INK,
-                    fontsize=30, fontweight='bold')
-
-        # Short names. _rent_by_tier keys by the device string torch reports, which is
-        # "NVIDIA A100-SXM4-80GB" -- correct in a record and unreadable on a wall.
-        short = {'NVIDIA A100-SXM4-80GB': 'A100', 'NVIDIA L4': 'L4', 'Tesla T4': 'T4'}
-        order = sorted(tiers.items(), key=lambda kv: kv[1]['hours'])
-        note = '   ·   '.join(f"{short.get(n, n)}: {v['hours'] / 24:.0f} days" for n, v in order)
-        ax.text(rent * 1.6, 0.74, note, va='center', color=INK2, fontsize=16)
-        ax.text(rent * 1.6, 0.46, 'same bill, different wait', va='center', color=C1,
-                fontsize=17, fontweight='bold')
-
-        ax.set_xscale('log')
-        ax.set_xlim(1, 4e5)
-        ax.set_xticks([1, 10, 100, 1_000, 10_000, 100_000])
-        ax.set_xticklabels(['\\$1', '\\$10', '\\$100', '\\$1k', '\\$10k', '\\$100k'])
-        ax.minorticks_off()
-        ax.set_yticks(range(len(items)))
-        ax.set_yticklabels([i[0] for i in reversed(items)], fontsize=17, color=INK)
-        ax.set_ylim(-0.55, len(items) - 0.35)
-        ax.grid(axis='y', visible=False)
-        ax.tick_params(axis='y', length=0)
-        save(fig, '22-poster-cost')
-
-
 def fig_poster_run():
     """Panel 3: the ratio that decides what belongs in a notebook and what belongs in a queue.
 
@@ -2713,11 +2663,13 @@ def fig_poster_run():
     """
     s = _pipeline_stages()
     prep, run = s['prepare_s'], s['pretrain_big_s']
+    # Short labels. At 6.35 in, "load it onto the card" is a fifth of the figure's width; the
+    # stage names are recoverable from the caption, and the axis is what has to be readable.
     rows = [('train the tokenizer', s['tokenizer_s'], C4),
             ('encode the corpus', s['encode_s'], C4),
-            ('load it onto the card', s['load_s'], C4),
-            ('PRETRAIN the 34M model', s['pretrain_small_s'], C1),
-            ('PRETRAIN the 98M model', run, C1)]
+            ('load onto the card', s['load_s'], C4),
+            ('PRETRAIN 34M', s['pretrain_small_s'], C1),
+            ('PRETRAIN 98M', run, C1)]
 
     with _poster_rc():
         fig, ax = plt.subplots(figsize=_poster_figsize('23-poster-run'))
@@ -2727,78 +2679,32 @@ def fig_poster_run():
             ax.plot(v, y, 'o', color=color, markersize=19, markeredgecolor=SURFACE,
                     markeredgewidth=3, zorder=3)
             txt = f'{v:.0f} s' if v < 90 else f'{v / 60:.0f} min'
-            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=22, fontweight='bold')
+            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=19, fontweight='bold')
 
         # The span is anchored on the SLOWER run, so the ratio on the wall is the one the
         # caption beside it quotes. Anchored on the faster one it would read 41x against a
         # caption saying 96x, and a reader who notices has to work out which to believe.
-        ax.annotate('', xy=(run, 3.52), xytext=(prep, 3.52),
+        # The span moves ABOVE every row. Between rows it had the width of a 6.35 in column to
+        # share with two value labels and lost -- '21 s' and '96x' printed into each other.
+        ax.annotate('', xy=(run, 4.62), xytext=(prep, 4.62),
                     arrowprops=dict(arrowstyle='<->', color=INK2, lw=2.2))
-        ax.text((prep * run) ** 0.5, 3.68, f'{run / prep:.0f}×', ha='center', color=INK,
-                fontsize=26, fontweight='bold')
-        ax.text(prep * 0.85, 3.28, f'prepare: {prep:.0f} s', ha='right', color=C4,
-                fontsize=16, fontweight='bold')
+        ax.text((prep * run) ** 0.5, 4.78, f'{run / prep:.0f}×', ha='center', color=INK,
+                fontsize=22, fontweight='bold')
+        ax.text(prep * 0.80, 4.62, f'prepare {prep:.0f} s', ha='right', va='center', color=C4,
+                fontsize=14, fontweight='bold')
 
         ax.set_xscale('log')
         ax.set_xlim(0.7, run * 10)
-        ax.set_xticks([1, 10, 60, 600, 3600])
-        ax.set_xticklabels(['1 s', '10 s', '1 min', '10 min', '1 hour'])
+        # Three ticks, not five: at this width '10 min' and '1 hour' set as '10 min1 hour'.
+        ax.set_xticks([1, 60, 3600])
+        ax.set_xticklabels(['1 s', '1 min', '1 hour'])
         ax.minorticks_off()
         ax.set_yticks(range(len(rows)))
-        ax.set_yticklabels([r[0] for r in reversed(rows)], fontsize=16, color=INK)
-        ax.set_ylim(-0.55, len(rows) + 0.25)
+        ax.set_yticklabels([r[0] for r in reversed(rows)], fontsize=14, color=INK)
+        ax.set_ylim(-0.55, len(rows) + 0.35)
         ax.grid(axis='y', visible=False)
         ax.tick_params(axis='y', length=0)
         save(fig, '23-poster-run')
-
-
-def fig_poster_earlystop():
-    """Panel 4: the two outcomes overlap at every checkpoint, so no threshold can separate them.
-
-    The report version prices every abandonment rule. A poster cannot carry that and does not
-    need to -- the argument is visible the moment you draw the RANGES rather than the means.
-    Wherever the worst survivor sits below the best failure, a threshold placed anywhere kills
-    healthy runs, and that is true at all eleven checkpoints.
-
-    Only the first eight are drawn. Not every run was carried to the end of the budget, so the
-    sample halves at step 12000 -- 182 runs to 87 -- and that shows up as a cliff in the failure
-    line which is a change of cohort, not a change in training. The eight whole-cohort
-    checkpoints are also the ones the question is actually about: a rule that fires at 24000 of
-    62500 steps has not stopped anything early.
-    """
-    es = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'), encoding='utf-8'))
-    sep = [r for r in es['separation'] if r['step'] <= WHOLE_COHORT_STEP]
-    x = [r['step'] for r in sep]
-    ok_lo = [r['ok_min'] for r in sep]
-    bad_hi = [r['bad_max'] for r in sep]
-
-    with _poster_rc():
-        fig, ax = plt.subplots(figsize=_poster_figsize('24-poster-earlystop'))
-        ax.fill_between(x, ok_lo, bad_hi, color=MUTED, alpha=0.28, lw=0)
-        ax.plot(x, ok_lo, color=C1, lw=3.4)
-        ax.plot(x, bad_hi, color=C2, lw=3.4)
-        ax.plot(x, ok_lo, 'o', color=C1, markersize=9)
-        ax.plot(x, bad_hi, 'o', color=C2, markersize=9)
-
-        # The failure band sits ABOVE the survivor band -- that inversion is the finding, so
-        # each label goes on the far side of its own line and neither can land on the other.
-        # Anchored on the LEFT end and lifted clear. The failure line climbs across the
-        # figure, so a label placed just above it at any interior point is overtaken by the line
-        # as soon as the box gets shorter -- which is what fitting the figure to its slot did.
-        ax.text(x[0], bad_hi[0] + 0.52, 'best run that NEVER LEARNED', ha='left', va='bottom',
-                color=C2, fontsize=17, fontweight='bold')
-        ax.text(x[2], ok_lo[2] - 0.10, 'worst run that LEARNED', ha='left', va='top',
-                color=C1, fontsize=17, fontweight='bold')
-        ax.text(x[-2], (ok_lo[-2] + bad_hi[-2]) / 2, 'they overlap\nat every one',
-                ha='center', va='center', color=INK, fontsize=17, fontweight='bold')
-
-        ax.set_xlabel('checkpoint (optimizer steps)')
-        ax.set_ylabel('nats gained vs untrained')
-        ax.set_xscale('log')
-        ax.set_xticks([500, 2000, 8000])
-        ax.set_xticklabels(['500', '2k', '8k'])
-        ax.minorticks_off()
-        save(fig, '24-poster-earlystop')
 
 
 def fig_poster_transfer():
@@ -2835,23 +2741,24 @@ def fig_poster_transfer():
                 ax.add_patch(plt.Rectangle((c - 0.5, r - 0.5), 1, 1, facecolor=face,
                                            edgecolor=GRID, lw=1.6, zorder=1))
                 ax.text(c, r, mark, ha='center', va='center', color=mcol,
-                        fontsize=24 if big else 15,
+                        fontsize=21 if big else 13,
                         fontweight='bold' if big else 'normal', zorder=3)
 
+        # The outlined column is the whole annotation now. The sentence it used to carry --
+        # and the four-part key below the grid -- are in the caption, where they are set at the
+        # board's 18 pt instead of at whatever this figure gets scaled to.
         c7 = rates.index(7e-4)
         ax.add_patch(plt.Rectangle((c7 - 0.5, -0.5), 1, len(langs), facecolor='none',
-                                   edgecolor=C2, lw=4.0, zorder=4))
-        ax.text(c7, len(langs) - 0.40, 'four land at their best here — Igbo never learns',
-                ha='center', va='bottom', color=C2, fontsize=17, fontweight='bold')
+                                   edgecolor=C2, lw=3.4, zorder=4))
 
         ax.set_xticks(range(len(rates)))
         # Plain numbers with the exponent said once. "7e-4" names a value without landing a
         # point, and a passer-by should not have to parse scientific notation to read a column.
-        ax.set_xticklabels([format(lr * 1e4, 'g') for lr in rates], fontsize=17, color=INK)
+        ax.set_xticklabels([format(lr * 1e4, 'g') for lr in rates], fontsize=15, color=INK)
         ax.set_yticks(range(len(langs)))
-        ax.set_yticklabels([names[l] for l in langs], fontsize=17, color=INK)
+        ax.set_yticklabels([names[l] for l in langs], fontsize=15, color=INK)
         ax.set_xlim(-0.5, len(rates) - 0.5)
-        ax.set_ylim(-0.5, len(langs) + 0.05)
+        ax.set_ylim(-0.5, len(langs) - 0.35)
         ax.set_xlabel('peak learning rate  (×10⁻⁴)')
         # A key, not a legend: four glyphs read in place, no colour lookup. It goes below the
         # axis label in AXES coordinates -- placed in data space it printed between the grid and
@@ -2865,12 +2772,6 @@ def fig_poster_transfer():
         # text, wider than the grid, so it -- not the axes -- decided how wide the file came out.
         # Fitting the figure to its poster slot then shrank the axes and left the key alone,
         # round after round, until the grid had a third of the panel and the key had all of it.
-        ax.text(0.5, -0.46, '★ this language\'s best rate      '
-                            '✕ more than 1.5 nats behind it\n'
-                            '◐ one seed of two      '
-                            '+0.09  nats behind best',
-                transform=ax.transAxes, ha='center', va='center', color=INK2, fontsize=14,
-                linespacing=1.5)
         ax.grid(False)
         ax.tick_params(length=0)
         for spine in ax.spines.values():
@@ -2914,14 +2815,13 @@ def fig_poster_hardware():
     machines, _, _, _ = _hardware_machines()
     rows = [
         # (device key, what it is, what it costs you)
-        (WS, 'the workstation', '\\$24,000 to buy'),
-        ('NVIDIA A100-SXM4-80GB', 'Colab A100, Pro', None),
-        ('NVIDIA L4', 'Colab L4, Pro', None),
-        ('NVIDIA RTX 2000 Ada Generation Laptop GPU', 'a student laptop, 8 GB', 'already yours'),
-        ('NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)', 'the same laptop, unplugged',
-         'already yours'),
+        (WS, 'the workstation', '\\$24k'),
+        ('NVIDIA A100-SXM4-80GB', 'Colab A100', None),
+        ('NVIDIA L4', 'Colab L4', None),
+        ('NVIDIA RTX 2000 Ada Generation Laptop GPU', 'laptop, 8 GB', 'yours'),
+        ('NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)', 'laptop, battery', 'yours'),
         ('Tesla T4', 'Colab T4, free', 'free'),
-        ('Apple arm64 (MPS)', 'MacBook Pro M4 Pro', 'already yours'),
+        ('Apple arm64 (MPS)', 'MacBook M4 Pro', 'yours'),
     ]
     # The workstation's second column -- 197 completed training runs rather than a benchmark --
     # is a methodology point and stays in the report. A poster row that reads "the same box
@@ -2942,10 +2842,10 @@ def fig_poster_hardware():
                      if uph and usd else '—')
         bars.append(rec['poc']['full_run_hours'])
         labels.append(name)
-        costs.append(f'{price} · {days:.0f} days')
+        costs.append(f'{price} · {days:.0f}d')
         # Colour carries what it costs you, and the row label says the same thing in words, so
         # nothing here is encoded in colour alone.
-        colors.append(C2 if fixed == '\\$24,000 to buy'
+        colors.append(C2 if fixed == '\\$24k'
                       else C1 if price.startswith('\\$') else C3)
 
     with _poster_rc():
@@ -2953,19 +2853,15 @@ def fig_poster_hardware():
         y = list(range(len(bars) - 1, -1, -1))
         ax.barh(y, bars, 0.62, color=colors, zorder=3)
         for yy, v in zip(y, bars):
-            ax.text(v + 0.28, yy, f'{v:.1f} h', va='center', color=INK,
-                    fontsize=20, fontweight='bold')
+            ax.text(v + 0.35, yy, f'{v:.1f} h', va='center', color=INK,
+                    fontsize=16, fontweight='bold')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
-        # Clear of the value labels: at 6.05 the rule printed through '5.1 h' and '5.3 h'.
-        # And the claim names the laptop it points at. "The laptop you already own" is refuted
-        # two rows down by the MacBook, which is 3x SLOWER than the free tier -- the finding is
-        # about a discrete 8 GB laptop GPU, and the callout has to say which.
-        lo, hi = y[5] - 0.42, y[3] + 0.42
-        ax.plot([9.50, 9.50], [lo, hi], color=C3, lw=4.0, solid_capstyle='butt', zorder=4)
-        ax.text(9.90, (lo + hi) / 2, 'an 8 GB laptop GPU\nbeats the free tier,\neven unplugged',
-                va='center', color=C3, fontsize=18, fontweight='bold')
+        # The bracket went with its sentence. At 6.35 in it had nowhere to stand that was not
+        # through a value label, and a bare rule with no text beside it points at nothing -- the
+        # claim it made, that an 8 GB laptop GPU beats the free tier even unplugged, is the
+        # caption's opening line, and the three rows are adjacent and in order.
 
         # The cost column. It was a second line inside each tick label until the figure was
         # fitted to its slot, at which point seven two-line labels in 4.80 in printed through
@@ -2975,31 +2871,182 @@ def fig_poster_hardware():
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
         for yy, cost in zip(y, costs):
-            ax.text(21.9, yy, cost, va='center', color=INK2, fontsize=16)
-        ax.text(21.9, len(bars) - 0.30, 'the whole project, 148 GPU-hours', va='bottom',
-                color=MUTED, fontsize=14)
+            ax.text(25.4, yy, cost, va='center', color=INK2, fontsize=13)
+        ax.text(25.4, len(bars) - 0.30, 'the whole project', va='bottom',
+                color=MUTED, fontsize=12)
 
         ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=17, color=INK)
-        ax.set_xlabel('hours for ONE 62,500-step run  (the 33.8M model)')
-        ax.set_xlim(0, 30.6)
+        ax.set_yticklabels(labels, fontsize=14, color=INK)
+        ax.set_xlabel('hours for ONE run  (the 33.8M model)')
+        ax.set_xlim(0, 35.6)
         ax.set_ylim(-0.65, len(bars) + 0.10)
-        ax.set_xticks([0, 4, 8, 12, 16])
-        ax.set_xticklabels(['0', '4 h', '8 h', '12 h', '16 h'])
+        ax.set_xticks([0, 8, 16])
+        ax.set_xticklabels(['0', '8 h', '16 h'])
         ax.grid(axis='y', visible=False)
         ax.tick_params(axis='y', length=0)
         # Two footnotes, because both are the kind of thing that makes a bar mean something
         # other than what it looks like. Set small and muted: a reader who is comparing bars
         # does not need them, and a reader who is about to quote one does.
-        # Two lines, not one. Set on one line this string was wider than the axes, and
-        # bbox_inches='tight' grows the saved figure to whatever the widest artist needs -- so a
-        # footnote was deciding the aspect ratio the poster panel gets placed at.
-        ax.text(0.5, -0.36, 'The Mac holds fp32 where every CUDA row is bf16 or fp16 — '
-                            'directional, not exactly comparable.\n'
-                            'The 98M model runs on the 8 GB laptop too, at 10.1 h.',
-                transform=ax.transAxes, ha='center', va='center', color=MUTED, fontsize=13)
         save(fig, '26-poster-hardware')
 
+
+def fig_poster_cliffs():
+    """Replaces the early-stopping band. Real runs, drawn as their own curves.
+
+    The band version did not land, and Jeffrey put his finger on why: it asked a reader to hold
+    "worst of one group" against "best of the other" and infer an overlap. Figure 08 works because
+    it draws the thing itself -- a flat stretch and then a cliff -- and the reader does the seeing.
+
+    What comes out of the records rather than out of an argument: every run that learns sits on a
+    plateau and then falls off a cliff, and no two fall at the same step. The earliest is 2,200 and
+    the latest 48,500, median 6,600 -- 15% to 90% of the budget. That is why the detector cannot be
+    built. "Still flat at step k" is evidence of nothing, because half the runs that finish well are
+    still flat at step k too.
+
+    TWELVE curves, not eighty-one. The first cut drew every full-budget run and the result was a
+    thicket -- at 6.35 in, eighty-one noisy curves are a texture rather than a picture, and the
+    thing the panel exists to show was inside it somewhere. So the curves are a sample chosen to
+    span the cliff range, and the evidence that the range is real moved to the rug along the
+    bottom, which carries all 141 of them. A dozen lines show the shape; 141 ticks show the spread.
+    """
+    runs = [r for r in early_signal.load() if r['steps'] == 62500]
+    live = [r for r in runs if not r['dead']]
+    dead = [r for r in runs if r['dead']]
+
+    with_cliff = sorted(((early_signal.cliff_step(r), r) for r in live if early_signal.cliff_step(r)),
+                        key=lambda kr: kr[0])
+    picks = [with_cliff[round(i * (len(with_cliff) - 1) / 11)] for i in range(12)]
+    # Two that plateaued and two that blew up: the failures are not one shape, and drawing only
+    # the flat ones would make the panel's claim look easier than it is.
+    flat = [r for r in dead if r['final'] < 6.5][:2]
+    blew = [r for r in dead if r['final'] >= 6.5][:2]
+
+    # Every cliff, including the runs not drawn -- read from the COMMITTED record rather than
+    # recomputed here. Recomputing gives 143 against the record's 141, because runs/ has gained
+    # two runs since early_signal.py last wrote its summary. Both numbers are right about
+    # different days; a figure and the report beside it quoting different ones is not.
+    all_cliffs = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'),
+                                encoding='utf-8'))['cliff_steps']
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('27-poster-cliffs'))
+        floor = 1.55
+        for r in flat + blew:
+            ax.plot([p[0] for p in r['curve']], [p[1] for p in r['curve']],
+                    color=C2, lw=2.2, alpha=0.9, zorder=3)
+        for k, r in picks:
+            ax.plot([p[0] for p in r['curve']], [p[1] for p in r['curve']],
+                    color=C1, lw=1.8, alpha=0.75, zorder=2)
+            y = next(p[1] for p in r['curve'] if p[0] >= k)
+            ax.plot([k], [y], 'o', color=C1, markersize=8, markeredgecolor=SURFACE,
+                    markeredgewidth=1.6, zorder=4)
+
+        for k in all_cliffs:
+            ax.plot([k, k], [floor, floor + 0.22], color=C1, lw=1.1, alpha=0.5, zorder=2)
+        ax.text(62_000, floor + 0.11, f'all {len(all_cliffs)} cliffs',
+                color=C1, fontsize=13, va='center', ha='right')
+
+        ax.text(60_000, 6.75, 'never learned', ha='right', va='center', color=C2,
+                fontsize=19, fontweight='bold')
+        ax.text(1_500, 2.45, 'learned', ha='left', va='center', color=C1,
+                fontsize=19, fontweight='bold')
+        ax.set_xlabel('optimizer steps')
+        ax.set_ylabel('validation loss')
+        ax.set_xlim(0, 62_500)
+        ax.set_ylim(floor - 0.1, 7.7)
+        ax.set_xticks([0, 20_000, 40_000, 60_000])
+        ax.set_xticklabels(['0', '20k', '40k', '60k'])
+        save(fig, '27-poster-cliffs')
+
+# The 9 August snapshot, from report 09's account of the rush order. These are the only numbers
+# on this figure that are not counted at render time, and they describe one evening rather than a
+# property of the system -- which is why they are named here and quoted in the caption rather than
+# drawn as if they were measured continuously.
+RUSH = {'queued_h': 44.7, 'queued_runs': 69, 'answer_min': 20, 'promised_min': 50}
+
+
+def fig_poster_dashboard():
+    """One screen, both cards, and a rush order at 9 p.m. -- drawn rather than screenshotted.
+
+    The real dashboard is a 3000 px web page. Placed in a 6.35 in column that is 470 px to the
+    inch, so its type would print at about 4 pt; cropping cannot fix a pixel density. So this is
+    the dashboard redrawn at poster type in its own visual language -- the queue rows with their
+    status dots, both cards with their utilization bars -- with the two parts that carry the
+    argument boxed and labelled underneath.
+
+    The argument is not that we had a dashboard. It is that on 9 August there were 44.7 GPU-hours
+    committed across 69 runs and Patrick needed a learning-rate sweep before he could write
+    anything, and the answer was twenty minutes rather than ten hours: a fleet can be pinned to one
+    card, so an urgent job takes a lane instead of the road, and estimate() runs twenty real steps
+    on the actual card, so what he was told was a measured fifty minutes rather than a shrug.
+
+    The fleet totals are deliberately NOT here. The stat rail sits in the row above carrying them
+    off the build sheet, and a second copy computed a different way is how two numbers for one
+    quantity get onto one board.
+    """
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('28-poster-dashboard'))
+        ax.set_xlim(0, 100)
+        ax.set_ylim(0, 100)
+        ax.axis('off')
+
+        # --- the queue ------------------------------------------------------------------------
+        ax.add_patch(plt.Rectangle((0, 63), 100, 37, facecolor=SURFACE, edgecolor=GRID,
+                                   lw=1.2, zorder=1))
+        ax.text(2.5, 95.5, 'QUEUE', color=MUTED, fontsize=13, fontweight='bold', va='center')
+        ax.text(23, 95.5, f'{RUSH["queued_runs"]} runs · {RUSH["queued_h"]:.1f} GPU-hours '
+                          'committed', color=INK, fontsize=14, va='center')
+        rows = [('yor 16k · seed 0', 'card 0', 1.00, C3),
+                ('yor 16k · seed 1', 'card 0', 0.62, C1),
+                ('yor 250k · seed 0', 'card 0', 0.00, MUTED),
+                ('lr sweep · 5 cells', 'card 1', 0.34, C4)]
+        for i, (name, card, frac, colour) in enumerate(rows):
+            y = 87.0 - i * 6.4
+            ax.plot([3.4], [y], 'o', color=colour, markersize=9, zorder=3)
+            ax.text(7.5, y, name, color=INK, fontsize=14, va='center')
+            ax.text(44, y, card, color=MUTED, fontsize=13, va='center')
+            ax.add_patch(plt.Rectangle((57, y - 1.4), 33, 2.8, facecolor=GRID, lw=0, zorder=2))
+            if frac:
+                ax.add_patch(plt.Rectangle((57, y - 1.4), 33 * frac, 2.8, facecolor=colour,
+                                           lw=0, zorder=3))
+            ax.text(92, y, 'done' if frac == 1 else ('queued' if frac == 0 else f'{frac:.0%}'),
+                    color=MUTED, fontsize=12, va='center')
+
+        # --- the two cards --------------------------------------------------------------------
+        for i, (label, util, watt) in enumerate((('cuda:0', 0.91, 298), ('cuda:1', 0.93, 301))):
+            x = i * 51
+            ax.add_patch(plt.Rectangle((x, 38), 49, 15, facecolor=SURFACE, edgecolor=GRID,
+                                       lw=1.2, zorder=1))
+            ax.text(x + 2.5, 48.5, label, color=INK, fontsize=15, fontweight='bold', va='center')
+            ax.text(x + 46.5, 48.5, f'{util:.0%}', color=INK, fontsize=15, fontweight='bold',
+                    va='center', ha='right')
+            ax.add_patch(plt.Rectangle((x + 2.5, 43.2), 44, 2.9, facecolor=GRID, lw=0, zorder=2))
+            ax.add_patch(plt.Rectangle((x + 2.5, 43.2), 44 * util, 2.9, facecolor=C3, lw=0,
+                                       zorder=3))
+            ax.text(x + 2.5, 40.3, f'{watt} / 300 W', color=MUTED, fontsize=12, va='center')
+
+        # --- the pointing. Boxes with their labels directly beneath, no arrows across the
+        # --- figure: the first cut ran three annotations through the same lower third.
+        # 64.0 to 71.6, not 63.6 to 70.2: at 14 pt the row's own text spans 65.4 to 70.2, so
+        # the first box printed its top edge through the words it was pointing at.
+        ax.add_patch(plt.Rectangle((1.6, 64.0), 96.8, 7.6, facecolor='none', edgecolor=C2,
+                                   lw=2.6, zorder=6))
+        ax.text(0, 58.5, 'an urgent sweep takes a LANE, not the road',
+                color=C2, fontsize=14, fontweight='bold', va='center')
+        ax.add_patch(plt.Rectangle((-0.6, 37.4), 101.2, 16.2, facecolor='none', edgecolor=C2,
+                                   lw=2.6, zorder=6))
+        ax.text(0, 32.5, 'the overnight queue keeps working beside it',
+                color=C2, fontsize=14, fontweight='bold', va='center')
+
+        # --- what came back -------------------------------------------------------------------
+        ax.plot([0, 100], [24, 24], color=GRID, lw=1.4)
+        ax.text(0, 15, '20 minutes', color=INK, fontsize=25, fontweight='bold', va='center')
+        ax.text(0, 6, 'from asking to running', color=INK2, fontsize=13, va='center')
+        ax.text(100, 15, '"50 minutes"', color=C3, fontsize=25, fontweight='bold',
+                va='center', ha='right')
+        ax.text(100, 6, 'measured by estimate()', color=INK2,
+                fontsize=13, va='center', ha='right')
+        save(fig, '28-poster-dashboard')
 
 if __name__ == '__main__':
     import sys
@@ -3012,8 +3059,11 @@ if __name__ == '__main__':
            fig_saturation_column, fig_swap_column, fig_lottery_column,
            fig_label_quantity_column,
            # The poster set: the same records, drawn for a wall rather than a page.
-           fig_poster_cost, fig_poster_hardware, fig_poster_run, fig_poster_earlystop,
-           fig_poster_transfer)
+           # The poster set. fig_poster_cost retired when its three numbers moved
+           # into the hardware panel's caption, and fig_poster_earlystop when the
+           # band it drew was replaced by the runs themselves.
+           fig_poster_hardware, fig_poster_run, fig_poster_cliffs,
+           fig_poster_transfer, fig_poster_dashboard)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
