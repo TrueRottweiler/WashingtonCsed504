@@ -25,23 +25,20 @@ ten panels — go there when a cell makes somebody want the whole argument.*
 | body | **18 pt** |
 | photo caption | 12 pt |
 
-**The grid this board uses.** Three rows of **6.70 in** with 0.25 in gutters, then a **4.45 in**
-strip across the foot. Nine cells of 6.35 × 6.70 in, three strip blocks of 6.35 × 4.45.
+**The grid this board uses — v3.** A hero row (one 13.7 in chart panel beside an 8.25 in stat
+rail), two 10.95 in chart panels, one 10.95 in chart panel beside three stacked statement cards,
+and the strip. Four charts total, each drawn at the exact size it prints so its in-chart type is
+real 13–24 pt, not a 0.3× reduction of a report figure. Geometry in `build_posters.FACTORY_GEO`.
 
-**Word budgets, which are hard limits rather than targets.** A cell spends 0.6 in on its header,
-1.4 in on the big number, 2.3 in on a figure, and has **1.9 in left — about 55 words at 18 pt.**
-A cell with no figure gets about 110. A strip block gets about 100.
+**Word budgets, v3.** A chart panel's caption is **15–25 words** with the key phrase bold — the
+chart carries the argument, the caption points at it. A statement card runs **30–45 words** behind
+a statement heading that IS the finding. The 55-words-per-cell arithmetic above described v2's
+uniform nine-cell grid and survives in git history; the constraint that replaced it is blunter:
+**if a panel needs a paragraph, its chart is not doing its job.**
 
-**What 55 words means for the writing.** It is three sentences. The
-Problem / Hypothesis / Approach / Results / Learning structure **cannot fit on a panel** and does
-not belong here — it is the report's spine. A cell states the question, the answer, and why it
-matters, and the figure does the rest.
-
-**The big number must fit about 18 characters per line.** This is the constraint that catches
-people out: `2.07×, of which 1.32× is efficiency` overflows a 6.35 in column and has to become
-`2.07×` over `1.32× real`. Check every one against the measure before setting it.
-
-![The bottom board, drawn to scale on the real template](figures/20-board-layout.png)
+**Headings are statements, not questions.** "Does a tuned setting transfer?" makes the reader do
+the work at two meters. "The rate three languages love is fatal to a fourth" hands them the
+answer and lets the chart prove it.
 
 ---
 
@@ -77,233 +74,140 @@ used. Neither repeats the other:
 
 ---
 
-## The nine cells
+## The cells — v3, 17 August
 
-> **A decision three cells need before setting.** Cells 2, 3 and 5 each carry a **second block**
-> below, added on 12 August. A cell holds ~55 words *with* a figure or ~110 *without*, and two
-> blocks is 120. So each of those three is a straight choice: **keep the figure and cut the second
-> block, or drop the figure and run both blocks as type.** My recommendation in each case —
+> **Why the nine-cell grid went.** The proof PNGs said it before anyone did: this board's charts
+> were report figures drawn 8–16 in wide and scaled to ~0.3× inside a 2.12 in slot, so their axis
+> type printed at 3–5 pt beside 18 pt prose. Jeffrey's call, quoted because it is the design rule
+> now: **a poster with three or four readable charts beats a poster with eight nobody can read,
+> and 15–20 words under a chart beat 55.** The template's own sample slide agrees — its
+> demonstration figure is 10 in wide and its example charts are 4.3 in tall, not 2.1.
 >
-> - **Cell 2:** drop `14-where-the-speedup-came-from.svg`. The seventeen-language argument is the
->   stronger content and the speedup decomposition survives as a big number.
-> - **Cell 3:** keep `15-what-a-run-is-made-of.svg`; the rush-order block moves to **cell 4**,
->   which is about records and queues and is currently the lightest cell on the board.
-> - **Cell 5:** keep `19-the-interface.svg` and cut the masking block to one sentence — *"35 of
->   1,114 lines touch masking; a second study on a different objective already shares this
->   factory."* It is a footnote-sized point and the figure is doing more work.
->
-> None of this is settled. It is the last real layout decision on the board.
+> v3 keeps the material and spends it differently: **four charts drawn at the exact size they
+> print** (in-chart type 13–24 pt, no legends — series are labelled where they sit), a **stat
+> rail** carrying the scale of the factory in six numbers, and **three statement cards** whose
+> point was always a sentence rather than a picture. Question-headings became **statements** — a
+> reader two meters away takes the answer without stopping. The tokens-not-epochs lesson folds
+> into the rail; the 2.07×/1.32× optimization story returns to report 09, where its argument
+> lives in full; the rush-order story stays in report 03. Nothing was deleted — it moved to where
+> it is read at reading distance.
 
-Read left to right, top to bottom. The top row builds a factory; the middle row makes it
-survivable, shareable and trustworthy; the bottom row spends the instruments, and two of those
-three answers are *no*.
+Layout: a hero row (13.7 in chart panel beside an 8.25 in rail, 6.55 in deep), two 10.95 in chart
+panels, one 10.95 in chart panel beside three stacked statement cards, then the strip. Geometry
+lives in `build_posters.FACTORY_GEO`; the words below are the words on the wall, as ever.
 
-### 1 · What does a run cost, and in what unit?
+### 1 · You buy latency, not access
 
-**Big number:** `62,500 steps` / `= 1.024B tokens` · **Figure:** `21-hardware.svg`
+**Figure:** `22-poster-cost.svg`
 
-> Every course measures training in epochs — one pass over the data. That stops meaning anything
-> once the dataset is the variable, which is the first thing a scaling study does: at 4M tokens
-> the model sees the corpus sixty times; at 1,024M, a quarter of it once. **Tokens of updates**
-> survives both — and fixing the unit is what lets the figure below compare hardware and nothing
-> else.
+> **148 GPU-hours ≈ $7 of electricity**, against **≈$112** to rent the same work. The faster
+> tier buys **7 days instead of 30**, not a cheaper bill.
 
-*69 words · `runs/scaling_law.json` · `runs/hardware.json`*
+*24 words · `runs/hardware.json` · `mlm_api.results()`*
 
-**Over the 55-word guide on purpose, and worth it.** Two additions. *"One pass over the data"*
-glosses **epoch**, which is the one term on this board a 501 student may genuinely not have met.
-And the closing clause is the bridge this cell was missing: a reader saw epochs-versus-tokens
-sitting above a chart of eight machines with nothing joining them. Fixing the unit is precisely
-what makes that chart legible, and saying so costs twelve words.
+> **One honesty note before it prints, carried over from v2.** *148 GPU-hours* is measured.
+> *71 kWh* and *$7* are not: they are 148.0 × 300 W × 1.65 × $0.0986, and only the 300 W was ever
+> observed. They could be a third out either way and the sentence would still be true — which is
+> why the board writes them with "≈" rather than as readings. Report 09 §Cost has the derivation.
 
-*(First draft of this ran to 91 words, which is past what the column physically holds — the
-guide is approximate, the column is not. 67 fits.)*
+### 2 · The factory, in numbers
 
-### 2 · Why optimize before anything needs it?
+> **197** pretraining runs · **892** fine-tuning runs · **17** languages, four scripts ·
+> **148** GPU-hours across two cards · **62,500** steps per run — 1.024B tokens, the unit that
+> makes machines comparable · **0** record-identity collisions
 
-**Big number:** `2.07×` / `1.32× real` · **Figure:** `14-where-the-speedup-came-from.svg`
+*The rail: six value–label rows, split on the middots by the builder. "Tokens of updates" is the
+unit because an epoch stops meaning anything once dataset size is the variable — the full
+sentence lives in report 09 §Units.*
 
-> Nothing needed to be fast yet, which is the argument against doing it. 25.2 → 12.2 minutes —
-> but only **1.32× is efficiency**; the rest is a second card. The hours saved are not the point.
-> **197 models and 892 fine-tuning runs, across 17 languages, and only one is Yoruba.** At 25
-> minutes that control set is a week's work and gets cut. At 12 it runs.
+### 3 · Cheap stays interactive; expensive goes in a queue
 
-*67 words · `mlm_api.results()` · `ft_api.results()` · report 03*
+**Figure:** `23-poster-run.svg`
 
-> **Why the wording changed.** This said "1,089 models", which is 197 + 892 and is not 1,089
-> models — 892 of them are fine-tuning runs on top of the 197. Nobody would have caught it from
-> the board, and it is the first question a reviewer at the poster would ask.
+> Prepare: **53 s**. One pretraining run: **85 min**. A gap of **96×** is not a judgment call —
+> and both paths write **the same record**.
 
-**Second block, if the cell can take two:**
+*23 words · `runs/pipeline_bench.json`*
 
-> **Why train Mandarin, French and Indonesian for a Yoruba study?** Because "the penalty tracks
-> coverage" cannot be shown on one language — Yoruba is Latin-script, African and under-served all
-> at once, and you cannot tell which one is doing the work. Ten covered languages against seven
-> uncovered, four scripts, three continents. **Mandarin is the row that kills the script
-> explanation.**
+### 4 · Do not build the early-stopping detector
 
-*58 words · `runs/gradient_table.json`*
+**Figure:** `24-poster-earlystop.svg`
 
-### 3 · What belongs in a notebook, and what belongs in a queue?
+> **35 of 195 runs never learned** — yet at **every checkpoint** the best doomed run looks
+> better than the worst healthy one. Acting on the signal loses GPU-hours on net.
 
-**Big number:** `53 s vs 85 min` / `96×` · **Figure:** `15-what-a-run-is-made-of.svg`
+*28 words · `runs/early_signal.json`*
 
-> Do not choose on principle — measure the ratio and let it choose. Preparing the corpus is **53
-> seconds**; one pretraining run is **85 minutes**. A gap of **96×** is not a judgment call.
-> Everything cheap stays interactive, everything expensive goes in a queue you can walk away from,
-> and the part that makes it work rather than merely tidy: **both paths write the same record.**
+### 5 · The rate three languages love is fatal to a fourth
 
-*66 words · `runs/pipeline_bench.json`*
+**Figure:** `25-poster-transfer.svg`
 
-**Second block — the rush order:**
+> Five languages, six rates, sixty runs. Hausa, Nyanja and Swahili peak at **7e-4**; **Igbo
+> collapses there**. And no language's winner clears its own **seed noise**.
 
-> A queue that only runs the plan it was given is a batch job. On 9 August there were **44.7
-> GPU-hours across 69 runs** committed to both cards when Patrick needed four cells now. Pin the
-> urgent fleet to one card; `reuse=True` means restarting costs the one cell in flight, not ten
-> hours; and `estimate()` measures twenty real steps, so the answer was **"fifty minutes"** rather
-> than "sometime tonight."
+*25 words · `runs/lr_transfer.json` · `runs/budget.json`*
 
-*62 words · `mlm_api.estimate()` · `mlm_fleet.py --gpu-base`*
+### 6 · Three seeds cannot say p < 0.05
 
-### 4 · What makes a record survive you?
+> Three against three is **twenty possible shufflings**, so the smallest p an exact test can
+> return is **0.10**. Our rule: real means clearing **2.27× the seed spread**. **Two of our own
+> claims sat in that gap — both retired.**
 
-**Big number:** `fingerprint` / `15abd33de5af` · **Figure:** `07-dashboard.png`
+*39 words · `runs/claims_audit.json`*
 
-> Two runs silently overwrote each other. Two people prepared "the same" corpus and got different
-> vocabularies, and nothing in either record said so. A filename is an identity, and an identity
-> has to include **everything that changes the answer** — so the vocabulary gets a hash rather
-> than a label. 197 pretraining runs and 892 fine-tuning runs later, no collision has survived.
+### 7 · An identity is everything that changes the answer
 
-*62 words · `mlm_api.results()` · `ft_api.results()`*
+> Two runs silently overwrote each other — same filename, different vocabularies, and neither
+> record said so. The vocabulary gets a **hash**, not a label: **197 pretraining and 892
+> fine-tuning runs later, no collision.**
 
-### 5 · What does someone else have to be able to call?
+*33 words · `mlm_api.results()` · `ft_api.results()`*
 
-**Big number:** `9` / `functions` · **Figure:** `19-the-interface.svg`
+### 8 · "Matched steps" handed one arm 5.1× the compute
 
-> **Nine functions**, nothing else to import, on sixteen thousand lines they never open. Three
-> things it had to be — callable, shareable, runnable on one card — and a fourth we got wrong.
-> Leon read the documentation and asked whether there was an interface he should be using. There
-> was. **A tool nobody can find does not exist**, and nobody files a bug to tell you.
+> Convert to **bits per character** and the vocabulary divides back out. At 12,000 steps each:
+> 16k vocab **1.131 bpc, 8 min**; 250k vocab **0.989 bpc, 42 min** — the better score cost five
+> times the budget. **Fairness is a property of the unit.**
 
-*66 words · counted at render time from `mlm_api.py`*
-
-**Second block — is it a masked-LM factory, or a factory?**
-
-> **35 of 1,114 lines touch masking — about 3%.** The corpus prep, the resident token store, the
-> records, the scheduler and the estimator have no opinion about what the model predicts. Proof
-> rather than claim: a **second study on a different objective** — next-token prediction, LSTM vs
-> GPT — already shares the token store, the scheduler and the dashboard. A general study needs a
-> different `pretrain()`, not a different API.
-
-*63 words · counted from `mlm_data.py`, `mlm_train.py`*
-
-### 6 · Is this difference real?
-
-**Big number:** `2.27×` / `not 1.0×` · **Figure:** `13-how-many-seeds.svg`
-
-> Our rule was "bigger than the seed spread" — half a rule: sound at rejecting noise, silent just
-> above it. At three seeds a difference must clear **2.27×** the spread. Worse: three against
-> three is only twenty possible shufflings, so the smallest p the test can return is **0.10**,
-> however far apart the arms land. Two of our claims sat in that gap. Both retired.
-
-*65 words · `runs/claims_audit.json`*
-
-**Why this one is over the guide.** "The exact test cannot return a p below 0.10" is the most
-useful sentence on the board and the easiest to misread as a typo. The reason is countable and
-worth showing: three against three is twenty possible shufflings, and a two-sided test needs at
-least two of them to be as extreme as what you saw — 2/20 = 0.10. **A student who takes one thing
-from this board should take this**, because it means a three-seed experiment cannot produce a
-significant result at p < 0.05 no matter what the effect is. Sixteen extra words buys that.
-
-### 7 · Which of your units are not units?
-
-**Big number:** `5.1×` / `at "matched" steps` · **Figure:** *none — set the table as type*
-
-> Two vocabularies give two losses that are not on one scale. Convert to **bits per character**,
-> which divides the vocabulary back out. Then count what "matched steps" actually bought: the
-> final layer that scores 250k possible tokens costs **5.1×** the compute of one scoring 16k, so
-> twelve thousand steps each handed one arm five times the budget.
-
-| 12,000 steps each | 16k vocab | 250k vocab |
-|---|---|---|
-| **scored** — bits/char | 1.131 | **0.989** *(looks better)* |
-| **cost** — min/seed | 8 | **42** |
-
-> Same runs, two readings, opposite answers. Fairness is a property of the unit.
-
-*57 words + table · `runs/tokenizer_seeds.json`*
-
-### 8 · Does a tuned setting transfer?
-
-**Big number:** `7e-4` / `fatal to a fourth` · **Figure:** `16-lr-transfer.svg`
-
-> "Adding a language is one function call" — true only if the settings come too. Five languages,
-> six rates, sixty runs. Hausa, Nyanja and Swahili all peak at **7e-4**; **Igbo collapses** there
-> and at every rate above. And the winner is not identified in *any* of the five: the gap to the
-> runner-up is smaller than the gap between two seeds at the same rate.
-
-*65 words · `runs/lr_transfer.json` · `runs/budget.json`*
-
-### 9 · Detect the failure, or prevent it?
-
-**Big number:** `0 of 11` / `checkpoints` · **Figure:** `10-early-signal.svg`
-
-> 35 of 195 runs never learned — 17.9%, wasting 25.5 GPU-hours, so catch them early. Scored
-> against their own untrained baselines at eleven checkpoints, the two outcomes **overlap at all
-> eleven**: the best doomed run always looks better than the worst healthy one. Do not build the
-> detector. And tighter clipping does not prevent divergence either.
-
-*56 words · `runs/early_signal.json` · `runs/clip_prevention.json`*
+*42 words · `runs/tokenizer_seeds.json`*
 
 ---
 
 ## The strip — three blocks across the foot
 
-### What it cost
+### Nine functions, nothing else to import
 
-**Figure:** `06-what-it-cost.svg`
+> Sixteen thousand lines behind **nine calls**. Leon read the documentation and asked whether
+> there was an interface he should be using — **a tool nobody can find does not exist**. And only
+> **3%** of the factory is masking-specific: a second study, on next-token prediction, already
+> **reuses it unchanged**.
 
-> **148 GPU-hours. ≈71 kWh. ≈$7 of electricity.** Rent the same work on Colab: **$112 on an L4,
-> $111 on an A100** — or **≈1,100 compute units either way, under four months of the 300 a month
-> every student already gets free.** What the faster tier buys is **7 days against 30**, not a
-> cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon Wan.
-
-*67 words · `runs/hardware.json`*
-
-> **Set this block — the tiers are measured.** All three were re-run on the realistic loop, twice
-> or more each. The instruction that used to sit here said to wait, and it outlived its reason.
->
-> **One honesty note before it prints.** *148 GPU-hours* is measured. *71 kWh* and *$7* are not:
-> they are 148.0 × 300 W × 1.65 × $0.0986, and only the 300 W was ever observed. They could be a
-> third out in either direction and the sentence would still be true, which is why the block keeps
-> them — but write them with "≈" rather than as readings. Report 09 §Cost carries the derivation.
+*48 words · counted at render time from `mlm_api.py` · `mlm_data.py`*
 
 ### What we do not claim
 
-> **Nobody on this team reads Yoruba.** Every quality judgement here is a benchmark number, not a
-> judgement about whether the output is *good Yoruba* — so every claim is relative. The corpus is
-> scraped web text nobody consented to. And the gate reports **9 claims: 6 supported, 2 not, 1
-> underpowered** — two of the three failures ours, printed rather than dropped.
+> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number, every claim
+> relative. The corpus is scraped web text nobody consented to. And the audit gate prints
+> **9 claims: 6 supported, 2 not, 1 underpowered** — two of the failures ours, printed rather
+> than dropped.
 
-*62 words · `runs/claims_audit.json` · report 09 §Ethics*
+*47 words · `runs/claims_audit.json` · report 09 §Ethics*
 
 ### Next · sources · AI
 
-> **Next:** a wall meter on the workstation, an audit of which sites dominate 69M tokens of
-> Yoruba, and a Yoruba-speaking evaluation this project could not do. **Sources:** nineteen
-> references — models, data and statistics — in full in report 09; both footers carry the short
-> form. **AI:** we used **Claude Code** throughout to turn ideas and action points into working
-> code. It made the building much faster and the *verifying* no faster at all — every number here
-> still had to be checked against the records.
+> **Next:** a wall meter, a corpus audit, a Yoruba-speaking evaluation this project could not do.
+> **Sources:** nineteen references, in full in report 09. **AI:** we used **Claude Code**
+> throughout to turn ideas into working code — it made the building faster and the **verifying no
+> faster at all**. Team: **Jeffrey Stall · Patrick Kwok · Leon Wan**.
 
-*86 words · report 09 §Panel 10*
+*54 words · report 09 §Panel 10*
 
 > **The commit ratio is off the board as of 17 August, and getting it wrong three times is the
 > reason.** It said 120 of 144, then 96 of 168, and a recount on the 17th made it 101 of 173 —
 > squash-merging collapses a branch into one commit, so the ratio falls as the history is tidied.
 >
-> Worse, the method was wrong. **`git log --format='%b' | grep -c` returns 228, more trailers than
-> there are commits**, because a squashed commit carries one trailer per commit it absorbed:
+> Worse, the method was wrong. **`git log --format='%b' | grep -c` returns 228, more trailers
+> than there are commits**, because a squashed commit carries one trailer per commit it absorbed:
 > counting *lines* counts co-authorships where the sentence claims *commits*. A precise-looking
 > number that has been wrong at every telling is worth less than the plain statement, and the
 > plain statement is what the assignment asks for. Report 09 keeps the derivation.

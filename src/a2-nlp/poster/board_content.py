@@ -51,7 +51,10 @@ TOP = REPORTS / '13-the-top-board.md'
 # The two sections of a board file that hold settable text. Everything else in these documents is
 # commentary, and the appendices carry '### ' headings of their own -- so the parse is bounded to
 # these regions rather than run over the whole file.
-CELLS_HEAD = re.compile(r'^## The nine cells\s*$', re.M)
+# "The cells" as well as "The nine cells": the bottom board's 17 Aug redesign dropped the uniform
+# 3x3 (four chart panels, a stat rail, three statement cards), so its section stopped counting
+# itself. The top board still says nine and still has nine.
+CELLS_HEAD = re.compile(r'^## The (?:nine )?cells\b.*$', re.M)
 STRIP_HEAD = re.compile(r'^## The strip\b.*$', re.M)
 TITLE_HEAD = re.compile(r'^## Title block\s*$', re.M)
 NEXT_SECTION = re.compile(r'^## ', re.M)
