@@ -2614,7 +2614,6 @@ WHOLE_COHORT_STEP = 11_000
 # POSTER_BOX is read off build_posters.FACTORY_GEO -- panel width less 0.62 in of gutter, panel
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
-    '23-poster-run': (6.35, 2.65),
     '25-poster-transfer': (6.35, 2.65),
     '26-poster-hardware': (6.35, 2.65),
     '27-poster-cliffs': (6.35, 2.65),
@@ -2627,7 +2626,6 @@ POSTER_BOX = {
 # Calibrated by rendering, measuring and correcting; scratchpad/fitsize.py does that and writes
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
-    '23-poster-run': (5.42, 2.81),
     '25-poster-transfer': (6.91, 2.51),
     '26-poster-hardware': (5.06, 2.37),
     '27-poster-cliffs': (7.31, 2.46),
@@ -2647,64 +2645,6 @@ def _poster_rc():
         'xtick.labelsize': 14, 'ytick.labelsize': 14,
         'lines.linewidth': 3.0, 'lines.markersize': 14,
     })
-
-
-def fig_poster_run():
-    """Panel 3: the ratio that decides what belongs in a notebook and what belongs in a queue.
-
-    The three preparation stages are bracketed into one number, because "prepare" is the thing
-    being compared -- and the gap to a pretraining run is the finding, so it is drawn as a span
-    rather than left for the reader to divide two axis positions in their head.
-
-    Both model shapes get a row. The board's caption quotes 85 min and 96x, which is the 98M
-    model, and an earlier draft of this figure drew only the 33.8M one at 37 min and 41x -- two
-    true numbers for the same sentence. Drawing both also earns its space: choosing the larger
-    shape is a 2.3x decision about the wait, taken before any of this runs.
-    """
-    s = _pipeline_stages()
-    prep, run = s['prepare_s'], s['pretrain_big_s']
-    # Short labels. At 6.35 in, "load it onto the card" is a fifth of the figure's width; the
-    # stage names are recoverable from the caption, and the axis is what has to be readable.
-    rows = [('train the tokenizer', s['tokenizer_s'], C4),
-            ('encode the corpus', s['encode_s'], C4),
-            ('load onto the card', s['load_s'], C4),
-            ('PRETRAIN 34M', s['pretrain_small_s'], C1),
-            ('PRETRAIN 98M', run, C1)]
-
-    with _poster_rc():
-        fig, ax = plt.subplots(figsize=_poster_figsize('23-poster-run'))
-        for i, (label, v, color) in enumerate(rows):
-            y = len(rows) - 1 - i
-            ax.plot([0.7, v], [y, y], color=color, lw=3.0, alpha=0.35, zorder=1)
-            ax.plot(v, y, 'o', color=color, markersize=19, markeredgecolor=SURFACE,
-                    markeredgewidth=3, zorder=3)
-            txt = f'{v:.0f} s' if v < 90 else f'{v / 60:.0f} min'
-            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=15, fontweight='bold')
-
-        # The span is anchored on the SLOWER run, so the ratio on the wall is the one the
-        # caption beside it quotes. Anchored on the faster one it would read 41x against a
-        # caption saying 96x, and a reader who notices has to work out which to believe.
-        # The span moves ABOVE every row. Between rows it had the width of a 6.35 in column to
-        # share with two value labels and lost -- '21 s' and '96x' printed into each other.
-        ax.annotate('', xy=(run, 4.62), xytext=(prep, 4.62),
-                    arrowprops=dict(arrowstyle='<->', color=INK2, lw=2.2))
-        ax.text((prep * run) ** 0.5, 4.78, f'{run / prep:.0f}×', ha='center', color=INK,
-                fontsize=18, fontweight='bold')
-        ax.text(prep * 0.80, 4.62, f'prepare {prep:.0f} s', ha='right', va='center', color=C4,
-                fontsize=13, fontweight='bold')
-
-        ax.set_xscale('log')
-        ax.set_xlim(0.7, run * 10)
-        # Three ticks, not five: at this width '10 min' and '1 hour' set as '10 min1 hour'.
-        ax.set_xticks([1, 60, 3600])
-        ax.set_xticklabels(['1 s', '1 min', '1 hour'])
-        ax.minorticks_off()
-        ax.set_yticks(range(len(rows)))
-        ax.set_yticklabels([r[0] for r in reversed(rows)], fontsize=14, color=INK)
-        ax.set_ylim(-0.55, len(rows) + 0.35)
-        ax.grid(axis='y', visible=False)
-        ax.tick_params(axis='y', length=0)
-        save(fig, '23-poster-run')
 
 
 def fig_poster_transfer():
@@ -3093,7 +3033,7 @@ if __name__ == '__main__':
            # The poster set. fig_poster_cost retired when its three numbers moved
            # into the hardware panel's caption, and fig_poster_earlystop when the
            # band it drew was replaced by the runs themselves.
-           fig_poster_hardware, fig_poster_run, fig_poster_cliffs,
+           fig_poster_hardware, fig_poster_cliffs,
            fig_poster_transfer, fig_poster_dashboard)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures

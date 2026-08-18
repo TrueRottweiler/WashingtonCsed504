@@ -2,13 +2,9 @@
 
 *The poster itself: the grid, the measurements, and the words that go in each cell. This is the
 thing to hold while laying out. [Report 09](09-the-bottom-report.md) is the long form of the same
-ten panels — go there when a cell makes somebody want the whole argument.*
-
-> **Read this first if you laid anything out before 12 August.** Every measurement in the previous
-> version was wrong, because it assumed a 3 ft × 4 ft board and the UW template is **2 ft × 3 ft**.
-> The real numbers were read out of `ResearchPoster_Template_Vertical_2023.pptx` rather than
-> assumed. The board is 2.25× smaller in area than planned and the body type is 18 pt rather than
-> 24, which halves the words per cell from 90–120 to **55**.
+material, organized as the **ten weeks** of the course this board proposes — the report runs in
+week order, the order the traps arrive; the board is arranged by importance instead. A caption's
+§ reference names the report section that carries the full argument.*
 
 ---
 
@@ -123,15 +119,25 @@ wall, as ever.
 
 *50 words · `runs/hardware.json` · `bench_portable.py`*
 
-### 2 · Cheap stays interactive; expensive goes in a queue
+### 2 · Budget in tokens, not epochs
 
-**Figure:** `23-poster-run.svg`
+> In 502–504 you counted **epochs**, and that was correct: the dataset was a fixed object.
 
-> Preparing the corpus — tokenizer, encoding, loading — takes **53 seconds**. One pretraining run
-> takes **37 to 85 minutes**. A gap of **41× to 96×** is not a judgment call: cheap work stays in
-> the notebook, expensive work goes in a queue, and **both write the same record**.
+| | |
+|---|---|
+| **Here, the dataset is the experiment.** | Our English ladder trains on 4M to 1,024M tokens. At "40 epochs each", the big arm gets **256× the compute** — the experiment confounded by its own unit. |
+| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens of updates**. 62,500 steps was never chosen: it is 1.024B ÷ a 16,384-token batch. |
+| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k tok/s ≈ **38 min** — the top bar of the chart beside this. The unit plus the rate is how a promise gets measured. |
+| **Our own records carried the bug.** | A field named `epoch` reads **125** at the end of a Yoruba run. The true number of passes is **16**. It kept the name and lost the meaning. |
 
-*48 words · `runs/pipeline_bench.json`*
+*Four rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
+
+> **Why this replaced the pipeline chart on 18 August.** Jeffrey's call: budgeting a run — the
+> unit, and the rate that turns it into a promise — was essential to the whole term, and the
+> report's strongest section had no panel. The pipeline chart was the board's weakest: one ratio,
+> which its caption already stated, and the ratio survives verbatim as speedups row 4 (53 s vs
+> 85 min — 96×). Figure 23 stays in the repository; the queue-vs-notebook argument lives on in
+> the dashboard panel.
 
 ### 3 · The factory, in numbers
 
@@ -242,14 +248,13 @@ wall, as ever.
 
 | | |
 |---|---|
-| **English is the ruler.** | A ladder from **4M to 1,024M tokens** — the one place data was never the constraint, so Yoruba has something to be measured against. |
-| **French, Indonesian, Mandarin are the control.** | They cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** | Hausa, Igbo, Kinyarwanda, Luganda, Nyanja, Shona, Somali, Swahili, Wolof, Xhosa, Amharic, Afrikaans — from scratch, **0.5 to 3.8 minutes each**. |
-| **Seventeen make the slope.** | One language is an anecdote. Seventeen has an exception — Wolof, uncovered and **cheap at 1.31** — that an anecdote hides. |
-| **Five got the whole sweep.** | Six rates, sixty runs — and the setting four want destroys the fifth. |
-| **None of us speaks any of them.** | So the spread is the evidence, not any one score — and **adding one had to be a function call**: twelve in 48 minutes. |
+| **English is the ruler.** | *Why:* the one language where data was never the constraint. *Learned:* **more data stops helping past 64M tokens** — a fact Yoruba could never establish, having no more. |
+| **French, Indonesian, Mandarin are the control.** | *Why:* XLM-R knows these three well, killing the objection that it is just "unfamiliar languages". *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
+| **Twelve African languages are the gradient.** | *Why:* one language is an anecdote; seventeen make a slope. *Learned:* the split falls exactly along coverage — **Wolof, uncovered yet cheap at 1.31**, is the exception an anecdote hides. |
+| **Five languages got the whole sweep.** | *Why:* "adding a language is one function call" is only true if the settings transfer too. *Learned:* they do not — **the rate four languages want destroys Igbo.** |
+| **None of us speaks any of them.** | So the spread is the evidence, not any one score. The factory made the spread affordable: **nine functions** are its whole interface, so adding a language is one call — **twelve pretrained in 48 minutes**. |
 
-*Six rows, no prose — the heading is the claim · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
+*Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
 
 ---
 
@@ -265,15 +270,19 @@ wall, as ever.
 
 ### Sources
 
-> Y. Liu et al., "RoBERTa: A robustly optimized BERT pretraining approach," arXiv:1907.11692,
-> 2019. · A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL,
-> 2020, pp. 8440–8451. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
-> 2025. · G. Penedo et al., "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025. ·
-> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022, pp. 4488–4508. · D. I. Adelani et al.,
-> "SIB-200," EACL, 2024, pp. 226–245.
+> **Models** · A. Conneau et al., "Unsupervised cross-lingual representation learning at scale"
+> (XLM-R), ACL 2020 · M. Marone et al., "mmBERT," arXiv:2509.06888 · Y. Liu et al., "RoBERTa,"
+> arXiv:1907.11692 · J. Devlin et al., "BERT" — its 80/10/10 masking, NAACL 2019 · K. Ogueji et
+> al., "Small data? No problem!" (AfriBERTa), EMNLP MRL 2021 ·
+> **Data** · D. I. Adelani et al., "SIB-200," EACL 2024 · D. I. Adelani et al., "MasakhaNER
+> 2.0," EMNLP 2022 · G. Penedo et al., "FineWeb2," arXiv:2506.20920 ·
+> **Method** · L. N. Smith, one-cycle schedules, arXiv:1803.09820 · J. Dodge et al., "Show
+> your work," EMNLP 2019 — no result without the search budget that produced it
 
-*Nineteen references in full in report 09 §References. Set as a reference list by the builder,
-one entry a line, split on the middots.*
+*Nineteen references in full in report 09 §References. The builder sets one entry a line, split
+on the middots; the three bold group names render as section lines. Dodge is here because it is
+the Search-seeds section's most load-bearing entry — the sentence closest to this board's thesis
+about statistics.*
 
 > **What moved off this block on 18 August.** The team names went to the header, where a reader
 > looks for them and where the assignment asks for them once. "Next" folded into the panel beside
@@ -292,6 +301,7 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 |---|---|
 | Team member names | header band, directly under the title |
 | Problem / motivation | title block, and cells 1 and 2 |
+| Budget and units | cell 2, and report 09 §Week 1 in full |
 | Goals | title block, and report 09 §Goals in full |
 | Tool stack | cells 2, 4, 7, 8 and the footer |
 | Pre-existing vs from scratch | cell 11; the top board's panels 3 and 5 |
