@@ -40,6 +40,7 @@ want of a file. A warning inherited without being checked costs about what a wro
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 from dataclasses import dataclass
@@ -88,6 +89,13 @@ BLUE = "2F78D0"
 ORANGE = "F0652F"
 RED = "B63A3A"
 LINE = "D9D2E3"
+
+# The verdict colors for the speedups table's kept? column. Dark-medium on Jeffrey's spec,
+# so they read as ink with a hue rather than as highlights; the words stay beside them, so no
+# verdict is encoded in color alone.
+KEPT_GREEN = "1F7A4C"
+KEPT_RED = "B03A2E"
+KEPT_BLUE = "2A5DB0"
 
 HEADLINE_FONT = "Encode Sans Normal"
 # What the template's theme actually names as its major font. We had been setting the Normal
@@ -1865,8 +1873,8 @@ SPAN3 = 20.98          # the full measure
 # Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
-_ROW = {'a': (8.80, 5.80), 'd': (14.87, 5.45), 'b': (20.59, 5.80),
-        'e': (26.66, 3.20), 'c': (30.13, 3.77)}
+_ROW = {'a': (8.80, 5.80), 'd': (14.87, 5.35), 'b': (20.49, 5.80),
+        'e': (26.56, 3.20), 'c': (30.03, 4.02)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -1905,7 +1913,7 @@ FACTORY_PLAN = {
 # What kind of block each panel is. A chart panel gets a figure; a rail is the purple stat block;
 # a table is the speedups grid; everything else is a heading and prose. Only the two that cannot
 # be told apart from the panel itself are listed -- a figure is a chart, and no figure is prose.
-FACTORY_KIND = {"3": "rail", "4": "table", "8": "list", "11": "list", "strip2": "refs"}
+FACTORY_KIND = {"2": "list", "3": "rail", "4": "table", "8": "list", "11": "list", "strip2": "refs"}
 
 # Type. The top board sets section headers at 40 pt, but its headers are single words -- ABSTRACT,
 # RESULTS -- and ours are whole statements. At 6.35 in a 40 pt sentence wraps to three lines and
@@ -1923,7 +1931,7 @@ FACTORY_PT = {
     "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
     "table_head": 32.0, "table_row": 11.0, "table_lead": 17.0,
     "card_head": 32.0, "card_body": 17.0,
-    "list_body": 13.0, "refs_body": 11.0, "footer": 12.0,
+    "list_body": 13.0, "refs_body": 10.0, "footer": 12.0,
 }
 
 
@@ -2134,9 +2142,23 @@ def add_table_panel(slide, panel, box, *, name: str) -> None:
             add_line(slide, bx, ry - 0.04, bx + block_w, ry - 0.04, LINE, 0.75)
             for c, text in enumerate(cells[:3]):
                 cw = (TABLE_COLS[c + 1] if c + 1 < len(TABLE_COLS) else 1.0) - TABLE_COLS[c]
+                # The verdict column is bold and colored: with twenty rows, the SHAPE of the
+                # list -- mostly kept, a visible band of rejections -- is the panel's argument,
+                # and a column of identical grey words hid it. Green kept, red rejected, blue
+                # could-not; "no change" stays muted, being neither a win nor a rejection.
+                if c == 2:
+                    verdict = text.strip().lower()
+                    colour = (KEPT_GREEN if verdict.startswith(("yes", "guard"))
+                              else KEPT_RED if verdict == "no"
+                              else KEPT_BLUE if verdict.startswith("can")
+                              else MUTED)
+                    add_text(slide, bx + TABLE_COLS[c] * block_w, ry, cw * block_w - 0.10,
+                             row_h - 0.04, text, FACTORY_PT["table_row"], color=colour,
+                             bold=True, name=f"{name}_R{b}{r}C{c}")
+                    continue
                 add_rich_text(slide, bx + TABLE_COLS[c] * block_w, ry, cw * block_w - 0.10,
                               row_h - 0.04, text, FACTORY_PT["table_row"],
-                              color=INK if c < 2 else MUTED, name=f"{name}_R{b}{r}C{c}")
+                              color=INK, name=f"{name}_R{b}{r}C{c}")
 
 
 def add_list_panel(slide, panel, box, *, name: str) -> None:
@@ -2160,7 +2182,7 @@ def add_list_panel(slide, panel, box, *, name: str) -> None:
                       color=INK, name=f"{name}_Lead")
     text = "\n".join(" ".join(cells) for cells in panel.table)
     add_rich_text(slide, x, top + lead_h + 0.08, w, (y + h - 0.06) - (top + lead_h + 0.08),
-                  text, FACTORY_PT["list_body"], color=INK, space_after=7.0,
+                  text, FACTORY_PT["list_body"], color=INK, space_after=5.0,
                   name=f"{name}_List")
 
 
@@ -2172,10 +2194,36 @@ def add_refs_panel(slide, panel, box, *, name: str) -> None:
     top board sets its own SOURCES block at, which is the point of matching their grid.
     """
     x, y, w, h = box
-    top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["card_head"], name)
-    entries = "\n".join(e.strip() for e in panel.body.split(" · ") if e.strip())
-    add_rich_text(slide, x, top, w, (y + h - 0.06) - top, entries,
-                  FACTORY_PT["refs_body"], color=INK, space_after=5.0, name=f"{name}_Refs")
+    # 26 pt, not the panel 32: "Sources" is one word over a dense block, and the half inch the
+    # two-line heading box reserves is exactly what ten references need.
+    top = _panel_head(slide, x, y, w, panel.title, 26.0, name)
+    # A bold-only entry -- **Models**, **Data**, **Method** -- is a group line. It renders as a
+    # small purple section head, the same device the speedups table uses for its group rows, so
+    # the two reference-dense panels on the board read the same way.
+    entries = []
+    for e in (e.strip() for e in panel.body.split(" · ")):
+        if not e:
+            continue
+        bare = e.strip("*")
+        if e.startswith("**") and e.endswith("**") and len(bare.split()) <= 2:
+            entries.append(("group", bare.upper()))
+        else:
+            entries.append(("ref", e))
+    yy = top
+    for kind, text in entries:
+        if kind == "group":
+            add_text(slide, x, yy + 0.03, w, 0.20, text, FACTORY_PT["refs_body"] - 1.0,
+                     color=UW_PURPLE, font=SUBHEAD_FONT, bold=True, name=f"{name}_Grp")
+            yy += 0.24
+        else:
+            # ceil at ~52 chars a line, not round at 62: the gate measured a reference three
+            # lines tall that the rounder had budgeted at two, and an estimator that errs low
+            # is an overflow generator. Generous is cheap here; the panel has slack.
+            lines = max(1, math.ceil(len(text.replace("*", "")) / 62))
+            hh = 0.15 * lines + 0.04
+            add_rich_text(slide, x, yy, w, hh, text, FACTORY_PT["refs_body"], color=INK,
+                          name=f"{name}_Ref")
+            yy += hh + 0.03
 
 
 def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[FigureSpec]]:

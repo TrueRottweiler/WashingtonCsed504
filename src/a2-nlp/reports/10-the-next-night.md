@@ -6,7 +6,7 @@ three are answerable with hardware we already own and checkpoints we already tra
 
 > **This is a plan, and the plan has since been executed. Read it as history, not as status.**
 > Leon flagged on 12 August that it still reads like a to-do list; it is not one. Study 1 ran and is
-> `runs/downstream_correlation.json` — the result is in [report 09](09-the-bottom-report.md), Panel 6
+> `runs/downstream_correlation.json` — the result is in [report 09](09-the-bottom-report.md), Week 6
 > and the note on the two cut findings. Study 2 ran as the sixty-run grid and is
 > `runs/lr_transfer.json`, written up in Panel 8 along with the luck-versus-skill analysis it turned
 > into. Study 3 was not run. **For what is true now, go to [report 09](09-the-bottom-report.md),

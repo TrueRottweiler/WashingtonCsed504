@@ -89,13 +89,15 @@ principles. It was that at this scale, being wrong got expensive enough to notic
 
 Every one of those ends when a model finishes training. **None of them covers what happens when
 you need a hundred models and have to believe the differences between them.** That is a different
-skill, it is most of what this term actually consisted of, and it is what the nine cells below
-would be if they were a ten-week course.
+skill, it is most of what this term actually consisted of, and it is what the ten weeks below
+teach. This report runs in week order — the order the traps arrive. The poster deliberately does
+not: a wall is read by importance, a course is taught by prerequisite, and the two orders differ.
 
 ### CSED 505: Building a Model Factory
 
-Nine weeks as a three-by-three grid, and the tenth as the strip along the bottom, because week 10
-*is* the conclusion.
+The course card: nine weeks of questions and a tenth that is the conclusion. (An earlier board
+laid these out as a three-by-three grid; the poster has since been redesigned around its charts,
+so the grid below is the course's shape, not the wall's.)
 
 Every week is a **question we could not look up**. Not one of these was answered by reproducing
 somebody's result — each needed a measurement that did not exist, and three of them were run on
@@ -374,11 +376,11 @@ times, as it happens, and every one of them improved a number on one of these tw
 
 ---
 
-## Panel 1 — What does a run cost, and in what unit?
+## Week 1 — What does a run cost, and in what unit?
 
 **Big number:** `62,500 steps = 1.024B tokens`
 
-![Panel 1](figures/21-hardware.png)
+![Week 1](figures/21-hardware.png)
 
 **Problem.** Every course up to this point measured training in epochs, and an epoch is a
 perfectly good unit as long as the dataset is a constant. The moment the dataset becomes a
@@ -411,7 +413,7 @@ written by `mlm_train.py` at the end of each run. The 4M-to-1,024M ladder is `ru
 (`scaling_law.py`).
 
 **What this makes possible.** You cannot say a run got faster until you can say what a run *is*.
-Panel 2 is the measurement, and it needs this unit to be meaningful.
+Week 2 is the measurement, and it needs this unit to be meaningful.
 
 ---
 
@@ -740,11 +742,11 @@ just get harder to see.
 
 ---
 
-## Panel 2 — Why optimize before anything needs it?
+## Week 2 — Why optimize before anything needs it?
 
 **Big number:** `2.07×` — of which only **1.32×** is efficiency
 
-![Panel 2](figures/14-where-the-speedup-came-from.png)
+![Week 2](figures/14-where-the-speedup-came-from.png)
 
 
 **Problem.** Nothing needed to be fast yet. The study had a handful of runs, they finished
@@ -780,7 +782,7 @@ record file were measured once at the time and are marked as such in the table.
 
 **What this makes possible.** Weeks 6 through 9 each rest on running one cell three to fifteen
 times. At 25 minutes a run nobody would have done that, and every result below would have been a
-single seed with an anecdote attached. Panel 3 is where that affordability stops being about the
+single seed with an anecdote attached. Week 3 is where that affordability stops being about the
 clock and starts being about where the work runs.
 
 ### The year, in twenty changes
@@ -881,7 +883,7 @@ script and *well* covered: it is the row that breaks the script explanation.
 learning-rate transfer grid — sixty runs testing whether a setting tuned on one language survives
 being moved to another. One language cannot answer a question about transfer, by definition.
 
-**The general point, which is Panel 2's point at a larger scale.** Every one of those languages
+**The general point, which is Week 2's point at a larger scale.** Every one of those languages
 was a decision somebody made at some point *not* to skip. At 25 minutes a cell, on a machine where
 the queue is already full, a seventeen-language gradient is a week's work and gets cut to five. At
 12 minutes a cell across two cards, it is an overnight queue and gets run. **The factory did not
@@ -995,11 +997,11 @@ masked-language study was built on top of them without changing a line.
 
 ---
 
-## Panel 3 — What belongs in a notebook, and what belongs in a queue?
+## Week 3 — What belongs in a notebook, and what belongs in a queue?
 
 **Big number:** `53 seconds against 85 minutes` — a ratio of **96×**
 
-![Panel 3](figures/15-what-a-run-is-made-of.png)
+![Week 3](figures/15-what-a-run-is-made-of.png)
 
 
 **Problem.** The group's proof of concept was a notebook, and it worked — that is not the
@@ -1044,7 +1046,7 @@ fields of stages 1 and 3, not the sampled `seconds` beside them. The 85 minutes 
 98M model"*, `hours_for_62500_steps` × 60.
 
 **What this makes possible.** Work that runs unattended overnight has nobody watching it, which
-means it has to describe itself. Panel 4 is what that costs.
+means it has to describe itself. Week 4 is what that costs.
 
 ---
 
@@ -1136,11 +1138,11 @@ see exactly what had changed rather than being handed something unfamiliar.
 
 ---
 
-## Panel 4 — What makes a record survive you?
+## Week 4 — What makes a record survive you?
 
 **Big number:** `fingerprint 15abd33de5af`
 
-![Panel 4](figures/07-dashboard.png)
+![Week 4](figures/07-dashboard.png)
 
 
 **Problem.** Two runs silently overwrote each other because their filenames did not encode a
@@ -1204,8 +1206,8 @@ is worse than no dashboard, because it answers the question wrongly instead of d
 the fingerprint is `corpus_info('yor')['vocab_fingerprint']`.
 
 **What this makes possible.** A record that describes itself is the smallest unit of work somebody
-else can pick up without asking you what it is. Panel 5 is that same property at the scale of a
-whole interface — and Panel 6 needs both, because you cannot ask whether two numbers differ until
+else can pick up without asking you what it is. Week 5 is that same property at the scale of a
+whole interface — and Week 6 needs both, because you cannot ask whether two numbers differ until
 you are certain they came from two different experiments.
 
 ---
@@ -1244,7 +1246,7 @@ Reading that screen top to bottom is roughly how the project was run:
   records the chart does, so it cannot say something the data does not. (*Nats* are this report's
   unit of loss throughout — the same idea as bits, just measured with the natural logarithm,
   because that is what a PyTorch cross-entropy loss comes out in. One nat is about 1.44 bits.
-  Panel 7 uses the conversion to make two different vocabularies comparable.) Ours went through several rounds of being wrong in instructive ways — it showed runs as
+  Week 7 uses the conversion to make two different vocabularies comparable.) Ours went through several rounds of being wrong in instructive ways — it showed runs as
 "training" that had actually finished, it hid everything not yet started so a twelve-job night
 looked like a three-job night, and it labeled a counter "epoch" that was not an epoch, which
 confused everyone who read it including the people who wrote it.
@@ -1264,7 +1266,7 @@ confused everyone who read it including the people who wrote it.
 
 ---
 
-## Panel 5 — What does someone else have to be able to call?
+## Week 5 — What does someone else have to be able to call?
 
 **Big number:** `9 functions`
 
@@ -1275,7 +1277,7 @@ interface. It is **9 functions against whatever the figure prints on the day you
 figure counts the folder at render time for exactly that reason, and the moving number is itself
 the point: the surface stayed at nine while the body grew 13%.*
 
-![Panel 5](figures/19-the-interface.png)
+![Week 5](figures/19-the-interface.png)
 
 
 **Problem.** A factory only its author can operate is a hobby with a queue. Two other people had a
@@ -1328,7 +1330,7 @@ a partner is evidence the tooling succeeded, not evidence it failed.
 which is why the figure and this sheet cannot disagree about a number that moves weekly.
 
 **What this makes possible.** Once other people can run your comparisons and disagree with your
-numbers, "is this difference real" stops being a private question. Panel 6 is the rule we needed.
+numbers, "is this difference real" stops being a private question. Week 6 is the rule we needed.
 
 ---
 
@@ -1546,11 +1548,11 @@ times by a partner is evidence the tooling succeeded rather than evidence it fai
 
 ---
 
-## Panel 6 — Is this difference real?
+## Week 6 — Is this difference real?
 
 **Big number:** `2.27×, not 1.0×`
 
-![Panel 6](figures/13-how-many-seeds.png)
+![Week 6](figures/13-how-many-seeds.png)
 
 
 **Problem.** This project's rule for believing a difference was "bigger than the cell's own seed
@@ -1794,7 +1796,7 @@ every number in a result, *what did I hold fixed, and did I mean to?*
 
 ---
 
-## Panel 7 — Which of your units are not units?
+## Week 7 — Which of your units are not units?
 
 **Big number:** `5.1× the compute, at "matched" steps`
 
@@ -1856,18 +1858,18 @@ axis you held fixed, because the reader cannot tell from the number.
 rather than a glob; throughput from the `tokens_per_s` field of the runs themselves.
 
 **What this makes possible.** The tokenizer question can now be asked in a unit capable of
-answering it — and it is asked on the board above this one, where it belongs. Panel 8 takes the
+answering it — and it is asked on the board above this one, where it belongs. Week 8 takes the
 same lesson from a unit to a setting.
 
 ---
 
 ---
 
-## Panel 8 — Does a tuned setting transfer?
+## Week 8 — Does a tuned setting transfer?
 
 **Big number:** `7e-4: best for three languages, fatal to a fourth`
 
-![Panel 8](figures/16-lr-transfer.png)
+![Week 8](figures/16-lr-transfer.png)
 
 
 **Problem.** The factory's selling point is that adding a language is one function call. That is
@@ -1920,17 +1922,17 @@ rate*. Every "peak" quoted above is a range, not a point.
 
 What the experiment *did* establish is real and worth having: which rates are fatal, and roughly
 where the usable band sits. What it did not establish is which rate inside that band is best.
-Those are different claims, and only the first one survives Panel 6's bar.
+Those are different claims, and only the first one survives Week 6's bar.
 
 A footnote for whoever checks this against `claims_audit.py`, which flags Swahili as separated
 where the table above does not. The audit compares the gap against the larger of the two cells'
 own seed gaps (0.063 against 0.050); this compares it against the sd estimated over every
 surviving rate (0.063 against 0.070). Both are heuristics, and the reason they can disagree is
 that neither is a test: **at two seeds a side the exact permutation floor is 2 / C(4,2) = 0.333**,
-so nothing in this grid could have reached 0.05 whatever it showed. Panel 6's arithmetic applies to
+so nothing in this grid could have reached 0.05 whatever it showed. Week 6's arithmetic applies to
 our own sweep exactly as it applies to Patrick's, which is the point of having built it.
 
-**2. What identifying it would cost.** Apply the same arithmetic as Panel 6 in reverse — how many
+**2. What identifying it would cost.** Apply the same arithmetic as Week 6 in reverse — how many
 seeds a side to resolve a gap that small against that much seed noise. Hausa needs 9 and Swahili
 10, which are affordable. Yoruba needs **164 seeds per rate** and Nyanja **413**. Across the five
 languages and six rates that is **3,744 runs — 565 GPU-hours, about four times this entire
@@ -1998,7 +2000,7 @@ parts and trained nothing new to do it.
 
 **What this makes possible.** If runs can fail this way — and if a second seed is the cheapest
 instrument for noticing — the obvious engineering response is to catch the failures early and stop
-paying for them. Panel 9 tries exactly that, and fails.
+paying for them. Week 9 tries exactly that, and fails.
 
 ---
 
@@ -2010,14 +2012,14 @@ Everything above is the factory answering questions about *language*. This secti
 answering questions about **training** and about **its own instruments**, using nothing but its own
 history — stored loss curves and checkpoints already on disk, no new pretraining, no GPU touched.
 
-**The early-stopping question lives in Panel 9 and is not repeated here.** It used to be, and the
-copy was the older one: it said 105 runs, thirteen doomed, 13.1 GPU-hours, against Panel 9's 195,
+**The early-stopping question lives in Week 9 and is not repeated here.** It used to be, and the
+copy was the older one: it said 105 runs, thirteen doomed, 13.1 GPU-hours, against Week 9's 195,
 35 and 25.5. A reader met the stale version first and the current one twenty pages later, with the
-same figure under both and no way to tell which was live. Panel 9 has the argument; what follows
+same figure under both and no way to tell which was live. Week 9 has the argument; what follows
 is the prevention study it hands off to, and then the metric-validity work.
 
 **Why the patience family fails is structural rather than a tuning problem**, and this is the part
-Panel 9 does not have room for. Only 17.9% of runs are doomed. A doomed run wastes at most its
+Week 9 does not have room for. Only 17.9% of runs are doomed. A doomed run wastes at most its
 *remaining* time; a false kill wastes a *whole* run and you have to do it again. With that base
 rate and that asymmetry the arithmetic cannot close however good the classifier is — which is
 worth knowing before building the feature, and took no compute to find out.
@@ -2174,11 +2176,11 @@ afternoon we made it — which is the only reason it is a footnote here rather t
 
 ---
 
-## Panel 9 — Detect the failure, or prevent it?
+## Week 9 — Detect the failure, or prevent it?
 
 **Big number:** `0 of 11 checkpoints separate them`
 
-![Panel 9](figures/10-early-signal.png)
+![Week 9](figures/10-early-signal.png)
 
 
 **Problem.** Across 195 runs, **35 never learned** — 17.9%, wasting 25.5 GPU-hours. That is real
@@ -2222,7 +2224,7 @@ grid; `runs/clip_prevention.json` (`study_clip_prevention.py`) for the fifteen-s
 
 ---
 
-## Panel 10 — Writing it down so it stays true
+## Week 10 — Writing it down so it stays true
 
 Full width, three columns.
 
@@ -2249,7 +2251,7 @@ emailed.
 
 The AI disclosure belongs in this column too, in one line, because it is the same kind of claim
 and it is derived the same way: **120 of the repository's 144 commits carry a `Co-Authored-By:
-Claude` trailer.** That is `git log`, not a promise. Reference 19 has the rest, and Panel 10 of this report
+Claude` trailer.** That is `git log`, not a promise. Reference 19 has the rest, and Week 10 of this report
 has the version worth actually reading — including the three occasions it was confidently and
 completely wrong.
 
@@ -2653,7 +2655,7 @@ project's five worst errors — matched steps, the untrained floor at the wrong 
 that grew from sixteen to twenty-one — were perfectly reproducible for as long as they stood.
 
 **And the assistant.** An AI wrote a large share of the code these results come from, disclosed in
-full in Panel 10 and in the references, derived from `git log` rather than asserted. The load-bearing
+full in Week 10 and in the references, derived from `git log` rather than asserted. The load-bearing
 sentence is the one from that panel: it made this work three to five times faster to build and no
 faster at all to *verify*, and only one of those two is a skill that got automated.
 
@@ -2781,10 +2783,12 @@ people who built them, and that using the tool is not the same as endorsing the 
 5. **Conneau, A. et al.** (2020). "Unsupervised Cross-lingual Representation Learning at Scale."
    *ACL 2020.* — XLM-R, our 277M-parameter multilingual baseline, loaded as
    `FacebookAI/xlm-roberta-base`. [arXiv:1911.02116](https://arxiv.org/abs/1911.02116)
-6. **mmBERT** — loaded as [`jhu-clsp/mmBERT-base`](https://huggingface.co/jhu-clsp/mmBERT-base);
-   246M parameters, reported by its authors as trained on roughly three trillion tokens across
-   1,800 languages. *Cite the model card directly — check the current card for the paper reference
-   before the poster is printed.*
+6. **Marone, M. et al.** (2025). "mmBERT: A Modern Multilingual Encoder with Annealed
+   Language Learning." — loaded as
+   [`jhu-clsp/mmBERT-base`](https://huggingface.co/jhu-clsp/mmBERT-base); 246M parameters, trained
+   on roughly three trillion tokens across 1,800 languages. *(An earlier draft said to cite the
+   model card and check for a paper before printing; Leon found the paper, and both boards now
+   cite it.)* [arXiv:2509.06888](https://arxiv.org/abs/2509.06888)
 7. **Liu, Y. et al.** (2019). "RoBERTa: A Robustly Optimized BERT Pretraining Approach." — the
    architecture our from-scratch models use.
    [arXiv:1907.11692](https://arxiv.org/abs/1907.11692)
@@ -2851,30 +2855,31 @@ instead of citing it and carrying on.
 
 19. **Anthropic Claude**, used through the Claude Code command-line tool — Opus 4.8, Opus 5 and
     Fable 5 over the term. Scaffolding, analysis code, written explanations, and the group's
-    coordination email. **120 of this repository's 144 commits carry a `Co-Authored-By: Claude`
-    trailer** — 83%, and that figure is `git log` rather than a sentence about honesty, which is
-    the only form of disclosure this board is entitled to make. What it did not do: no model ran
+    coordination email. **Most of this repository's commits carry a `Co-Authored-By: Claude` trailer.** An exact
+    ratio was quoted here through three drafts and was wrong at every telling — squash-merging
+    collapses a branch into one commit that carries one trailer per commit it absorbed, so the
+    ratio fell as history was tidied and counting trailer *lines* counted co-authorships where
+    the sentence claimed *commits*. The plain statement is the only version that stays true. What it did not do: no model ran
     unattended overnight, no result was analyzed without a person reading the records, and the
     scheduler that spent every one of the 148.0 GPU-hours has no model in it. It was also
     confidently and completely wrong three times, in ways worth reading rather than summarizing.
-    **The full account is [Panel 10 of this report](09-the-bottom-report.md), "How we used AI, honestly."**
+    **The full account is [Week 10 of this report](09-the-bottom-report.md), "How we used AI, honestly."**
 
-**Check before printing.** Reference 6 is the one to verify — mmBERT is recent enough that the
-canonical citation may have changed since this was written, and a poster is a bad place to be
-wrong about somebody else's model. Reference 19's commit counts move every time anybody pushes;
-recompute them rather than reprinting these.
+**Check before printing.** Reference 6 was the one to verify, and it has been — Leon traced
+mmBERT to Marone et al. and both boards carry it. Reference 19 no longer quotes a commit ratio at
+all, for the reason given there.
 
 ---
 
 # Appendix A — the per-machine detail
 
-Panel 1 carries the findings; this carries the working. It is here rather than in the panel because it is chronological — each machine got written up the day it surprised us — and a reader wanting the argument should not have to walk through six weeks of measurement to reach it.
+Week 1 carries the findings; this carries the working. It is here rather than in the panel because it is chronological — each machine got written up the day it surprised us — and a reader wanting the argument should not have to walk through six weeks of measurement to reach it.
 
 Everything below is reproducible with `bench_portable.py`, which needs no corpus, no tokenizer and no repository data. The instructions for running it on your own machine are in the appendix of [the bottom board](12-the-bottom-board.md).
 
-## Reading the table in Panel 1
+## Reading the table in Week 1
 
-Panel 1 sets out what each machine does. These are the notes behind those rows — why two of
+Week 1 sets out what each machine does. These are the notes behind those rows — why two of
 them describe the same box, what the benchmark is and is not measuring, and how far a single
 sitting can be trusted.
 
@@ -3004,7 +3009,7 @@ term — rather than the day your card meets a model ten percent bigger than its
 
 ## How to tell these cards apart — the long form
 
-Panel 1 carries the table and a sentence on each card. This is the reasoning under it: why
+Week 1 carries the table and a sentence on each card. This is the reasoning under it: why
 these three properties and not the ones on the spec sheet, and why Apple Silicon is the
 comparison people get most wrong.
 
@@ -3225,7 +3230,7 @@ Three caveats, because this is the number people will quote:
   have to be cut into resumable pieces — which our `reuse=True` convention already supports, and
   which is a good argument for having built it.
 - You get **whichever GPU is free**, so a study split across an A100 and an L4 has hardware as an
-  uncontrolled variable. Week 3's fingerprint discipline is exactly the tool for noticing that.
+  uncontrolled variable. Week 4's fingerprint discipline is exactly the tool for noticing that.
 - **Owning wins eventually.** The crossover against rental is ~9,300 GPU-hours. This project used
   148 — 1.6% of the way there.
 
