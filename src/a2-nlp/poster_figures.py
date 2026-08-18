@@ -2801,9 +2801,14 @@ def fig_poster_hardware():
         # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
         # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
         # computed from belongs beside the number rather than off in the tick label.
+        # The time is the claim and stays bold; the rate is its provenance and does not. One
+        # artist cannot mix weights, so the rate hangs off the time at a per-character offset --
+        # crude, but a digit at 11 pt bold is ~6.8 pt wide and the strings never collide.
         for yy, v, rk in zip(y, bars, rates_k):
-            ax.text(v + 0.40, yy, f'{v:.1f} h ({rk:.0f}k tok/s)', va='center', color=INK,
-                    fontsize=11, fontweight='bold')
+            t = f'{v:.1f} h'
+            ax.text(v + 0.40, yy, t, va='center', color=INK, fontsize=11, fontweight='bold')
+            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.40, yy), va='center', color=INK2,
+                        fontsize=10, xytext=(len(t) * 6.8 + 4, -0.5), textcoords='offset points')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2826,8 +2831,11 @@ def fig_poster_hardware():
         span = ax.get_yaxis_transform()
         for yy, cost in zip(y, costs):
             ax.text(0.87, yy, cost, transform=span, va='center', color=INK2, fontsize=12)
-        ax.text(0.87, len(bars) - 0.30, 'the whole project', transform=span, va='bottom',
-                color=MUTED, fontsize=12)
+        # "30d" invites the question Jeffrey asked: thirty days of what? Card-days -- the whole
+        # 148 GPU-hour project run end to end, around the clock, at that machine's rate. Say so
+        # where the numbers are, not in a caption two panels away.
+        ax.text(0.87, len(bars) - 0.30, 'the whole project\n(days run nonstop)', transform=span,
+                va='bottom', color=MUTED, fontsize=11)
 
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=13, color=INK)

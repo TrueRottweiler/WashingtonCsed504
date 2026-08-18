@@ -55,17 +55,16 @@ is the machinery; the upper board is the experiment it served.*
 the band while a tagline about a course number that does not exist held the slot above it. The
 author line runs under the template's gold rule and carries the course and the two-board note.
 
-That empties the gold box, so it takes **Goals** — a rubric item, and the one thing in the header
-that had nowhere else to go.
+The gold box is **empty and not rendered** as of the 18 August proof pass. It briefly carried
+Goals, and Jeffrey's read was right: a goals line under a thesis line is two sentences doing one
+job, and the header was cluttered. The requirement check: the assignment asks for Goals on the
+submission, the **top board carries Patrick's Goals block in full**, and the pair of boards is
+what gets marked — this board's own rubric table has said so from the start. One goals statement
+across the pair; report 09 §Goals holds the long form.
 
 *(18 Aug, second pass: the names went above the gold rule for one build and came back below it.
 Jeffrey had already arranged this band by hand in PowerPoint and the build overwrote his file —
 which is the argument for the build sheet in one line. The arrangement lives here now.)*
-
-**Goals**
-
-> Build the machinery a hundred-model study needs — one training loop, one record format, one
-> benchmark — and measure it honestly enough that the numbers survive being checked.
 
 The assignment asks for team member names. Both boards carry all three in full — **Jeffrey Stall,
 Patrick Kwok, Leon Wan** — once each, in the header band.
@@ -105,9 +104,12 @@ used. Neither repeats the other:
 > The rule those three share: **a panel that needs the reader to already know a piece of jargon is
 > a panel that does not work at two meters.** Report 09 keeps every one of the arguments in full.
 
-Layout, top to bottom: a chart row, the speedups band, a chart row, the memory band, then two
-prose rows. Geometry lives in `build_posters.FACTORY_GEO`; the words below are the words on the
-wall, as ever.
+Layout, top to bottom: hardware chart · **memory** · the rail — then the speedups band beside
+**budgeting** — then the three remaining charts — then two prose rows. Memory and budgeting
+swapped slots on the 18 August proof pass, so memory sits beside the hardware chart it now
+points at ("nobody on the chart beside this needed 80 GB"). The cells below keep their numbers;
+`build_posters.FACTORY_PLAN` is where wall position lives, and the words below are the words on
+the wall, as ever.
 
 ### 1 · You do not need the workstation
 
@@ -121,23 +123,24 @@ wall, as ever.
 
 ### 2 · Budget in tokens, not epochs
 
-> In 502–504 you counted **epochs**, and that was correct: the dataset was a fixed object.
-
 | | |
 |---|---|
-| **Here, the dataset is the experiment.** | Our English ladder trains on 4M to 1,024M tokens. At "40 epochs each", the big arm gets **256× the compute** — the experiment confounded by its own unit. |
-| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens of updates**. 62,500 steps was never chosen: it is 1.024B ÷ a 16,384-token batch. |
-| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k tok/s ≈ **38 min** — the top bar of the chart beside this. The unit plus the rate is how a promise gets measured. |
-| **Our own records carried the bug.** | A field named `epoch` reads **125** at the end of a Yoruba run. The true number of passes is **16**. It kept the name and lost the meaning. |
+| **In 502–504 epochs were correct — the dataset was fixed. Here it is the experiment.** | Our ladder spans 4M to 1,024M tokens: "40 epochs each" hands the big arm **256× the compute**. |
+| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens of updates** — 62,500 steps was never chosen, it is 1.024B ÷ a 16,384-token batch. |
+| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k tok/s ≈ **38 min** — the hardware chart's top bar, and how a promise gets measured. |
+| **Fixed compute makes the ladder readable.** | The 4M corpus is seen **256 times**; the 1,024M corpus, **exactly once**. Identical compute — only the data moves. |
+| **And a truncated run is not a cheaper run.** | The schedule anneals to zero at the *planned* end — a run stopped halfway is mid-schedule, a different experiment. |
+| **Our own records carried the bug.** | A field named `epoch` reads **125** where the truth is **16 passes** — it kept the name and lost the meaning. |
 
-*Four rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
+*Six rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
 
-> **Why this replaced the pipeline chart on 18 August.** Jeffrey's call: budgeting a run — the
-> unit, and the rate that turns it into a promise — was essential to the whole term, and the
-> report's strongest section had no panel. The pipeline chart was the board's weakest: one ratio,
-> which its caption already stated, and the ratio survives verbatim as speedups row 4 (53 s vs
-> 85 min — 96×). Figure 23 stays in the repository; the queue-vs-notebook argument lives on in
-> the dashboard panel.
+*Why this replaced the pipeline chart on 18 August — set as plain commentary, not a blockquote,
+because the parser reads a cell's first blockquote as its lead and this must not print: Jeffrey's
+call — budgeting a run, the unit and the rate that turns it into a promise, was essential to the
+whole term, and the report's strongest section had no panel. The pipeline chart was the board's
+weakest: one ratio its caption already stated, surviving verbatim as speedups row 4 (53 s vs
+85 min — 96×). Figure 23 stays in the repository; the queue-vs-notebook argument lives on in the
+dashboard panel.*
 
 ### 3 · The factory, in numbers
 
@@ -222,6 +225,7 @@ wall, as ever.
 | **The floor is the model** — weights, gradients, optimizer state: 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B model: **84–112 GB**, which no consumer card has. *(arithmetic)* |
 | **Everything above it is batch, and batch is optional.** | Accumulation runs a 16,384-token step as smaller passes — same update, **within 2%** of the cost. |
 | **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
+| **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100's price buys its **speed**, not capacity. |
 | **More memory does not buy speed.** | Batch 2048 uses **89.7 GB** and is *slower* than 128. |
 | **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**. |
 
@@ -231,18 +235,21 @@ wall, as ever.
 
 > Two runs silently overwrote each other — same filename, different vocabularies, and neither
 > record said so. A filename is an identity, so the vocabulary carries a **hash** rather than a
-> label. **197 pretraining and 892 fine-tuning runs later, no collision.**
+> label: `15abd33de5af`. The hash also caught two people who prepared **"the same" corpus** and
+> built different vocabularies. **197 pretraining and 892 fine-tuning runs later, no
+> collision.**
 
-*40 words · `mlm_api.results()` · `ft_api.results()`*
+*56 words · `mlm_api.results()` · `ft_api.results()`*
 
 ### 10 · A result has to beat your own noise
 
 > Run the same recipe twice and it lands in two different places. That is the seed, not the change
 > you made. So we measured **our own noise first** and made every claim clear it by **2.27×** — at
-> three runs a side, no test can call anything significant. **Two of our own claims did not clear
-> it. We retired them.**
+> three runs a side, no test can call anything significant. The spread is a property of **each
+> cell** — re-measured, never a constant we reused. **Two of our own claims did not clear it. We
+> retired them.**
 
-*60 words · `runs/claims_audit.json`*
+*75 words · `runs/claims_audit.json`*
 
 ### 11 · A factory that makes one thing is not a factory
 
@@ -302,7 +309,7 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 | Team member names | header band, directly under the title |
 | Problem / motivation | title block, and cells 1 and 2 |
 | Budget and units | cell 2, and report 09 §Week 1 in full |
-| Goals | title block, and report 09 §Goals in full |
+| Goals | the top board's Goals block (the pair is marked together); report 09 §Goals in full |
 | Tool stack | cells 2, 4, 7, 8 and the footer |
 | Pre-existing vs from scratch | cell 11; the top board's panels 3 and 5 |
 | How performance was explored | cells 1, 4, 5, 6, 8 |

@@ -52,7 +52,7 @@ import win32com.client
 from PIL import Image, ImageDraw, ImageFont
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE, MSO_SHAPE_TYPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.util import Inches, Pt
 
@@ -731,15 +731,15 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
             name="Footer_Tag",
         )
     else:
-        # 34.35 and 12 pt, not 35.16 and 7.2. The footer carries the AI statement now, and a
+        # 34.50 and 12 pt, not 35.16 and 7.2. The footer carries the AI statement now, and a
         # compliance line set at 7.2 pt on a board two feet wide is not a compliance line.
-        y = 34.35
+        y = 34.50
         add_line(slide, 1.50, y, 22.50, y, UW_GOLD, 1)
         add_text(
             slide,
             1.50,
             y + 0.12,
-            21.0,
+            18.3,
             1.30,
             content["sources"],
             FACTORY_PT["footer"],
@@ -747,10 +747,12 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
             font=BODY_FONT,
             name="Footer_Sources",
         )
+        # Inside the footer band, not above the rule: above it the tag sat in row C's last
+        # column and printed through the final source reference on two proofs running.
         add_text(
             slide,
             20.0,
-            y - 0.36,
+            y + 0.14,
             2.5,
             0.30,
             "CSED 504 · 2026",
@@ -1873,8 +1875,8 @@ SPAN3 = 20.98          # the full measure
 # Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
-_ROW = {'a': (8.80, 5.80), 'd': (14.87, 5.35), 'b': (20.49, 5.80),
-        'e': (26.56, 3.20), 'c': (30.03, 4.02)}
+_ROW = {'a': (8.80, 5.80), 'd': (14.80, 5.60), 'b': (20.60, 5.80),
+        'e': (26.60, 3.55), 'c': (30.30, 4.05)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -1903,8 +1905,8 @@ FACTORY_GEO = {
 # from the numbering: the board file's order and the wall's order agreeing is a property worth
 # being able to break, and this is the one place that changes when a panel moves.
 FACTORY_PLAN = {
-    "row_a": ("1", "2", "3"),                        # hardware · pipeline · the rail
-    "row_d": ("4", "8"),                             # what we made faster · where memory is a wall
+    "row_a": ("1", "8", "3"),                        # hardware · memory · the rail
+    "row_d": ("4", "2"),                             # what we made faster · budgeting
     "row_b": ("5", "6", "7"),                        # early stopping · transfer · dashboard
     "row_e": ("9", "10", "strip1"),                  # identity · noise · limits
     "row_c": ("11", "strip2"),                        # the languages at two columns · sources
@@ -2234,6 +2236,13 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
     full-width speedups band so they do not read as one six-panel block.
     """
     prs, slide = open_template(PORTRAIT_TEMPLATE, 0)
+    # The template LAYOUT ships three connectors for its sample blocks -- a full-width rule at
+    # y 15.15 and column dividers at x 8.32 and 15.69 -- and they print through everything laid
+    # on top. They were faint enough to survive four proofs before Jeffrey circled one. Deleted
+    # from this presentation's in-memory layout only; the template file is untouched.
+    for sh in list(slide.slide_layout.shapes):
+        if sh.shape_type == MSO_SHAPE_TYPE.LINE:
+            sh._element.getparent().remove(sh._element)
     figures: list[FigureSpec] = []
     # Names at 4.42 and the tagline at 5.05: on a research poster the team goes directly
     # under the title, which is where a reader looks for it. They were below the tagline and
