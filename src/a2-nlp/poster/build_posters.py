@@ -584,12 +584,24 @@ def add_stat(
     # was digits, and digits have no descenders. "fingerprint" does, and its g and p ran straight
     # through the gold hash line under it. The overflow gate cannot catch this class: it measures
     # each shape against its own box, and both shapes fit; the collision is BETWEEN shapes.
+    # ...and the value band is sized from the TYPE IT WAS GIVEN, not from a fraction of the cell.
+    # h*0.52 is 30.0 pt on the 0.80 in cell band, while one line of the 27 pt value needs 32.6 pt
+    # under the font PowerPoint substitutes on this machine. The fraction encodes an assumption
+    # about font metrics, and the fonts are deliberately not in the repo (#78 dropped them as a
+    # commercial licence), so every renderer gets whatever its own PowerPoint picks. Every big
+    # number on both boards overflowed by 2.6 pt here while rendering clean on the workstation --
+    # same code, same board, different substitute. Deriving the height from value_size makes the
+    # band correct wherever it is rendered; the label sits under whatever that came to, which
+    # keeps the separation #106 established rather than re-deriving it from h.
+    value_h = max(h * 0.52, value_size * 1.28 / 72)
+    label_y = y + 0.08 + value_h + 0.02
+    label_h = max(0.14, (y + h) - label_y - 0.05)
     add_text(
         slide,
         x + 0.14,
         y + 0.08,
         w - 0.28,
-        h * 0.52,
+        value_h,
         value,
         value_size,
         color=value_color,
@@ -602,9 +614,9 @@ def add_stat(
     add_text(
         slide,
         x + 0.18,
-        y + h * 0.68,
+        label_y,
         w - 0.36,
-        h * 0.24,
+        label_h,
         label,
         9.4,
         color=label_color,
@@ -2403,10 +2415,19 @@ def embed_figures_and_export(
     pdf_path = pptx_path.with_suffix(".pdf")
     presentation.SaveAs(str(pdf_path.resolve()), 32)
     preview_path = pptx_path.with_name(f"{pptx_path.stem}-preview.png")
-    if landscape:
-        slide.Export(str(preview_path.resolve()), "PNG", 2400, 1800)
+    # Export at the SLIDE'S aspect, not a hardcoded pair. 1800 x 2400 is 0.750 wide-to-tall and a
+    # 24 x 36 board is 0.667, so every preview was stretched ~12% horizontally -- the PDFs were
+    # always right, but the PNG is what gets pasted into an email and reviewed, and it was quietly
+    # showing a poster nobody was going to print. Found by cropping a preview against shape
+    # coordinates read out of the .pptx and having the two disagree.
+    page_w = float(presentation.PageSetup.SlideWidth)
+    page_h = float(presentation.PageSetup.SlideHeight)
+    long_edge = 2400
+    if page_w >= page_h:
+        px_w, px_h = long_edge, max(1, round(long_edge * page_h / page_w))
     else:
-        slide.Export(str(preview_path.resolve()), "PNG", 1800, 2400)
+        px_h, px_w = long_edge, max(1, round(long_edge * page_w / page_h))
+    slide.Export(str(preview_path.resolve()), "PNG", px_w, px_h)
 
     overflows = []
     for shape in slide.Shapes:
