@@ -372,6 +372,13 @@ def _boards(path: Path | None):
 if __name__ == '__main__':
     import sys
 
+    # A Windows console defaults to cp1252, which has no U+2212 MINUS SIGN -- and one board's big
+    # number is "−0.080". Found by cloning fresh and running this the way the README says to,
+    # rather than through py.sh, which sets UTF-8 for exactly this reason. A gate that only runs
+    # under its wrapper is a gate that fails for the first person who invokes it directly.
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     problems, notes = check(), long_panels() + stale_counts()
     for name, panels in _boards(None):
         src = BOTTOM if name == 'bottom' else TOP

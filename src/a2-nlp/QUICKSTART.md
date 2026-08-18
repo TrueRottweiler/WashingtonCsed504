@@ -17,6 +17,8 @@ Substitute your own clone URL if you are working from a fork.
 
 ```python
 !git clone https://github.com/TrueRottweiler/WashingtonCsed504.git
+# torch is already on a Colab runtime. OFF Colab, install it first and match your CUDA build:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124      (or .../whl/cpu)
 %pip install -q -U datasets transformers tokenizers seqeval
 
 import os, sys

@@ -101,15 +101,38 @@ python poster_figures.py
 git status --porcelain reports/figures/               # empty means no figure drifted
 ```
 
-**Verification gates**, all runnable without a GPU:
+### Verification gates
+
+**None of these needs a GPU**, and the first three need nothing installed at all — so a reader can
+check the documentation and the published numbers before deciding whether to install anything.
+Run them through `py.sh`, which supplies a working interpreter, this folder as the working
+directory, and UTF-8 output (a Windows console defaults to cp1252 and cannot print the minus sign
+one board uses).
 
 ```bash
-python -m unittest discover -p "test_*.py"   # 53 tests; board numbers pinned to runs/
-python claims_audit.py                       # states the null for each comparative claim
-python check_links.py                        # every relative link in the markdown resolves
-python check_boards.py                       # no figure claimed by both posters
-python poster/board_content.py               # every poster panel still fits its column
+bash py.sh check_links.py           # every relative link in the markdown resolves      (no deps)
+bash py.sh check_boards.py          # no figure is claimed by both posters              (no deps)
+bash py.sh poster/board_content.py  # every poster panel still fits its column          (no deps)
+bash py.sh -m unittest discover -p "test_*.py"   # board numbers pinned to their records
+bash py.sh claims_audit.py          # states the null for each comparative claim
 ```
+
+The last two need packages, and say so when they are missing rather than skipping quietly:
+
+| gate | needs | without it |
+|---|---|---|
+| `unittest discover` | `torch` for 2 modules, `matplotlib` for 1 | the rest still run, and they are the ones that pin published numbers — the suite reports **76 tests with torch present, 53 without**, and skips rather than failing |
+| `claims_audit.py` | `scipy`, `torch`, **and a prepared corpus** (step 1 below, plus `prepare_yor_xlmr.py`) | the committed `runs/claims_audit.json` holds all nine verdicts: 6 supported, 2 not, 1 underpowered |
+| `poster_figures.py` | `matplotlib`, pinned to **3.11.0** | figures are committed; regenerate only to check for drift, and a different matplotlib will churn all eighteen for nothing |
+
+`test_board_numbers.py` is the one to run if you run only one: it re-derives every number the
+poster prints from `runs/` and fails if any has drifted.
+
+**A note on `claims_audit.py` failing partway.** It stops at the tokenizer claims with
+`data/yor_xlmr/stats.json not found` and advises `python text_prepare.py --dataset yor_xlmr`.
+Ignore that advice — `text_prepare.py` is the *other* study's English preparer and has no such
+dataset. The corpus is built by `prepare_yor_xlmr.py`. The first five claims print before it
+stops, and the committed JSON has the rest.
 
 Findings, with the methodology written out, are in **[reports/](reports/)** — start with
 [reports/README.md](reports/README.md), which indexes all thirteen and says which are superseded.
@@ -183,7 +206,7 @@ And the downstream half, plus the analysis and reporting layer:
 | [`poster/`](poster/) | turns a board markdown file into printable PowerPoint + PDF ([README](poster/README.md)) |
 | `claims_audit.py` | states the null for each comparative claim and computes what would refute it |
 | `check_links.py`, `check_boards.py` | the markdown gates — dangling links, figures claimed twice |
-| `test_*.py` | 53 tests, no GPU needed; `test_board_numbers.py` pins every published number to its record |
+| `test_*.py` | the test suite, no GPU needed; `test_board_numbers.py` pins every published number to its record |
 
 **Written up in [`reports/`](reports/):** what the study asks and where the limits are, what
 the model actually learned, and the throughput investigation. Start with
