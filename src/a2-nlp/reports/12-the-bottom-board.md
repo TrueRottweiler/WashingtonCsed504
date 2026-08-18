@@ -136,7 +136,7 @@ wall, as ever.
 ### 3 · The factory, in numbers
 
 > **197** pretraining runs, every one from scratch · **892** fine-tuning runs on top of them,
-> across two tasks · **17** languages in four writing systems · **148** GPU-hours on two cards,
+> across two tasks · **17** languages measured, 12 of them pretrained from scratch · **148** GPU-hours, two cards,
 > 71 kWh at the wall · **62,500** steps a run — 1.024B tokens of updates, the unit that makes two
 > machines comparable · **0** identity collisions, because a vocabulary carries a hash
 
@@ -181,11 +181,11 @@ wall, as ever.
 
 **Figure:** `27-poster-cliffs.svg`
 
-> Every run that learns sits flat and then falls off a cliff — and **no two fall at the same
-> step**. The earliest is **2,200**, the latest **48,500**. So "still flat at step k" is evidence
-> of nothing. **35 of 195 runs never learned**, and we could not have told which.
+> Yoruba, English and ten more, all on one axis. Every run that learns sits flat and then falls
+> off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**. So
+> "still flat at step k" is evidence of nothing. **35 of 195 never learned.**
 
-*51 words · `runs/early_signal.json`*
+*49 words · `runs/early_signal.json`*
 
 ### 6 · The setting four languages want destroys the fifth
 
@@ -201,11 +201,11 @@ wall, as ever.
 
 **Figure:** `28-poster-dashboard.svg`
 
-> On 9 August, **44.7 GPU-hours were committed across 69 runs** and Patrick needed a sweep before
-> he could write. A fleet pins to one card, so the urgent work took **card 1** and the queue kept
-> card 0. Twenty minutes to running, and a measured **"fifty minutes"**.
+> The chart is five English corpus sizes separating while they run. On 9 August **44.7 GPU-hours
+> sat across 69 runs** and Patrick needed a sweep: a fleet pins to one card, so it took **card 1**
+> while the queue kept card 0. **Twenty minutes** to running, on a measured promise.
 
-*47 words · report 09 §The rush order*
+*50 words · report 09 §The rush order*
 
 ### 8 · When memory is a wall, and when it is only a speed limit
 
@@ -217,7 +217,7 @@ wall, as ever.
 | **Everything above it is batch, and batch is optional.** | Accumulation runs a 16,384-token step as smaller passes — same update, **within 2%** of the cost. |
 | **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
 | **More memory does not buy speed.** | Batch 2048 uses **89.7 GB** and is *slower* than 128. |
-| **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**, 6× under the truth. |
+| **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**. |
 
 *13 words · report 09 §Memory · `runs/hardware.json`*
 
@@ -242,25 +242,18 @@ wall, as ever.
 
 | | |
 |---|---|
-| **English is the ruler.** | A ladder from 4M to 1,024M tokens — something to measure Yoruba against. |
+| **English is the ruler.** | A ladder from **4M to 1,024M tokens** — the one place data was never the constraint, so Yoruba has something to be measured against. |
 | **French, Indonesian, Mandarin are the control.** | They cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** | One is an anecdote; seventeen is a slope. |
-| **Adding one is a function call.** | **Twelve trained in 48 minutes.** |
+| **Twelve African languages are the gradient.** | Hausa, Igbo, Kinyarwanda, Luganda, Nyanja, Shona, Somali, Swahili, Wolof, Xhosa, Amharic, Afrikaans — from scratch, **0.5 to 3.8 minutes each**. |
+| **Seventeen make the slope.** | One language is an anecdote. Seventeen has an exception — Wolof, uncovered and **cheap at 1.31** — that an anecdote hides. |
+| **Five got the whole sweep.** | Six rates, sixty runs — and the setting four want destroys the fifth. |
+| **None of us speaks any of them.** | So the spread is the evidence, not any one score — and **adding one had to be a function call**: twelve in 48 minutes. |
 
-*Four rows, no prose — the heading is the claim · `runs/gradient_table.json` · report 09 §Why seventeen*
+*Six rows, no prose — the heading is the claim · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
 
 ---
 
 ## The strip — the bottom row of panels
-
-### Nine functions, nothing else to import
-
-> More than sixteen thousand lines behind **nine calls**. Leon read the documentation and asked
-> whether there was an interface he should be using — **a tool nobody can find does not exist**.
-> Only **3%** of the factory is masking-specific: a second study, on next-token prediction,
-> **reuses it unchanged**.
-
-*48 words · counted at render time from `mlm_api.py` · `mlm_data.py`*
 
 ### What we do not claim, and what we would do next
 
@@ -300,8 +293,8 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 | Team member names | header band, directly under the title |
 | Problem / motivation | title block, and cells 1 and 2 |
 | Goals | title block, and report 09 §Goals in full |
-| Tool stack | cells 2, 4, 7, 8 and strip 1 |
-| Pre-existing vs from scratch | cell 11 and strip 1; the top board's panels 3 and 5 |
+| Tool stack | cells 2, 4, 7, 8 and the footer |
+| Pre-existing vs from scratch | cell 11; the top board's panels 3 and 5 |
 | How performance was explored | cells 1, 4, 5, 6, 8 |
 | Dataset EDA | cell 3's inventory and cell 11; the top board's panel 2 carries the corpus EDA |
 | Results / summary statistics | cells 1–11, every one a measured number |

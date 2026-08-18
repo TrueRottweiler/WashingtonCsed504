@@ -2614,11 +2614,11 @@ WHOLE_COHORT_STEP = 11_000
 # POSTER_BOX is read off build_posters.FACTORY_GEO -- panel width less 0.62 in of gutter, panel
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
-    '23-poster-run': (6.35, 3.05),
-    '25-poster-transfer': (6.35, 3.05),
-    '26-poster-hardware': (6.35, 3.05),
-    '27-poster-cliffs': (6.35, 3.05),
-    '28-poster-dashboard': (6.35, 3.05),
+    '23-poster-run': (6.35, 2.65),
+    '25-poster-transfer': (6.35, 2.65),
+    '26-poster-hardware': (6.35, 2.65),
+    '27-poster-cliffs': (6.35, 2.65),
+    '28-poster-dashboard': (6.35, 2.65),
 }
 
 # And what to ASK matplotlib for so that the file it writes measures POSTER_BOX. Not derived --
@@ -2627,11 +2627,11 @@ POSTER_BOX = {
 # Calibrated by rendering, measuring and correcting; scratchpad/fitsize.py does that and writes
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
-    '23-poster-run': (5.42, 3.33),
-    '25-poster-transfer': (6.91, 3.03),
-    '26-poster-hardware': (5.59, 2.92),
-    '27-poster-cliffs': (7.31, 2.98),
-    '28-poster-dashboard': (7.71, 3.41),
+    '23-poster-run': (5.42, 2.81),
+    '25-poster-transfer': (6.91, 2.51),
+    '26-poster-hardware': (5.06, 2.37),
+    '27-poster-cliffs': (7.31, 2.46),
+    '28-poster-dashboard': (7.71, 2.89),
 }
 
 
@@ -2863,7 +2863,7 @@ def fig_poster_hardware():
         # computed from belongs beside the number rather than off in the tick label.
         for yy, v, rk in zip(y, bars, rates_k):
             ax.text(v + 0.40, yy, f'{v:.1f} h ({rk:.0f}k tok/s)', va='center', color=INK,
-                    fontsize=12, fontweight='bold')
+                    fontsize=11, fontweight='bold')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2879,15 +2879,20 @@ def fig_poster_hardware():
         # And its heading carries the scope. The two numbers on a row are at different scales --
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
+        # Anchored in AXES fraction, not data. A fixed data x has to be re-chosen every time the
+        # figure is recalibrated to a new panel height -- the axis width changes, the value label
+        # keeps its point size, and the two collide again. This holds its column whatever the
+        # figure ends up being.
+        span = ax.get_yaxis_transform()
         for yy, cost in zip(y, costs):
-            ax.text(26.8, yy, cost, va='center', color=INK2, fontsize=12)
-        ax.text(26.8, len(bars) - 0.30, 'the whole project', va='bottom',
+            ax.text(0.87, yy, cost, transform=span, va='center', color=INK2, fontsize=12)
+        ax.text(0.87, len(bars) - 0.30, 'the whole project', transform=span, va='bottom',
                 color=MUTED, fontsize=12)
 
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=13, color=INK)
         ax.set_xlabel('hours for ONE run  (the 33.8M model)')
-        ax.set_xlim(0, 34.5)
+        ax.set_xlim(0, 40.0)
         ax.set_ylim(-0.65, len(bars) + 0.10)
         ax.set_xticks([0, 8, 16])
         ax.set_xticklabels(['0', '8 h', '16 h'])

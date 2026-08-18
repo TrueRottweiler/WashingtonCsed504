@@ -1862,8 +1862,11 @@ SPAN3 = 20.98          # the full measure
 # 8.40, not 8.05: the template master paints its purple band down to 8.24, and at 8.05 the first
 # line of every heading in the top row printed behind it. Measured off the proof -- furniture this
 # file did not draw is still geometry it has to live inside.
-_ROW = {'a': (8.40, 6.00), 'd': (14.68, 5.40), 'b': (20.36, 6.00),
-        'e': (26.64, 3.50), 'c': (30.42, 3.35)}
+# Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
+# heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
+# between them, not a clearance.
+_ROW = {'a': (8.80, 5.80), 'd': (14.87, 5.45), 'b': (20.59, 5.80),
+        'e': (26.66, 3.20), 'c': (30.13, 3.77)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -1885,7 +1888,7 @@ FACTORY_GEO = {
     "row_d": _split('d'),
     "row_b": _across('b'),
     "row_e": _across('e'),
-    "row_c": _across('c'),
+    "row_c": _split('c'),
 }
 
 # Which panel goes in which box, in the order the rows are drawn. Written down rather than derived
@@ -1895,14 +1898,14 @@ FACTORY_PLAN = {
     "row_a": ("1", "2", "3"),                        # hardware · pipeline · the rail
     "row_d": ("4", "8"),                             # what we made faster · where memory is a wall
     "row_b": ("5", "6", "7"),                        # early stopping · transfer · dashboard
-    "row_e": ("9", "10", "11"),                      # identity · noise · seventeen languages
-    "row_c": ("strip1", "strip2", "strip3"),         # interface · limits · sources
+    "row_e": ("9", "10", "strip1"),                  # identity · noise · limits
+    "row_c": ("11", "strip2"),                        # the languages at two columns · sources
 }
 
 # What kind of block each panel is. A chart panel gets a figure; a rail is the purple stat block;
 # a table is the speedups grid; everything else is a heading and prose. Only the two that cannot
 # be told apart from the panel itself are listed -- a figure is a chart, and no figure is prose.
-FACTORY_KIND = {"3": "rail", "4": "table", "8": "list", "11": "list", "strip3": "refs"}
+FACTORY_KIND = {"3": "rail", "4": "table", "8": "list", "11": "list", "strip2": "refs"}
 
 # Type. The top board sets section headers at 40 pt, but its headers are single words -- ABSTRACT,
 # RESULTS -- and ours are whole statements. At 6.35 in a 40 pt sentence wraps to three lines and
@@ -1913,11 +1916,14 @@ FACTORY_KIND = {"3": "rail", "4": "table", "8": "list", "11": "list", "strip3": 
 # 32 pt is slower to read than the same words set in a heavier face, and these are sentences.
 FACTORY_PT = {
     "title": 72.0,
-    "panel_head": 32.0, "panel_cap": 16.0,
+    # One body size on the board. The chart captions were 16 and the prose panels 18, which
+    # reads at arm's length as two different documents -- and neither number was chosen, each was
+    # fitted to its own panel.
+    "panel_head": 32.0, "panel_cap": 17.0,
     "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
     "table_head": 32.0, "table_row": 11.0, "table_lead": 17.0,
-    "card_head": 32.0, "card_body": 18.0,
-    "list_body": 13.5, "refs_body": 11.0, "footer": 12.0,
+    "card_head": 32.0, "card_body": 17.0,
+    "list_body": 13.0, "refs_body": 11.0, "footer": 12.0,
 }
 
 
@@ -1997,8 +2003,11 @@ def _panel_head(slide, x, y, w, text, pt, name, *, rule=True) -> float:
     # 1.12, measured: two lines at 32 pt is 77.3 pt and 0.98 in is 70.6. Every heading on the
     # board wraps to two, so the second line is the size to budget rather than the exception.
     head_h = 1.12 if pt >= 30 else 0.62
+    # Bottom-anchored. The box is sized for two lines because most headings take two, and a
+    # one-line heading set from the top left half an inch of nothing between itself and its own
+    # rule -- which reads as a panel whose heading has come adrift from its content.
     add_text(slide, x, y, w, head_h, text, pt, color=UW_PURPLE, font=HEADLINE_FONT,
-             bold=True, name=f"{name}_Heading")
+             bold=True, valign=MSO_ANCHOR.BOTTOM, name=f"{name}_Heading")
     if rule:
         add_line(slide, x, y + head_h + 0.04, x + w, y + head_h + 0.04, UW_GOLD, 1.25)
     return y + head_h + 0.18
@@ -2016,7 +2025,7 @@ def add_chart_panel(slide, figures, panel, box, *, name: str) -> None:
     """
     x, y, w, h = box
     top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["panel_head"], name)
-    cap_h = 1.75
+    cap_h = 1.55
     fig_h = (y + h - 0.14) - cap_h - 0.16 - top
     figures.append(FigureSpec(_figure_source(panel.figure), x, top, w, fig_h, name))
     add_rich_text(slide, x, top + fig_h + 0.16, w, cap_h, panel.body,
@@ -2633,10 +2642,21 @@ def main() -> None:
             # Only what this run writes. The glob that used to sit above this loop deleted
             # every pptx, pdf and preview in the directory, including a saved earlier version
             # somebody had put there on purpose.
+            # Windows holds an exclusive lock on an open .pptx, and this file is the thing
+            # somebody is looking at while the build runs -- so the failure is normal, frequent,
+            # and worth naming rather than raising a PermissionError from pathlib.
             for stale in (path, path.with_suffix(".pdf"),
                           path.with_name(path.stem + "-preview.png")):
-                if stale.exists():
+                if not stale.exists():
+                    continue
+                try:
                     stale.unlink()
+                except PermissionError:
+                    raise SystemExit(
+                        f"{stale.name} is open in another program -- close it and run again. "
+                        f"Windows will not let the build replace a file PowerPoint has open, "
+                        f"and half-writing it would be worse than stopping."
+                    ) from None
             save_base_presentation(prs, path)
             landscape = prs.slide_width > prs.slide_height
             jobs.append((path, figures, landscape))
