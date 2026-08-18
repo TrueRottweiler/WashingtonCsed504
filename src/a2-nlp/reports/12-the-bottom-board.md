@@ -49,21 +49,22 @@ the face the top board's title is set in and not the Normal weight this board ha
 ## Title block
 
 > ## CSED 505: Building a Model Factory
-> *the course that would come after 504 — ten weeks, derived from one term of building one*
->
-> **501** the statistics · **502** the mechanics · **503** the language stack · **504** scale —
-> **All four end when a model finishes training. None covers needing a hundred models and having
-> to believe the differences between them.** This board is the machinery; the board above it is
-> the experiment it served.
+> *501 the statistics · 502 the mechanics · 503 the language stack · 504 scale — All four end when a model finishes training. None covers needing a hundred models and having to believe the differences between them.*
 
-Author line, in the header band: *Jeffrey Stall · Patrick Kwok · Leon Wan*
+Author line, in the header band: *Jeffrey Stall · Patrick Kwok · Leon Wan — CSED 504. This board
+is the machinery; the upper board is the experiment it served.*
 
-**The names sit directly under the title**, at 20 pt, which is where a reader of any research
-poster looks for them. Until 18 August they were below the tagline and above a gold rule the
-template master draws, in the smallest type in the band — three names in 9.5 pt on a board two
-feet wide. The course, the institution and the term moved to the line under them; the clause about
-which board is which moved into the takeaway, because it is context for somebody standing in front
-of both and not part of an author line.
+**The subtitle slot carries the thesis**, which is Jeffrey's arrangement and the right one: the
+501/502/503/504 sentence is what this board is *for*, and it had been sitting in a gold box below
+the band while a tagline about a course number that does not exist held the slot above it. The
+author line runs under the template's gold rule and carries the course and the two-board note.
+
+That empties the gold box, so it takes **Goals** — a rubric item, and the one thing in the header
+that had nowhere else to go.
+
+*(18 Aug, second pass: the names went above the gold rule for one build and came back below it.
+Jeffrey had already arranged this band by hand in PowerPoint and the build overwrote his file —
+which is the argument for the build sheet in one line. The arrangement lives here now.)*
 
 **Goals**
 
@@ -143,26 +144,38 @@ wall, as ever.
 
 ### 4 · What we made faster
 
-> **2.07× on the four-cell benchmark** — and only **1.32×** of it is efficiency; the rest is a
-> second card nobody had used. The list is longer than that one number, and two of its best rows
-> are decisions **not** to do something.
+> **2.07× on the four-cell benchmark** — only **1.32×** of it efficiency; the rest is a second card
+> nobody had used. **A third of the twenty were rejected**, and a list of only the wins would be
+> marketing rather than a log. Every row had to make the *same* experiment faster.
 
 | what changed | measured | kept? |
 |---|---|---|
-| dataset on the card, no loader | 13.8k → **18.5k img/s** | yes |
-| images as `uint8`, cast per batch | 4× less memory, free cast | yes |
-| augment on the GPU | no PIL, no host copy | yes |
-| tokenize once, up front | 53 s vs 85 min — **96×** | yes |
-| token dtype from the vocab | 16k → **2 bytes a token** | yes |
-| batch 64 → 128 | **1.31×** — 2048 is *slower* | yes |
-| both cards, longest first | **1.57×**, 91% / 93% busy | yes |
-| bf16 instead of fp16 | **1.34×**, no loss-scale | yes |
-| TF32 · benchmark · fused Adam | free on Ampere and later | yes |
-| fp16 **+** channels_last | **3.5× slower** on sm_89 | no |
-| drop the per-step `.item()` | **2%** — not worth it | no |
-| `torch.compile` | no Triton on Windows | can't |
+| **the data path** | | |
+| 1 · dataset on the card, no loader | 13.8k → **18.5k img/s** | yes |
+| 2 · images as `uint8`, cast per batch | 4× less memory, free cast | yes |
+| 3 · augment on the GPU | no PIL, no host copy | yes |
+| 4 · tokenize once, up front | 53 s vs 85 min — **96×** | yes |
+| 5 · token dtype from the vocabulary | 16k → **2 bytes a token** | yes |
+| **precision and kernels** | | |
+| 6 · bf16 autocast, not fp16 | **1.34×** on sm_89, no loss-scale | yes |
+| 7 · channels_last for CNNs, bf16 only | fp16 + it is **3.5× slower** | guarded |
+| 8 · channels_last for ViTs | a no-op on a transformer | no |
+| 9 · TF32 for matmul and cuDNN | free on Ampere and later | yes |
+| 10 · `cudnn.benchmark = True` | worth it when shapes are fixed | yes |
+| 11 · fused SGD and AdamW | one kernel, not a chain | yes |
+| 12 · `torch.compile` | no Triton on Windows | can't |
+| 13 · attention backend | already `sdpa` | no change |
+| **host-sync discipline** | | |
+| 14 · drop the per-step `.item()`, CIFAR | **~7%** | yes |
+| 15 · the same at MLM scale | **2%** — a live loss is worth it | no |
+| 16 · `zero_grad(set_to_none=True)` | skips a full zero-fill | yes |
+| **batching and scheduling** | | |
+| 17 · batch 64 → 128 | **1.31×** — 2048 is *slower* | yes |
+| 18 · checkpointing for speed | peak is **3.3 GB of 96** | no |
+| 19 · use the second card | **91% / 93%** busy at 300 W | yes |
+| 20 · longest-budget-first queue | **2.55×** projected, 2.07 seen | yes |
 
-*42 words · report 09 §Optimization*
+*50 words · report 09 §Optimization*
 
 ### 5 · You cannot judge a run early
 

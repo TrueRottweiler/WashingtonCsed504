@@ -2629,7 +2629,7 @@ POSTER_BOX = {
 POSTER_FIGSIZE = {
     '23-poster-run': (5.42, 3.33),
     '25-poster-transfer': (6.91, 3.03),
-    '26-poster-hardware': (4.99, 2.92),
+    '26-poster-hardware': (5.59, 2.92),
     '27-poster-cliffs': (7.31, 2.98),
     '28-poster-dashboard': (7.71, 3.41),
 }
@@ -2827,7 +2827,7 @@ def fig_poster_hardware():
     # is a methodology point and stays in the report. A poster row that reads "the same box
     # again" costs a row and answers a question nobody standing in front of it has asked yet.
 
-    bars, labels, costs, colors = [], [], [], []
+    bars, labels, costs, colors, rates_k = [], [], [], [], []
     for key, name, fixed in rows:
         rec = machines[key]
         rate = {p: rec[p]['tokens_per_s'] for p in ('poc', 'afriberta')}
@@ -2846,7 +2846,8 @@ def fig_poster_hardware():
         # two-line labels in the 2.3 in the plot area gets is 0.33 in a row against 0.33 in of
         # type, and on the proof they printed through each other.
         rate_k = rec['poc']['tokens_per_s'] / 1000
-        labels.append(f'{name} · {rate_k:.0f}k tok/s')
+        rates_k.append(rate_k)
+        labels.append(name)
         costs.append(f'{price} · {days:.0f}d')
         # Colour carries what it costs you, and the row label says the same thing in words, so
         # nothing here is encoded in colour alone.
@@ -2857,9 +2858,12 @@ def fig_poster_hardware():
         fig, ax = plt.subplots(figsize=_poster_figsize('26-poster-hardware'))
         y = list(range(len(bars) - 1, -1, -1))
         ax.barh(y, bars, 0.62, color=colors, zorder=3)
-        for yy, v in zip(y, bars):
-            ax.text(v + 0.35, yy, f'{v:.1f} h', va='center', color=INK,
-                    fontsize=14, fontweight='bold')
+        # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
+        # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
+        # computed from belongs beside the number rather than off in the tick label.
+        for yy, v, rk in zip(y, bars, rates_k):
+            ax.text(v + 0.40, yy, f'{v:.1f} h ({rk:.0f}k tok/s)', va='center', color=INK,
+                    fontsize=12, fontweight='bold')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2876,14 +2880,14 @@ def fig_poster_hardware():
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
         for yy, cost in zip(y, costs):
-            ax.text(25.4, yy, cost, va='center', color=INK2, fontsize=12)
-        ax.text(25.4, len(bars) - 0.30, 'the whole project', va='bottom',
+            ax.text(26.8, yy, cost, va='center', color=INK2, fontsize=12)
+        ax.text(26.8, len(bars) - 0.30, 'the whole project', va='bottom',
                 color=MUTED, fontsize=12)
 
         ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=11, color=INK)
+        ax.set_yticklabels(labels, fontsize=13, color=INK)
         ax.set_xlabel('hours for ONE run  (the 33.8M model)')
-        ax.set_xlim(0, 35.6)
+        ax.set_xlim(0, 34.5)
         ax.set_ylim(-0.65, len(bars) + 0.10)
         ax.set_xticks([0, 8, 16])
         ax.set_xticklabels(['0', '8 h', '16 h'])
@@ -3002,36 +3006,36 @@ def fig_poster_dashboard():
         # --- the queue ------------------------------------------------------------------------
         ax.add_patch(plt.Rectangle((0, 71), 100, 29, facecolor=SURFACE, edgecolor=GRID,
                                    lw=1.0, zorder=1))
-        ax.text(1.8, 96.5, 'QUEUE', color=MUTED, fontsize=9.5, fontweight='bold', va='center')
+        ax.text(1.8, 96.5, 'QUEUE', color=MUTED, fontsize=6.6, fontweight='bold', va='center')
         ax.text(17, 96.5, f'{RUSH["queued_runs"]} runs · {RUSH["queued_h"]:.1f} GPU-hours '
-                          'committed', color=INK, fontsize=10.5, va='center')
+                          'committed', color=INK, fontsize=7.3, va='center')
         rows = [('yor 16k · seed 0', 'card 0', 1.00, C3, 'done'),
                 ('yor 16k · seed 1', 'card 0', 0.62, C1, '62%'),
                 ('yor 250k · seed 0', 'card 0', 0.00, MUTED, 'queued'),
                 ('lr sweep · 5 cells', 'card 1', 0.34, C4, '34%')]
         for i, (nm, card, frac, colour, state) in enumerate(rows):
             y = 90.0 - i * 4.6
-            ax.plot([2.6], [y], 'o', color=colour, markersize=6, zorder=3)
-            ax.text(5.6, y, nm, color=INK, fontsize=10.5, va='center')
-            ax.text(36, y, card, color=MUTED, fontsize=10, va='center')
+            ax.plot([2.6], [y], 'o', color=colour, markersize=4.5, zorder=3)
+            ax.text(5.6, y, nm, color=INK, fontsize=7.3, va='center')
+            ax.text(36, y, card, color=MUTED, fontsize=7, va='center')
             ax.add_patch(plt.Rectangle((48, y - 1.0), 36, 2.0, facecolor=GRID, lw=0, zorder=2))
             if frac:
                 ax.add_patch(plt.Rectangle((48, y - 1.0), 36 * frac, 2.0, facecolor=colour,
                                            lw=0, zorder=3))
-            ax.text(86, y, state, color=MUTED, fontsize=10, va='center')
+            ax.text(86, y, state, color=MUTED, fontsize=7, va='center')
 
         # --- the two cards --------------------------------------------------------------------
         for i, (label, util, watt) in enumerate((('cuda:0', 0.91, 298), ('cuda:1', 0.93, 301))):
             x = i * 51
             ax.add_patch(plt.Rectangle((x, 57), 49, 11, facecolor=SURFACE, edgecolor=GRID,
                                        lw=1.0, zorder=1))
-            ax.text(x + 2, 65, label, color=INK, fontsize=11, fontweight='bold', va='center')
-            ax.text(x + 47, 65, f'{util:.0%}', color=INK, fontsize=11, fontweight='bold',
+            ax.text(x + 2, 65, label, color=INK, fontsize=7.7, fontweight='bold', va='center')
+            ax.text(x + 47, 65, f'{util:.0%}', color=INK, fontsize=7.7, fontweight='bold',
                     va='center', ha='right')
             ax.add_patch(plt.Rectangle((x + 2, 61.4), 45, 2.0, facecolor=GRID, lw=0, zorder=2))
             ax.add_patch(plt.Rectangle((x + 2, 61.4), 45 * util, 2.0, facecolor=C3, lw=0,
                                        zorder=3))
-            ax.text(x + 2, 59.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=9.5,
+            ax.text(x + 2, 59.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=6.6,
                     va='center')
 
         # --- the callouts, boxed with their labels beneath ------------------------------------
@@ -3040,7 +3044,7 @@ def fig_poster_dashboard():
         ax.add_patch(plt.Rectangle((1.2, 73.9), 97.6, 4.6, facecolor='none', edgecolor=C2,
                                    lw=2.2, zorder=6))
         ax.text(0, 53.0, 'an urgent sweep takes a LANE, not the road', color=C2,
-                fontsize=13, fontweight='bold', va='center')
+                fontsize=9.1, fontweight='bold', va='center')
 
         # --- and the chart, which is half the real screen --------------------------------------
         sub = ax.inset_axes([0.0, 0.0, 1.0, 0.44])
@@ -3054,18 +3058,18 @@ def fig_poster_dashboard():
             xs = [p['step'] for p in curve]
             ys = [p['val']['loss'] for p in curve]
             sub.plot(xs, ys, color=colour, lw=1.8)
-            sub.plot([xs[-1]], [ys[-1]], 'o', color=colour, markersize=5)
+            sub.plot([xs[-1]], [ys[-1]], 'o', color=colour, markersize=3.5)
             # Staggered: three of the five land within 0.4 nats of each other and their end
             # labels printed on top of one another.
-            sub.text(xs[-1] * 1.10, ys[-1] + dy, label, color=colour, fontsize=9.5,
+            sub.text(xs[-1] * 1.10, ys[-1] + dy, label, color=colour, fontsize=6.6,
                      fontweight='bold', va='center')
         sub.set_xscale('log')
         sub.set_xlim(300, 160_000)
         sub.set_xticks([1_000, 10_000])
-        sub.set_xticklabels(['1k', '10k'], fontsize=9.5)
+        sub.set_xticklabels(['1k', '10k'], fontsize=6.6)
         sub.tick_params(labelsize=9.5)
         sub.set_title('five corpus sizes, one experiment, still running',
-                      fontsize=10.5, color=INK2, loc='left', pad=4)
+                      fontsize=7.3, color=INK2, loc='left', pad=4)
         for spine in ('top', 'right'):
             sub.spines[spine].set_visible(False)
         save(fig, '28-poster-dashboard')

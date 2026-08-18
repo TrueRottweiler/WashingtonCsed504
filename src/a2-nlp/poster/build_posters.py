@@ -442,9 +442,9 @@ def add_header(
         add_text(
             slide,
             1.53,
-            5.05,
+            4.45,
             19.0,
-            0.58,
+            0.95,
             content["subtitle"],
             subtitle_pt,
             color=PAPER,
@@ -454,9 +454,9 @@ def add_header(
         add_text(
             slide,
             1.53,
-            4.42,
-            18.0,
-            0.46,
+            6.48,
+            19.0,
+            0.42,
             # The rubric asks for team member names, so this comes off the board's author line
             # rather than being a generic string. It said "A2-NLP Project Team" for a fortnight.
             content.get("author")
@@ -468,7 +468,8 @@ def add_header(
         )
 
 
-def add_takeaway(slide, content: dict, x: float, y: float, w: float, h: float) -> None:
+def add_takeaway(slide, content: dict, x: float, y: float, w: float, h: float,
+                 *, label: str = "TAKEAWAY") -> None:
     add_rect(slide, x, y, w, h, fill=GOLD_TINT, line=UW_GOLD, name="Takeaway_Background")
     add_text(
         slide,
@@ -476,7 +477,7 @@ def add_takeaway(slide, content: dict, x: float, y: float, w: float, h: float) -
         y + 0.16,
         1.55,
         h - 0.28,
-        "TAKEAWAY",
+        label,
         10.5,
         color=UW_PURPLE,
         font=SUBHEAD_FONT,
@@ -1914,7 +1915,7 @@ FACTORY_PT = {
     "title": 72.0,
     "panel_head": 32.0, "panel_cap": 16.0,
     "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
-    "table_head": 32.0, "table_row": 13.0, "table_lead": 18.0,
+    "table_head": 32.0, "table_row": 11.0, "table_lead": 17.0,
     "card_head": 32.0, "card_body": 18.0,
     "list_body": 13.5, "refs_body": 11.0, "footer": 12.0,
 }
@@ -2097,21 +2098,30 @@ def add_table_panel(slide, panel, box, *, name: str) -> None:
     """
     x, y, w, h = box
     top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["table_head"], name)
-    add_rich_text(slide, x, top, w, 0.66, panel.body, FACTORY_PT["table_lead"],
+    add_rich_text(slide, x, top, w, 0.94, panel.body, FACTORY_PT["table_lead"],
                   color=INK, name=f"{name}_Lead")
 
     rows = list(panel.table)
     half = (len(rows) + 1) // 2
     block_w = (w - 0.60) / 2
-    row_h = 0.30
+    row_h = 0.235
     for b, chunk in enumerate((rows[:half], rows[half:])):
         bx = x + b * (block_w + 0.60)
         for c, head in enumerate(("what changed", "measured", "kept?")):
-            add_text(slide, bx + TABLE_COLS[c] * block_w, top + 0.68, block_w * 0.30, 0.22,
+            add_text(slide, bx + TABLE_COLS[c] * block_w, top + 0.98, block_w * 0.30, 0.22,
                      head.upper(), 10.0, color=MUTED, font=SUBHEAD_FONT, bold=True,
                      name=f"{name}_H{b}{c}")
         for r, cells in enumerate(chunk):
-            ry = top + 0.92 + r * row_h
+            ry = top + 1.22 + r * row_h
+            # A row whose other cells are empty is a SECTION, not data. The build sheet writes
+            # `| **the data path** | | |` and gets the report's own grouping -- which is most of
+            # why the twenty-change version reads better than a flat list of the same rows.
+            if len(cells) > 1 and not any(c.strip() for c in cells[1:]):
+                add_text(slide, bx, ry, block_w, row_h - 0.02,
+                         cells[0].strip('*').upper(), FACTORY_PT["table_row"] - 1.0,
+                         color=UW_PURPLE, font=SUBHEAD_FONT, bold=True,
+                         valign=MSO_ANCHOR.MIDDLE, name=f"{name}_G{b}{r}")
+                continue
             add_line(slide, bx, ry - 0.04, bx + block_w, ry - 0.04, LINE, 0.75)
             for c, text in enumerate(cells[:3]):
                 cw = (TABLE_COLS[c + 1] if c + 1 < len(TABLE_COLS) else 1.0) - TABLE_COLS[c]
@@ -2172,14 +2182,16 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
     # under the title, which is where a reader looks for it. They were below the tagline and
     # above a gold rule the template draws, in the smallest type in the band.
     add_header(slide, content, title_pt=FACTORY_PT["title"], title_caps=True,
-               title_font=TITLE_BLACK, subtitle_pt=19.0, author_pt=20.0)
-    if content.get("goals"):
-        # y = 6.42 clears a gold rule the template master draws at 6.08-6.39.
-        add_text(slide, 1.53, 6.42, 19.0, 0.60, content["goals"], 14.0,
-                 color=UW_GOLD, font=BODY_FONT, name="Header_Goals")
+               title_font=TITLE_BLACK, subtitle_pt=19.0, author_pt=14.0)
     # Compressed from 1.70 in: the body starts at 8.30 to sit level with the top board's first
     # section, and this box is what was in the way.
-    add_takeaway(slide, content, 1.50, 7.12, 21.0, 0.80)
+    # The gold box carries GOALS now, not the takeaway. Jeffrey moved the 501/502/503/504 thesis
+    # into the subtitle -- it is what the board is for, and it had been sitting in a box below the
+    # band while a tagline held the slot above it. That empties the box, and Goals is the one
+    # rubric item in the header with nowhere else to go.
+    if content.get("goals"):
+        add_takeaway(slide, {"takeaway": content["goals"]}, 1.50, 7.15, 21.0, 0.78,
+                     label="GOALS")
 
     panels = content["panels"]
     for row, keys in FACTORY_PLAN.items():
