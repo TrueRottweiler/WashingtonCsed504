@@ -108,7 +108,7 @@ three answers are *no*.
 > survives both — and fixing the unit is what lets the figure below compare hardware and nothing
 > else.
 
-*67 words · `runs/scaling_law.json` · `runs/hardware.json`*
+*69 words · `runs/scaling_law.json` · `runs/hardware.json`*
 
 **Over the 55-word guide on purpose, and worth it.** Two additions. *"One pass over the data"*
 glosses **epoch**, which is the one term on this board a 501 student may genuinely not have met.
@@ -128,7 +128,7 @@ guide is approximate, the column is not. 67 fits.)*
 > **197 models and 892 fine-tuning runs, across 17 languages, and only one is Yoruba.** At 25
 > minutes that control set is a week's work and gets cut. At 12 it runs.
 
-*59 words · `mlm_api.results()` · `ft_api.results()` · report 03*
+*67 words · `mlm_api.results()` · `ft_api.results()` · report 03*
 
 > **Why the wording changed.** This said "1,089 models", which is 197 + 892 and is not 1,089
 > models — 892 of them are fine-tuning runs on top of the 197. Nobody would have caught it from
@@ -153,7 +153,7 @@ guide is approximate, the column is not. 67 fits.)*
 > Everything cheap stays interactive, everything expensive goes in a queue you can walk away from,
 > and the part that makes it work rather than merely tidy: **both paths write the same record.**
 
-*55 words · `runs/pipeline_bench.json`*
+*66 words · `runs/pipeline_bench.json`*
 
 **Second block — the rush order:**
 
@@ -174,7 +174,7 @@ guide is approximate, the column is not. 67 fits.)*
 > has to include **everything that changes the answer** — so the vocabulary gets a hash rather
 > than a label. 197 pretraining runs and 892 fine-tuning runs later, no collision has survived.
 
-*54 words · `mlm_api.results()` · `ft_api.results()`*
+*62 words · `mlm_api.results()` · `ft_api.results()`*
 
 ### 5 · What does someone else have to be able to call?
 
@@ -185,7 +185,7 @@ guide is approximate, the column is not. 67 fits.)*
 > Leon read the documentation and asked whether there was an interface he should be using. There
 > was. **A tool nobody can find does not exist**, and nobody files a bug to tell you.
 
-*57 words · counted at render time from `mlm_api.py`*
+*66 words · counted at render time from `mlm_api.py`*
 
 **Second block — is it a masked-LM factory, or a factory?**
 
@@ -206,7 +206,7 @@ guide is approximate, the column is not. 67 fits.)*
 > three is only twenty possible shufflings, so the smallest p the test can return is **0.10**,
 > however far apart the arms land. Two of our claims sat in that gap. Both retired.
 
-*64 words · `runs/claims_audit.json`*
+*65 words · `runs/claims_audit.json`*
 
 **Why this one is over the guide.** "The exact test cannot return a p below 0.10" is the most
 useful sentence on the board and the easiest to misread as a typo. The reason is countable and
@@ -231,7 +231,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 
 > Same runs, two readings, opposite answers. Fairness is a property of the unit.
 
-*61 words + table · `runs/tokenizer_seeds.json`*
+*57 words + table · `runs/tokenizer_seeds.json`*
 
 ### 8 · Does a tuned setting transfer?
 
@@ -242,7 +242,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > and at every rate above. And the winner is not identified in *any* of the five: the gap to the
 > runner-up is smaller than the gap between two seeds at the same rate.
 
-*57 words · `runs/lr_transfer.json` · `runs/budget.json`*
+*65 words · `runs/lr_transfer.json` · `runs/budget.json`*
 
 ### 9 · Detect the failure, or prevent it?
 
@@ -253,7 +253,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > eleven**: the best doomed run always looks better than the worst healthy one. Do not build the
 > detector. And tighter clipping does not prevent divergence either.
 
-*54 words · `runs/early_signal.json` · `runs/clip_prevention.json`*
+*56 words · `runs/early_signal.json` · `runs/clip_prevention.json`*
 
 ---
 
@@ -268,7 +268,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > every student already gets free.** What the faster tier buys is **7 days against 30**, not a
 > cheaper bill. **You buy latency, not access.** Team: Jeffrey Stall, Patrick Kwok, Leon Wan.
 
-*66 words · `runs/hardware.json`*
+*67 words · `runs/hardware.json`*
 
 > **Set this block — the tiers are measured.** All three were re-run on the realistic loop, twice
 > or more each. The instruction that used to sit here said to wait, and it outlived its reason.
@@ -285,7 +285,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > scraped web text nobody consented to. And the gate reports **9 claims: 6 supported, 2 not, 1
 > underpowered** — two of the three failures ours, printed rather than dropped.
 
-*57 words · `runs/claims_audit.json` · report 09 §Ethics*
+*62 words · `runs/claims_audit.json` · report 09 §Ethics*
 
 ### Next · sources · AI
 
@@ -296,7 +296,7 @@ significant result at p < 0.05 no matter what the effect is. Sixteen extra words
 > code. It made the building much faster and the *verifying* no faster at all — every number here
 > still had to be checked against the records.
 
-*77 words · report 09 §Panel 10*
+*86 words · report 09 §Panel 10*
 
 > **The commit ratio is off the board as of 17 August, and getting it wrong three times is the
 > reason.** It said 120 of 144, then 96 of 168, and a recount on the 17th made it 101 of 173 —
