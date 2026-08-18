@@ -39,6 +39,7 @@ import test_label_quantity as _records                      # noqa: F401,E402
 
 import ft_api                                               # noqa: E402  (stub or real)
 import mlm_api                                              # noqa: E402  (stub or real)
+import poster_figures                                      # noqa: E402
 import study_label_quantity as S                            # noqa: E402
 
 TASK_NER, TASK_SIB, LANG_NER, LANG_SIB = 'masakhaner', 'sib200', 'yor', 'yor_Latn'
@@ -81,6 +82,38 @@ def dev_selected(slug, task, lang, steps):
 
 
 # ------------------------------------------------------------------------------------------
+class TheInterfaceCount(unittest.TestCase):
+    """The one number on the board that grows every time anybody writes a study.
+
+    Both boards and report 09 say the interface stands in front of "more than sixteen thousand
+    lines", and figure 19 counts that folder at render time. The two went out of step the moment
+    the poster figures landed -- the prose said sixteen thousand while the counter said 17,095 --
+    which is this project's own lesson arriving from inside: a count written in prose is a cache
+    with no invalidation.
+
+    So the claim is a BOUND rather than a value. A bound on a quantity that only grows stays true
+    without anybody remembering it exists, and this asserts the direction is the safe one.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.d = poster_figures._api_surface()
+
+    def test_the_interface_is_nine_functions(self):
+        self.assertEqual(len(self.d['signatures']), 9)
+
+    def test_the_folder_is_over_the_bound_the_boards_quote(self):
+        self.assertGreater(self.d['folder'], 16_000)
+
+    def test_the_bound_is_the_right_side_of_the_count(self):
+        # If the folder ever passes eighteen thousand, "more than sixteen" is true and limp --
+        # the ratio it exists to convey has moved. That is a prompt to re-word, not a failure of
+        # the code, so it fails here rather than silently understating on the wall.
+        self.assertLess(self.d['folder'], 18_000,
+                        'folder has outgrown "more than sixteen thousand" -- '
+                        're-word board 12 strip 1 and report 09')
+
+
 class TokenizerGradient(unittest.TestCase):
     """Panel 3, and the thesis block quote. Figure 02 draws this file."""
 

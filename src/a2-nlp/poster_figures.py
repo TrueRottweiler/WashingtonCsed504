@@ -430,11 +430,6 @@ def fig_cost():
     runs/hardware.json by the same arithmetic fig_hardware uses. Only the two physical constants
     below are typed, and they are the two nobody can derive from a run record.
     """
-    # Measured at the wall over the project, not from card TDP: 71 kWh across 148.0 GPU-hours is
-    # 0.48 kW, which includes cooling and the rest of the machine. Report 09 carries the full
-    # accounting. These are the only hand-entered numbers left in this figure, and they are
-    # properties of a building rather than of a run.
-    WALL_KW, USD_PER_KWH = 71.0 / 148.0, 7.0 / 71.0
 
     hours = sum(_workstation_hours_by_preset().values())
     models = len([r for r in f.results('*') if r.get('seconds')])
@@ -1144,6 +1139,21 @@ def _hardware_rate(rows):
                 near=min(use, key=lambda r: abs(r['tokens_per_s'] - st.median(rates))))
 
 
+# Measured at the wall over the project, not from card TDP: 71 kWh across 148.0 GPU-hours
+# is 0.48 kW, which includes cooling and the rest of the machine. Report 09 carries the
+# full accounting. These are the only hand-entered numbers in either cost figure, and they
+# are properties of a building rather than of a run -- which is why they sit here, in one
+# place, rather than once per drawing.
+WALL_KW, USD_PER_KWH = 71.0 / 148.0, 7.0 / 71.0
+
+
+# The workstation's device string exactly as torch reports it. Named here because three
+# figures look it up and #88 renamed it across every row of runs/hardware.json -- the
+# kind of rename that is fine everywhere it is a constant and a KeyError everywhere it
+# was retyped.
+WS = 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition'
+
+
 def _rent_the_project():
     """What the cheapest measured Colab tier would charge for this project's whole term of work.
 
@@ -1173,6 +1183,186 @@ def _rent_the_project():
         one = presets[next(iter(ws_hours))][0]
         quotes.append(hrs * one['compute_units_per_hour'] * one['usd_per_compute_unit'])
     return min(quotes)
+
+
+# ---------------------------------------------------------------------------------------------
+# Shared loaders. Each of these was inline in a report figure until the poster needed the same
+# numbers drawn a different way, at which point a copy would have been two places for a corrected
+# record to reach -- and this project has spent a fortnight on exactly that failure. A report
+# figure and its poster counterpart may look nothing alike; they may not disagree about a value.
+
+
+def _hardware_machines():
+    """The eight machines, reduced to one record per machine per model shape.
+
+    Returns (machines, order, cpu_only, tokens_per_run). `order` is accelerators only,
+    fastest first; `cpu_only` is what was set aside. Lifted out of fig_hardware whole
+    when the poster needed the same eight rows drawn a different way -- the selection
+    rules below cost a fortnight and three corrections, and a second copy of them is
+    exactly the failure this figure keeps catching in other numbers.
+    """
+    rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    WS_HOURS = _workstation_hours_by_preset()
+    # Recovered from the rows rather than restated as 62,500 x 128 x 128 here. A second copy of
+    # a constant is how this project's worst numbers happened: bench_portable.py's own
+    # PROJECT_GPU_HOURS sat at 83.3 for weeks after the project reached 148. If the benchmark
+    # ever changes what a full run means, these bars follow it instead of quietly disagreeing.
+    TOKENS_PER_RUN = rows[0]['full_run_hours'] * 3600 * rows[0]['tokens_per_s']
+
+    # Every sitting for a machine gets collected first and reduced second, because last-row-wins
+    # is not a choice -- it is whatever order the file happens to be in. Two rules follow.
+    #
+    # A timed row beats a burst row, always, and they are never averaged. They measure different
+    # things, and blending them would bury the one finding the method change produced: the free
+    # T4 reads 19-22% high on a 40-step burst while nothing else moves by 2%. So a machine with
+    # any --seconds row drops its burst rows entirely.
+    #
+    # Among comparable sittings, the median. The laptop has been measured plugged in twice, 1.5%
+    # apart, and quoting whichever landed last in the file means appending a row silently redraws
+    # the figure. Hours come from that median rather than off one row, so the bar and the table
+    # beside it cannot disagree.
+    # Three kinds of row live here now, and medianing across them would be the bug this
+    # figure keeps finding in other people's numbers.
+    #
+    #   realistic-loop   the step mlm_train.pretrain() runs. What every row should eventually be.
+    #   bare-step        the old step-only loop. Reads high, by 3% on the workstation and by an
+    #                    amount nobody has measured on any other machine.
+    #   real-run median  not a benchmark: the median over 127 and 70 completed training runs.
+    #
+    # A machine takes the best method it has and DISCARDS the others -- never an average. The
+    # real-run column is keyed apart on purpose rather than competing, because Jeffrey asked for
+    # both workstation columns on the figure: the benchmark says what an idle card does, the real
+    # runs say what a term of work actually delivered, and the gap between them is the point.
+    buckets, order = {}, []
+    for r in rows:
+        # A battery sitting is the same silicon telling a different story, so it is keyed
+        # apart -- otherwise the plugged laptop and the battery laptop average into a machine
+        # that does not exist, at a rate neither of them ran at.
+        key = r['device'] + (' (battery)' if 'battery' in (r.get('note') or '').lower() else '')
+        if r.get('method') == 'real-run median':
+            key += ' (real runs)'
+        if key not in buckets:
+            buckets[key] = {}
+            order.append(key)
+        buckets[key].setdefault(r['preset'], []).append(r)
+
+    machines = {}
+    for key, presets in buckets.items():
+        machines[key] = {}
+        for preset, got in presets.items():
+            # _hardware_rate carries the selection rules; the rest of the record comes from the
+            # sitting nearest the median it picked, so dtype, peak memory and the micro-batch the
+            # row records all still describe one real run rather than a composite of several.
+            r = _hardware_rate(got)
+            machines[key][preset] = dict(r['near'], tokens_per_s=round(r['rate']),
+                                         sittings=r['sittings'], method=r['method'],
+                                         lo=r['lo'], hi=r['hi'],
+                                         full_run_hours=TOKENS_PER_RUN / r['rate'] / 3600)
+    # An accelerator row, or the bare processor? `compute_capability` answers that for CUDA and
+    # for nothing else -- Apple's MPS rows carry a null there, so keying off it alone filed the
+    # MacBook as a CPU baseline and dropped it off the bar panel without saying so. The row a
+    # student is most likely to look for, silently missing, because a NVIDIA-shaped field was
+    # read as "is this a GPU".
+    def is_accelerator(rec):
+        return bool(rec.get('compute_capability')) or '(MPS)' in rec['device']
+
+    cpu_only = [k for k in order if not is_accelerator(machines[k]['poc'])]
+    order = [k for k in order if is_accelerator(machines[k]['poc'])]
+    # Fastest first, so the workstation anchors the left and the question "how far down can you
+    # go" reads left to right.
+    order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
+    return machines, order, cpu_only, TOKENS_PER_RUN
+
+
+def _rent_by_tier():
+    """{tier: {'hours', 'usd'}} for every Colab tier whose rows carry a compute-unit rate.
+
+    The project's own card time rescaled by each tier's throughput against the workstation's,
+    separately per model shape because the 98M half is the expensive half and the tiers do not
+    scale identically across the two.
+    """
+    rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    ws_hours = _workstation_hours_by_preset()
+    ws = {r['preset']: r for r in rows
+          if 'PRO 6000' in r['device'] and r.get('method') == 'realistic-loop'}
+    billed = {}
+    for r in rows:
+        if r.get('compute_units_per_hour') and r.get('usd_per_compute_unit'):
+            billed.setdefault(r['device'], {}).setdefault(r['preset'], []).append(r)
+
+    out = {}
+    for device, presets in billed.items():
+        if not all(p in presets for p in ws_hours):
+            continue
+        rate = {p: _hardware_rate(presets[p])['rate'] for p in ws_hours}
+        hrs = sum(ws_hours[p] * ws[p]['tokens_per_s'] / rate[p] for p in ws_hours)
+        one = presets[next(iter(ws_hours))][0]
+        out[device] = {'hours': hrs,
+                       'usd': hrs * one['compute_units_per_hour'] * one['usd_per_compute_unit']}
+    return out
+
+
+def _pipeline_stages():
+    """The preparation stages and one pretraining run, in seconds.
+
+    The two CPU stages are reported for the FULL corpus rather than the timed sample, which is
+    why `extrapolated_full_s` is preferred where a stage has it.
+    """
+    b = json.load(open(os.path.join(HERE, 'runs', 'pipeline_bench.json'), encoding='utf-8'))
+    by = {s['name']: s for s in b['stages']}
+
+    def find(prefix):
+        return next(s for k, s in by.items() if k.startswith(prefix))
+
+    tok = find('2.')['seconds']
+    enc = find('3.').get('extrapolated_full_s') or find('3.')['seconds']
+    load = find('5.')['seconds']
+    return {'tokenizer_s': tok, 'encode_s': enc, 'load_s': load,
+            'prepare_s': tok + enc + load,
+            'pretrain_small_s': find('6. train step, 33.8M')['hours_for_62500_steps'] * 3600,
+            'pretrain_big_s': find('6. train step, 98M')['hours_for_62500_steps'] * 3600}
+
+
+# A cell counts as failed when it lands more than 1.5 nats above what the SAME language reaches
+# at its own best rate -- a per-language test, for the same reason the seed-spread rule is a
+# per-cell property rather than a constant. 1.5 nats is not a close call at this scale: the whole
+# usable range within a language spans about 0.4.
+#
+# The first version used a threshold halfway to random-guessing loss and was too lenient to catch
+# the thing the figure exists to show -- Igbo's collapsed cells came out as filled markers joined
+# by a line. The failures are far from THIS language's best and nowhere near random, so a
+# threshold anchored on random cannot see them.
+LR_FAIL_MARGIN = 1.5
+LR_NAMES = {'hau': 'Hausa', 'ibo': 'Igbo', 'nya': 'Nyanja', 'swh': 'Swahili', 'yor': 'Yoruba'}
+
+
+def _lr_transfer_cells():
+    """(cells, langs, rates, names) for the five-language learning-rate grid.
+
+    cells[lang][lr] = {'seeds', 'mean', 'kind'} where kind is 'ok', 'failed' or 'split'. A SPLIT
+    cell is one where one seed trained and the other collapsed, so its mean describes no run that
+    happened -- both drawings have to treat those separately rather than plot the average.
+    """
+    rows = [r for r in json.load(open(os.path.join(HERE, 'runs', 'lr_transfer.json'),
+                                      encoding='utf-8')) if 'val_loss' in r]
+    by = {}
+    for r in rows:
+        by.setdefault(r['lang'], {}).setdefault(r['lr'], []).append(r['val_loss'])
+
+    langs = sorted(by, key=lambda l: (l != 'ibo', l))     # Igbo first: it is the point
+    rates = sorted({lr for d in by.values() for lr in d})
+    cells = {}
+    for lang in langs:
+        seeds = {lr: sorted(v) for lr, v in sorted(by[lang].items())}
+        means = {lr: st.mean(v) for lr, v in seeds.items()}
+        cutoff = means[min(means, key=means.get)] + LR_FAIL_MARGIN
+        cells[lang] = {}
+        for lr, v in seeds.items():
+            n_ok = sum(1 for x in v if x < cutoff)
+            cells[lang][lr] = {
+                'seeds': v, 'mean': means[lr],
+                'kind': 'ok' if n_ok == len(v) else ('failed' if n_ok == 0 else 'split')}
+    return cells, langs, rates, LR_NAMES
 
 
 def _downstream_spread():
@@ -1800,76 +1990,8 @@ def fig_hardware():
     GPU bar to nothing on a linear axis, and the number a reader needs from the CPU is not its
     bar but its ratio to the card sitting in the same chassis.
     """
-    rows = json.load(open(os.path.join(HERE, 'runs', 'hardware.json'), encoding='utf-8'))
+    machines, order, cpu_only, TOKENS_PER_RUN = _hardware_machines()
     WS_HOURS = _workstation_hours_by_preset()
-    # Recovered from the rows rather than restated as 62,500 x 128 x 128 here. A second copy of
-    # a constant is how this project's worst numbers happened: bench_portable.py's own
-    # PROJECT_GPU_HOURS sat at 83.3 for weeks after the project reached 148. If the benchmark
-    # ever changes what a full run means, these bars follow it instead of quietly disagreeing.
-    TOKENS_PER_RUN = rows[0]['full_run_hours'] * 3600 * rows[0]['tokens_per_s']
-
-    # Every sitting for a machine gets collected first and reduced second, because last-row-wins
-    # is not a choice -- it is whatever order the file happens to be in. Two rules follow.
-    #
-    # A timed row beats a burst row, always, and they are never averaged. They measure different
-    # things, and blending them would bury the one finding the method change produced: the free
-    # T4 reads 19-22% high on a 40-step burst while nothing else moves by 2%. So a machine with
-    # any --seconds row drops its burst rows entirely.
-    #
-    # Among comparable sittings, the median. The laptop has been measured plugged in twice, 1.5%
-    # apart, and quoting whichever landed last in the file means appending a row silently redraws
-    # the figure. Hours come from that median rather than off one row, so the bar and the table
-    # beside it cannot disagree.
-    # Three kinds of row live here now, and medianing across them would be the bug this
-    # figure keeps finding in other people's numbers.
-    #
-    #   realistic-loop   the step mlm_train.pretrain() runs. What every row should eventually be.
-    #   bare-step        the old step-only loop. Reads high, by 3% on the workstation and by an
-    #                    amount nobody has measured on any other machine.
-    #   real-run median  not a benchmark: the median over 127 and 70 completed training runs.
-    #
-    # A machine takes the best method it has and DISCARDS the others -- never an average. The
-    # real-run column is keyed apart on purpose rather than competing, because Jeffrey asked for
-    # both workstation columns on the figure: the benchmark says what an idle card does, the real
-    # runs say what a term of work actually delivered, and the gap between them is the point.
-    buckets, order = {}, []
-    for r in rows:
-        # A battery sitting is the same silicon telling a different story, so it is keyed
-        # apart -- otherwise the plugged laptop and the battery laptop average into a machine
-        # that does not exist, at a rate neither of them ran at.
-        key = r['device'] + (' (battery)' if 'battery' in (r.get('note') or '').lower() else '')
-        if r.get('method') == 'real-run median':
-            key += ' (real runs)'
-        if key not in buckets:
-            buckets[key] = {}
-            order.append(key)
-        buckets[key].setdefault(r['preset'], []).append(r)
-
-    machines = {}
-    for key, presets in buckets.items():
-        machines[key] = {}
-        for preset, got in presets.items():
-            # _hardware_rate carries the selection rules; the rest of the record comes from the
-            # sitting nearest the median it picked, so dtype, peak memory and the micro-batch the
-            # row records all still describe one real run rather than a composite of several.
-            r = _hardware_rate(got)
-            machines[key][preset] = dict(r['near'], tokens_per_s=round(r['rate']),
-                                         sittings=r['sittings'], method=r['method'],
-                                         lo=r['lo'], hi=r['hi'],
-                                         full_run_hours=TOKENS_PER_RUN / r['rate'] / 3600)
-    # An accelerator row, or the bare processor? `compute_capability` answers that for CUDA and
-    # for nothing else -- Apple's MPS rows carry a null there, so keying off it alone filed the
-    # MacBook as a CPU baseline and dropped it off the bar panel without saying so. The row a
-    # student is most likely to look for, silently missing, because a NVIDIA-shaped field was
-    # read as "is this a GPU".
-    def is_accelerator(rec):
-        return bool(rec.get('compute_capability')) or '(MPS)' in rec['device']
-
-    cpu_only = [k for k in order if not is_accelerator(machines[k]['poc'])]
-    order = [k for k in order if is_accelerator(machines[k]['poc'])]
-    # Fastest first, so the workstation anchors the left and the question "how far down can you
-    # go" reads left to right.
-    order.sort(key=lambda k: -machines[k]['poc']['tokens_per_s'])
 
     # Seven columns' worth of two-line tick labels need more rail than five did -- at 17.0 the
     # battery column made "Colab A100, Pro" and "the workstation" set as one run-on word.
@@ -1880,7 +2002,6 @@ def fig_hardware():
     # and the dtype -- which is the pair that tells a reader whether two bars are the same
     # computation. Eight columns of these collided at the old widths, so the machine names lost
     # their "Pro"/"laptop" suffixes rather than the technical line losing anything.
-    WS = 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition'
     short = {WS: 'the workstation\nsm_120 · bf16',
              # Not a benchmark. 127 and 70 completed training runs on the same card, which is the
              # only column here that knows what a term of work actually costs rather than what an
@@ -2459,6 +2580,427 @@ def fig_label_quantity_column():
         save(fig, '18-label-quantity-column')
 
 
+# ---------------------------------------------------------------------------------------------
+# The poster figures. Four charts drawn at the exact size they are placed.
+#
+# Why these exist alongside the report versions rather than replacing them. A report figure is
+# read at 40 cm with a caption under it; a poster figure is read at two meters with fifteen words.
+# The old board took the report figures and scaled them to ~0.3x inside a 6.35 in column, which
+# put their axis type on the wall at 2.7 to 8.0 pt beside 18 pt prose -- measured, not guessed.
+# Scaling cannot fix that: even at v3's 12.9 in hero the 23.5 in hardware figure would print at
+# 5.5 pt. So these are drawn at placement size, in-chart type is 14-30 pt, and there are no
+# legends, because a legend is a lookup a passer-by will not perform.
+#
+# What they must not do is disagree with the report about a number. Each one pulls through the
+# same loader its report counterpart uses, so a corrected record moves both.
+
+
+# Runs were not all carried to the end of the budget: 182 reach step 11000 and 87 reach
+# 12000. Any figure that compares checkpoints across the whole set stops here, so that a
+# change in who is being measured is never drawn as a change in what was measured.
+WHOLE_COHORT_STEP = 11_000
+
+
+# ---------------------------------------------------------------------------------------------
+# Where the poster puts each chart, and what to draw it at so it lands there at 1:1.
+#
+# PowerPoint scales a picture to CONTAIN it in its frame, so a figure whose aspect does not match
+# its slot is shrunk to fit the tighter dimension -- and every point size inside it comes down by
+# the same factor. The first proof measured 0.73 to 0.83, which put 15 pt axis type on the wall at
+# 11 pt beside 18 pt prose. Matching the aspect is worth more than raising the type: at 0.73,
+# getting back to 1.0 is a 37% gain, and it costs nothing.
+#
+# POSTER_BOX is read off build_posters.FACTORY_GEO -- panel width less 0.62 in of gutter, panel
+# height less the heading and caption the same function reserves.
+POSTER_BOX = {
+    '22-poster-cost': (10.33, 3.57),
+    '23-poster-run': (10.33, 3.57),
+    '24-poster-earlystop': (10.33, 3.57),
+    '25-poster-transfer': (10.33, 3.57),
+    '26-poster-hardware': (13.08, 4.80),
+}
+
+# And what to ASK matplotlib for so that the file it writes measures POSTER_BOX. Not derived --
+# savefig(bbox_inches='tight') trims to the artists, so the figure that comes out is never the
+# figsize that went in, and the correction depends on how much furniture sits outside the axes.
+# Calibrated by rendering, measuring and correcting; scratchpad/fitsize.py does that and writes
+# the result here. Re-run it after adding anything outside a figure's axes.
+POSTER_FIGSIZE = {
+    '22-poster-cost': (9.6, 4.0),
+    '23-poster-run': (9.33, 4.0),
+    '24-poster-earlystop': (12.21, 3.66),
+    '25-poster-transfer': (11.93, 2.68),
+    '26-poster-hardware': (11.22, 4.16),
+}
+
+
+def _poster_figsize(name):
+    """The calibrated figsize for a poster figure, so the saved file is POSTER_BOX[name]."""
+    return POSTER_FIGSIZE[name]
+
+
+def _poster_rc():
+    """Type sized for a wall. A context, so the report figures keep their page sizes."""
+    return plt.rc_context({
+        'font.size': 15, 'axes.titlesize': 19, 'axes.labelsize': 15,
+        'xtick.labelsize': 14, 'ytick.labelsize': 14,
+        'lines.linewidth': 3.0, 'lines.markersize': 14,
+    })
+
+
+def fig_poster_cost():
+    """Panel 1, the hero: what the work cost three ways, and what the faster tier actually buys.
+
+    The point is not that renting is cheap. It is that the two paid tiers cost the SAME and
+    differ only in the wait -- so the note under the rental dot carries both tiers' days, which
+    is the whole claim in a phrase a reader takes at distance.
+    """
+    hours = sum(_workstation_hours_by_preset().values())
+    power = hours * WALL_KW * USD_PER_KWH
+    tiers = _rent_by_tier()
+    rent = min(v['usd'] for v in tiers.values())
+
+    items = [(f'Electricity for\n{hours:.0f} GPU-hours', power, C3),
+             ('Renting the same\nwork on Colab', rent, C1),
+             ('Buying the\nworkstation', 24_000.0, C2)]
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('22-poster-cost'))
+        for i, (label, v, color) in enumerate(items):
+            y = len(items) - 1 - i
+            ax.plot([1, v], [y, y], color=color, lw=3.0, alpha=0.35, zorder=1)
+            ax.plot(v, y, 'o', color=color, markersize=22, markeredgecolor=SURFACE,
+                    markeredgewidth=3, zorder=3)
+            # Escaped. A PAIR of dollar signs is a mathtext span to matplotlib and both prices
+            # vanish into italics -- it has happened three times in this file, and this figure
+            # is nothing but prices.
+            ax.text(v * 1.6, y + 0.10, '\\$' + format(v, ',.0f'), va='center', color=INK,
+                    fontsize=30, fontweight='bold')
+
+        # Short names. _rent_by_tier keys by the device string torch reports, which is
+        # "NVIDIA A100-SXM4-80GB" -- correct in a record and unreadable on a wall.
+        short = {'NVIDIA A100-SXM4-80GB': 'A100', 'NVIDIA L4': 'L4', 'Tesla T4': 'T4'}
+        order = sorted(tiers.items(), key=lambda kv: kv[1]['hours'])
+        note = '   ·   '.join(f"{short.get(n, n)}: {v['hours'] / 24:.0f} days" for n, v in order)
+        ax.text(rent * 1.6, 0.74, note, va='center', color=INK2, fontsize=16)
+        ax.text(rent * 1.6, 0.46, 'same bill, different wait', va='center', color=C1,
+                fontsize=17, fontweight='bold')
+
+        ax.set_xscale('log')
+        ax.set_xlim(1, 4e5)
+        ax.set_xticks([1, 10, 100, 1_000, 10_000, 100_000])
+        ax.set_xticklabels(['\\$1', '\\$10', '\\$100', '\\$1k', '\\$10k', '\\$100k'])
+        ax.minorticks_off()
+        ax.set_yticks(range(len(items)))
+        ax.set_yticklabels([i[0] for i in reversed(items)], fontsize=17, color=INK)
+        ax.set_ylim(-0.55, len(items) - 0.35)
+        ax.grid(axis='y', visible=False)
+        ax.tick_params(axis='y', length=0)
+        save(fig, '22-poster-cost')
+
+
+def fig_poster_run():
+    """Panel 3: the ratio that decides what belongs in a notebook and what belongs in a queue.
+
+    The three preparation stages are bracketed into one number, because "prepare" is the thing
+    being compared -- and the gap to a pretraining run is the finding, so it is drawn as a span
+    rather than left for the reader to divide two axis positions in their head.
+
+    Both model shapes get a row. The board's caption quotes 85 min and 96x, which is the 98M
+    model, and an earlier draft of this figure drew only the 33.8M one at 37 min and 41x -- two
+    true numbers for the same sentence. Drawing both also earns its space: choosing the larger
+    shape is a 2.3x decision about the wait, taken before any of this runs.
+    """
+    s = _pipeline_stages()
+    prep, run = s['prepare_s'], s['pretrain_big_s']
+    rows = [('train the tokenizer', s['tokenizer_s'], C4),
+            ('encode the corpus', s['encode_s'], C4),
+            ('load it onto the card', s['load_s'], C4),
+            ('PRETRAIN the 34M model', s['pretrain_small_s'], C1),
+            ('PRETRAIN the 98M model', run, C1)]
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('23-poster-run'))
+        for i, (label, v, color) in enumerate(rows):
+            y = len(rows) - 1 - i
+            ax.plot([0.7, v], [y, y], color=color, lw=3.0, alpha=0.35, zorder=1)
+            ax.plot(v, y, 'o', color=color, markersize=19, markeredgecolor=SURFACE,
+                    markeredgewidth=3, zorder=3)
+            txt = f'{v:.0f} s' if v < 90 else f'{v / 60:.0f} min'
+            ax.text(v * 1.5, y, txt, va='center', color=INK, fontsize=22, fontweight='bold')
+
+        # The span is anchored on the SLOWER run, so the ratio on the wall is the one the
+        # caption beside it quotes. Anchored on the faster one it would read 41x against a
+        # caption saying 96x, and a reader who notices has to work out which to believe.
+        ax.annotate('', xy=(run, 3.52), xytext=(prep, 3.52),
+                    arrowprops=dict(arrowstyle='<->', color=INK2, lw=2.2))
+        ax.text((prep * run) ** 0.5, 3.68, f'{run / prep:.0f}×', ha='center', color=INK,
+                fontsize=26, fontweight='bold')
+        ax.text(prep * 0.85, 3.28, f'prepare: {prep:.0f} s', ha='right', color=C4,
+                fontsize=16, fontweight='bold')
+
+        ax.set_xscale('log')
+        ax.set_xlim(0.7, run * 10)
+        ax.set_xticks([1, 10, 60, 600, 3600])
+        ax.set_xticklabels(['1 s', '10 s', '1 min', '10 min', '1 hour'])
+        ax.minorticks_off()
+        ax.set_yticks(range(len(rows)))
+        ax.set_yticklabels([r[0] for r in reversed(rows)], fontsize=16, color=INK)
+        ax.set_ylim(-0.55, len(rows) + 0.25)
+        ax.grid(axis='y', visible=False)
+        ax.tick_params(axis='y', length=0)
+        save(fig, '23-poster-run')
+
+
+def fig_poster_earlystop():
+    """Panel 4: the two outcomes overlap at every checkpoint, so no threshold can separate them.
+
+    The report version prices every abandonment rule. A poster cannot carry that and does not
+    need to -- the argument is visible the moment you draw the RANGES rather than the means.
+    Wherever the worst survivor sits below the best failure, a threshold placed anywhere kills
+    healthy runs, and that is true at all eleven checkpoints.
+
+    Only the first eight are drawn. Not every run was carried to the end of the budget, so the
+    sample halves at step 12000 -- 182 runs to 87 -- and that shows up as a cliff in the failure
+    line which is a change of cohort, not a change in training. The eight whole-cohort
+    checkpoints are also the ones the question is actually about: a rule that fires at 24000 of
+    62500 steps has not stopped anything early.
+    """
+    es = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'), encoding='utf-8'))
+    sep = [r for r in es['separation'] if r['step'] <= WHOLE_COHORT_STEP]
+    x = [r['step'] for r in sep]
+    ok_lo = [r['ok_min'] for r in sep]
+    bad_hi = [r['bad_max'] for r in sep]
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('24-poster-earlystop'))
+        ax.fill_between(x, ok_lo, bad_hi, color=MUTED, alpha=0.28, lw=0)
+        ax.plot(x, ok_lo, color=C1, lw=3.4)
+        ax.plot(x, bad_hi, color=C2, lw=3.4)
+        ax.plot(x, ok_lo, 'o', color=C1, markersize=9)
+        ax.plot(x, bad_hi, 'o', color=C2, markersize=9)
+
+        # The failure band sits ABOVE the survivor band -- that inversion is the finding, so
+        # each label goes on the far side of its own line and neither can land on the other.
+        # Anchored on the LEFT end and lifted clear. The failure line climbs across the
+        # figure, so a label placed just above it at any interior point is overtaken by the line
+        # as soon as the box gets shorter -- which is what fitting the figure to its slot did.
+        ax.text(x[0], bad_hi[0] + 0.52, 'best run that NEVER LEARNED', ha='left', va='bottom',
+                color=C2, fontsize=17, fontweight='bold')
+        ax.text(x[2], ok_lo[2] - 0.10, 'worst run that LEARNED', ha='left', va='top',
+                color=C1, fontsize=17, fontweight='bold')
+        ax.text(x[-2], (ok_lo[-2] + bad_hi[-2]) / 2, 'they overlap\nat every one',
+                ha='center', va='center', color=INK, fontsize=17, fontweight='bold')
+
+        ax.set_xlabel('checkpoint (optimizer steps)')
+        ax.set_ylabel('nats gained vs untrained')
+        ax.set_xscale('log')
+        ax.set_xticks([500, 2000, 8000])
+        ax.set_xticklabels(['500', '2k', '8k'])
+        ax.minorticks_off()
+        save(fig, '24-poster-earlystop')
+
+
+def fig_poster_transfer():
+    """Panel 5: a grid, because the finding is which CELL is fatal rather than any curve's shape.
+
+    The report draws five small-multiple curves. On a wall that is five sets of axes nobody
+    reads. The same sixty runs as a 5 x 6 grid say it at a glance: every cell scored against its
+    OWN language's best rate, a star on each language's winner, a cross where the run collapsed.
+
+    The outlined column is the sentence. Three languages hit their own best at 7e-4 and Yoruba
+    lands 0.02 nats off its best there, which is inside its own seed-to-seed spread -- so four of
+    the five are fine at that rate. Igbo's two seeds both sit at 5.65 and stay there for every
+    higher rate as well. One setting, four languages served and one destroyed.
+    """
+    cells, langs, rates, names = _lr_transfer_cells()
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('25-poster-transfer'))
+        for r, lang in enumerate(langs):
+            row = cells[lang]
+            ok = [lr for lr in rates if row[lr]['kind'] != 'failed']
+            best_lr = min(ok, key=lambda lr: row[lr]['mean'])
+            for c, lr in enumerate(rates):
+                cell = row[lr]
+                if cell['kind'] == 'failed':
+                    face, mark, mcol, big = '#f8ded4', '✕', C2, True
+                elif lr == best_lr:
+                    face, mark, mcol, big = '#cde7d8', '★', '#0f7a52', True
+                elif cell['kind'] == 'split':
+                    face, mark, mcol, big = '#faecc8', '◐', '#8a6a00', True
+                else:
+                    face, mcol, big = SURFACE, INK2, False
+                    mark = '+' + format(cell['mean'] - row[best_lr]['mean'], '.2f')
+                ax.add_patch(plt.Rectangle((c - 0.5, r - 0.5), 1, 1, facecolor=face,
+                                           edgecolor=GRID, lw=1.6, zorder=1))
+                ax.text(c, r, mark, ha='center', va='center', color=mcol,
+                        fontsize=24 if big else 15,
+                        fontweight='bold' if big else 'normal', zorder=3)
+
+        c7 = rates.index(7e-4)
+        ax.add_patch(plt.Rectangle((c7 - 0.5, -0.5), 1, len(langs), facecolor='none',
+                                   edgecolor=C2, lw=4.0, zorder=4))
+        ax.text(c7, len(langs) - 0.40, 'four land at their best here — Igbo never learns',
+                ha='center', va='bottom', color=C2, fontsize=17, fontweight='bold')
+
+        ax.set_xticks(range(len(rates)))
+        # Plain numbers with the exponent said once. "7e-4" names a value without landing a
+        # point, and a passer-by should not have to parse scientific notation to read a column.
+        ax.set_xticklabels([format(lr * 1e4, 'g') for lr in rates], fontsize=17, color=INK)
+        ax.set_yticks(range(len(langs)))
+        ax.set_yticklabels([names[l] for l in langs], fontsize=17, color=INK)
+        ax.set_xlim(-0.5, len(rates) - 0.5)
+        ax.set_ylim(-0.5, len(langs) + 0.05)
+        ax.set_xlabel('peak learning rate  (×10⁻⁴)')
+        # A key, not a legend: four glyphs read in place, no colour lookup. It goes below the
+        # axis label in AXES coordinates -- placed in data space it printed between the grid and
+        # the rates it describes, which put it above the thing it was captioning.
+        #
+        # "More than 1.5 nats behind" rather than "collapsed": the mark covers two situations,
+        # Igbo diverging at the top three rates and every language still far from its best at
+        # 1.5e-4, and the rule is the one honest thing that covers both.
+        # On two lines, and that is structural rather than taste. A figure's saved width is
+        # the width of its widest artist; on one line this key was 105 characters of fixed-size
+        # text, wider than the grid, so it -- not the axes -- decided how wide the file came out.
+        # Fitting the figure to its poster slot then shrank the axes and left the key alone,
+        # round after round, until the grid had a third of the panel and the key had all of it.
+        ax.text(0.5, -0.46, '★ this language\'s best rate      '
+                            '✕ more than 1.5 nats behind it\n'
+                            '◐ one seed of two      '
+                            '+0.09  nats behind best',
+                transform=ax.transAxes, ha='center', va='center', color=INK2, fontsize=14,
+                linespacing=1.5)
+        ax.grid(False)
+        ax.tick_params(length=0)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        save(fig, '25-poster-transfer')
+
+
+def _project_hours_on(rate, machines=None):
+    """How long this project's work would take on a machine running at `rate` tokens/s.
+
+    The workstation's own hours per model shape, each rescaled by the ratio of throughputs. The
+    two shapes are kept apart rather than blended because the tiers do not scale identically
+    across them -- the A100 returns 4.45x the L4 on the 33.8M model and 5.06x on the 98M, and a
+    single averaged ratio gets the project total wrong by several days.
+    """
+    machines = machines or _hardware_machines()[0]
+    ws_hours = _workstation_hours_by_preset()
+    ws_rate = {p: machines[WS][p]['tokens_per_s'] for p in ws_hours}
+    return sum(ws_hours[p] * ws_rate[p] / rate[p] for p in ws_hours)
+
+
+def fig_poster_hardware():
+    """Panel 2, the hero: seven machines, one run each, and what each one actually costs you.
+
+    This is the most expensive figure on the board -- not to draw, to obtain. Every row is
+    somebody running bench_portable.py on a machine this project does not own, and the set took
+    a fortnight of asking. It earns the hero slot because it is the only panel a reader can act
+    on: it says which machine to use tonight.
+
+    Three things are drawn and one is deliberately left out. Drawn: the wait, as bars; the price
+    of the whole project on that machine, in the row label beside it; and the fact that the
+    laptop a student already owns beats the free tier. Left out: the 98M model's second bar. It
+    would double the ink to restate the ranking, and the one number worth keeping from it -- that
+    the 98M fits on an 8 GB laptop at all -- is a sentence, not a bar.
+
+    Linear, not log, and the Mac is not clipped. The report version caps its axis because the
+    Mac's 98M run is 43 h against the A100's 1.6 and would flatten everything; with the 98M bars
+    gone the range is 0.6 to 16.9 and linear tells the truth -- the top three are visibly slivers,
+    the middle four are visibly the same order, and that middle cluster IS the finding.
+    """
+    machines, _, _, _ = _hardware_machines()
+    rows = [
+        # (device key, what it is, what it costs you)
+        (WS, 'the workstation', '\\$24,000 to buy'),
+        ('NVIDIA A100-SXM4-80GB', 'Colab A100, Pro', None),
+        ('NVIDIA L4', 'Colab L4, Pro', None),
+        ('NVIDIA RTX 2000 Ada Generation Laptop GPU', 'a student laptop, 8 GB', 'already yours'),
+        ('NVIDIA RTX 2000 Ada Generation Laptop GPU (battery)', 'the same laptop, unplugged',
+         'already yours'),
+        ('Tesla T4', 'Colab T4, free', 'free'),
+        ('Apple arm64 (MPS)', 'MacBook Pro M4 Pro', 'already yours'),
+    ]
+    # The workstation's second column -- 197 completed training runs rather than a benchmark --
+    # is a methodology point and stays in the report. A poster row that reads "the same box
+    # again" costs a row and answers a question nobody standing in front of it has asked yet.
+
+    bars, labels, costs, colors = [], [], [], []
+    for key, name, fixed in rows:
+        rec = machines[key]
+        rate = {p: rec[p]['tokens_per_s'] for p in ('poc', 'afriberta')}
+        days = _project_hours_on(rate, machines) / 24
+        price = fixed
+        if price is None:
+            uph, usd = rec['poc'].get('compute_units_per_hour'), rec['poc'].get(
+                'usd_per_compute_unit')
+            # A paid tier whose rows never carried billing fields gets an em dash rather than a
+            # guessed price -- the same rule the report table follows.
+            price = ('\\$' + format(_project_hours_on(rate, machines) * uph * usd, ',.0f')
+                     if uph and usd else '—')
+        bars.append(rec['poc']['full_run_hours'])
+        labels.append(name)
+        costs.append(f'{price} · {days:.0f} days')
+        # Colour carries what it costs you, and the row label says the same thing in words, so
+        # nothing here is encoded in colour alone.
+        colors.append(C2 if fixed == '\\$24,000 to buy'
+                      else C1 if price.startswith('\\$') else C3)
+
+    with _poster_rc():
+        fig, ax = plt.subplots(figsize=_poster_figsize('26-poster-hardware'))
+        y = list(range(len(bars) - 1, -1, -1))
+        ax.barh(y, bars, 0.62, color=colors, zorder=3)
+        for yy, v in zip(y, bars):
+            ax.text(v + 0.28, yy, f'{v:.1f} h', va='center', color=INK,
+                    fontsize=20, fontweight='bold')
+
+        # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
+        # order of those three is the panel's one actionable sentence.
+        # Clear of the value labels: at 6.05 the rule printed through '5.1 h' and '5.3 h'.
+        # And the claim names the laptop it points at. "The laptop you already own" is refuted
+        # two rows down by the MacBook, which is 3x SLOWER than the free tier -- the finding is
+        # about a discrete 8 GB laptop GPU, and the callout has to say which.
+        lo, hi = y[5] - 0.42, y[3] + 0.42
+        ax.plot([9.50, 9.50], [lo, hi], color=C3, lw=4.0, solid_capstyle='butt', zorder=4)
+        ax.text(9.90, (lo + hi) / 2, 'an 8 GB laptop GPU\nbeats the free tier,\neven unplugged',
+                va='center', color=C3, fontsize=18, fontweight='bold')
+
+        # The cost column. It was a second line inside each tick label until the figure was
+        # fitted to its slot, at which point seven two-line labels in 4.80 in printed through
+        # each other. Out here it also reads better: name, bar, hours, price, left to right.
+        #
+        # And its heading carries the scope. The two numbers on a row are at different scales --
+        # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
+        # second one is the honest place to say which, rather than a note over the whole figure.
+        for yy, cost in zip(y, costs):
+            ax.text(21.9, yy, cost, va='center', color=INK2, fontsize=16)
+        ax.text(21.9, len(bars) - 0.30, 'the whole project, 148 GPU-hours', va='bottom',
+                color=MUTED, fontsize=14)
+
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, fontsize=17, color=INK)
+        ax.set_xlabel('hours for ONE 62,500-step run  (the 33.8M model)')
+        ax.set_xlim(0, 30.6)
+        ax.set_ylim(-0.65, len(bars) + 0.10)
+        ax.set_xticks([0, 4, 8, 12, 16])
+        ax.set_xticklabels(['0', '4 h', '8 h', '12 h', '16 h'])
+        ax.grid(axis='y', visible=False)
+        ax.tick_params(axis='y', length=0)
+        # Two footnotes, because both are the kind of thing that makes a bar mean something
+        # other than what it looks like. Set small and muted: a reader who is comparing bars
+        # does not need them, and a reader who is about to quote one does.
+        # Two lines, not one. Set on one line this string was wider than the axes, and
+        # bbox_inches='tight' grows the saved figure to whatever the widest artist needs -- so a
+        # footnote was deciding the aspect ratio the poster panel gets placed at.
+        ax.text(0.5, -0.36, 'The Mac holds fp32 where every CUDA row is bf16 or fp16 — '
+                            'directional, not exactly comparable.\n'
+                            'The 98M model runs on the 8 GB laptop too, at 10.1 h.',
+                transform=ax.transAxes, ha='center', va='center', color=MUTED, fontsize=13)
+        save(fig, '26-poster-hardware')
+
+
 if __name__ == '__main__':
     import sys
 
@@ -2468,7 +3010,10 @@ if __name__ == '__main__':
            fig_tokenizer_lottery, fig_label_quantity, fig_api, fig_board_layout, fig_hardware,
            fig_headline_column, fig_floors_column, fig_gradient_column,
            fig_saturation_column, fig_swap_column, fig_lottery_column,
-           fig_label_quantity_column)
+           fig_label_quantity_column,
+           # The poster set: the same records, drawn for a wall rather than a page.
+           fig_poster_cost, fig_poster_hardware, fig_poster_run, fig_poster_earlystop,
+           fig_poster_transfer)
 
     # No argument regenerates everything, which is the right default. Naming one or more figures
     # renders only those, and that matters when the machine at hand is not the one the rest were
