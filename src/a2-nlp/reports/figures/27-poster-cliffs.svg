@@ -3532,7 +3532,7 @@ z
    </g>
    <g id="text_11">
     <!-- never learned -->
-    <g style="fill: #eb6834" transform="translate(307.985752 32.087) scale(0.16 -0.16)">
+    <g style="fill: #eb6834" transform="translate(323.698877 31.56739) scale(0.14 -0.14)">
      <defs>
       <path id="DejaVuSans-Bold-51" d="M 4056 2131 
 L 4056 0 
@@ -3693,7 +3693,7 @@ z
    </g>
    <g id="text_12">
     <!-- learned -->
-    <g style="fill: #2a78d6" transform="translate(51.898224 125.918091) scale(0.16 -0.16)">
+    <g style="fill: #2a78d6" transform="translate(51.898224 125.398482) scale(0.14 -0.14)">
      <use xlink:href="#DejaVuSans-Bold-4f"/>
      <use xlink:href="#DejaVuSans-Bold-48" transform="translate(34.28125 0)"/>
      <use xlink:href="#DejaVuSans-Bold-44" transform="translate(102.109375 0)"/>

@@ -21,24 +21,32 @@ week order, the order the traps arrive; the board is arranged by importance inst
 | body | **18 pt** |
 | photo caption | 12 pt |
 
-**The grid this board uses — v2 of the redesign.** The **top board's own three columns**: x =
-1.50 / 8.75 / 16.13, each **6.35 in**, 0.90 gutters. Two rows of three panels, a full-width band
-between them, then two rows of three. **Five charts at one column each**, drawn at the exact size
-they print, so in-chart type is real 12–23 pt rather than a reduction of a report figure. No panel
-borders: a heading, a gold rule, whitespace. Geometry in `build_posters.FACTORY_GEO`.
+**The grid this board uses — final, 18 August.** The **top board's own three columns**: x =
+1.50 / 8.75 / 16.13, each **6.35 in**, 0.90 gutters. Five rows: hardware chart + memory + the
+rail · budgeting + the speedups table (two columns) · three charts · three prose panels ·
+languages (two columns) + sources. **Four charts**, each drawn at the exact size it prints — the
+hardware chart bleeds 0.55 in into the page margin and the gutter (7.45 × 3.09 in); the other
+three hold one column (6.35 × 2.60 in). No panel borders: a heading, a gold rule, whitespace.
+Geometry in `build_posters.FACTORY_GEO`; figure sizes in `poster_figures.POSTER_BOX`.
 
-**Word budgets.** A chart panel's caption is **45–60 words** — roughly six lines in a 6.35 in
-column at 18 pt, twice what the first redesign allowed. That is deliberate and it is Jeffrey's
-call: a caption of fifteen words next to a chart nobody can read closely is two things failing
-together. A prose panel runs **45–60 words** behind a heading that IS the finding. The
-55-words-per-cell arithmetic above described the old uniform nine-cell grid and survives in git
-history.
+**Word budgets and type.** Body text is **17 pt everywhere** — captions, prose panels and list
+rows alike (Jeffrey's number, one size across the board); list rows in the memory and budgeting
+panels set at 17 with their bold claim leading, the languages rows a step airier at 8 pt between
+paragraphs, sources at **13 pt** in full citation form, the footer at 12. A chart panel's caption
+is **45–60 words**; a prose panel about the same behind a heading that IS the finding. Paragraphs
+sit **6 pt apart**, and a bare `>` line inside a blockquote is the sheet's paragraph-break marker
+— both from Jeffrey's hand-edit pass on the printed board, transcribed here so builds reproduce
+his file. The 55-words-per-cell arithmetic above described the old nine-cell grid and survives in
+git history.
 
-**Headings are statements, not questions**, and they are set at **32 pt** rather than the
+**Headings are statements, not questions**, and they are set at **28 pt** rather than the
 template's 40. The top board's section headers are single words — ABSTRACT, RESULTS — and 40 pt
-suits them; a whole sentence at 40 pt in a 6.35 in column wraps to three lines and eats the chart.
-The **title** takes the size back, at 72 pt in the theme's own `Encode Sans Normal Black`, which is
-the face the top board's title is set in and not the Normal weight this board had been bolding.
+suits them; a whole sentence at that size in a 6.35 in column wraps to three lines and eats the
+chart, and the 32/13 pairing of an earlier pass put a canyon between a heading and its own text.
+The **title** takes the size back, at 72 pt in the theme's own `Encode Sans Normal Black`, which
+is the face the top board's title is set in and not the Normal weight this board had been
+bolding. The author line takes the subtitle's face and size — 19 pt of the same family — because
+19 pt of Open Sans beside 19 pt of Uni Sans read as two different sizes.
 
 ---
 
@@ -92,17 +100,12 @@ used. Neither repeats the other:
 
 ## The cells — v3 of the redesign, 18 August
 
-> **What changed and why.** Six rows now rather than five: memory earns a full-width band of its
-> own, because when a card is too small to *load* a model is a different question from when it is
-> merely slow, and that distinction is the most transferable thing on this half of the poster.
->
-> Three panels were rewritten because they did not land — Jeffrey read them cold and could not
-> follow them, which is the only test that counts. The seeds panel had compressed a combinatorial
-> argument nobody has met yet into two sentences; the accumulation panel leaned on "divergence"
-> and a Fisher exact test; the seventeen-languages panel was a paragraph where it wanted a list.
->
-> The rule those three share: **a panel that needs the reader to already know a piece of jargon is
-> a panel that does not work at two meters.** Report 09 keeps every one of the arguments in full.
+> **The standing rules, distilled from five review passes.** A panel that needs the reader to
+> already know a piece of jargon does not work at two meters — XLM-R is "the borrowed
+> vocabulary", a Fisher test is "no test can call anything significant", and every scale is
+> defined in the row that uses it, anchored to the study (Yoruba pays 1.76). A number nobody can
+> read the units of is decoration. And a chart holds axis and value labels only; every sentence
+> lives in a caption, at the board's own type size. Report 09 keeps every argument in full.
 
 Layout, top to bottom: hardware chart · **memory** · the rail — then the speedups band beside
 **budgeting** — then the three remaining charts — then two prose rows. Memory and budgeting
@@ -125,14 +128,13 @@ the wall, as ever.
 
 | | |
 |---|---|
-| **In 502–504 epochs were correct — the dataset was fixed. Here it is the experiment.** | Our ladder spans 4M to 1,024M tokens: "40 epochs each" hands the big arm **256× the compute**. |
-| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens of updates** — 62,500 steps was never chosen, it is 1.024B ÷ a 16,384-token batch. |
-| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k tok/s ≈ **38 min** — the hardware chart's top bar, and how a promise gets measured. |
-| **Fixed compute makes the ladder readable.** | The 4M corpus is seen **256 times**; the 1,024M corpus, **exactly once**. Identical compute — only the data moves. |
-| **And a truncated run is not a cheaper run.** | The schedule anneals to zero at the *planned* end — a run stopped halfway is mid-schedule, a different experiment. |
-| **Our own records carried the bug.** | A field named `epoch` reads **125** where the truth is **16 passes** — it kept the name and lost the meaning. |
+| **Epochs were right in 502–504: the dataset was fixed.** | Here the dataset *is* the experiment — "40 epochs each" gives one arm **256× the compute** of another. |
+| **So fix the total number of tokens, and let epochs fall out.** | Every run is **1.024B tokens**: the 4M corpus is seen **256 times**, the 1,024M once. |
+| **Tokens ÷ tok/s = the wall clock.** | 1.024B tokens ÷ 443k tok/s ≈ **38 min** — the top bar of the chart above. |
+| **A truncated run is a different experiment.** | The schedule anneals to zero at the *planned* end — a stopped run is caught mid-schedule, not half as good. |
+| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth is **16 passes**. |
 
-*Six rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
+*Five rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
 
 *Why this replaced the pipeline chart on 18 August — set as plain commentary, not a blockquote,
 because the parser reads a cell's first blockquote as its lead and this must not print: Jeffrey's
@@ -191,8 +193,9 @@ dashboard panel.*
 **Figure:** `27-poster-cliffs.svg`
 
 > Yoruba, English and ten more, all on one axis. Every run that learns sits flat and then falls
-> off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**. So
-> "still flat at step k" is evidence of nothing. **35 of 197 never learned.**
+> off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**.
+>
+> So "still flat at step k" is evidence of nothing. **35 of 197 never learned.**
 
 *49 words · `runs/early_signal.json`*
 
@@ -218,78 +221,93 @@ dashboard panel.*
 
 ### 8 · When memory is a wall, and when it is only a speed limit
 
-> What has to **fit** is the model. Everything above that is a choice.
-
 | | |
 |---|---|
-| **The floor is the model** — weights, gradients, optimizer state: 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B model: **84–112 GB**, which no consumer card has. *(arithmetic)* |
-| **Everything above it is batch, and batch is optional.** | Accumulation runs a 16,384-token step as smaller passes — same update, **within 2%** of the cost. |
-| **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
-| **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100's price buys its **speed**, not capacity. |
-| **More memory does not buy speed.** | Batch 2048 uses **89.7 GB** and is *slower* than 128. |
-| **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**. |
+| **What must fit is the model** — about 12–16 bytes per parameter. | Our 98M needs **1.6 GB**; a 7B — a small chat assistant — needs **84–112 GB**, beyond any consumer card. |
+| **Everything above the floor is batch, and batch is optional.** | Accumulation runs one big step as smaller passes — **the same update**, within 2%. |
+| **So an 8 GB laptop trains the very step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s** — the same model. |
+| **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
+| **And Windows does not warn you.** | An oversized batch silently spills into system RAM: **28,027 → 5,075 tok/s**. |
 
-*13 words · report 09 §Memory · `runs/hardware.json`*
+*Five rows, no prose · report 09 §Memory · `runs/hardware.json`*
 
-### 9 · An identity is everything that changes the answer
+### 9 · A hundred runs is a filing problem first
 
-> Two runs silently overwrote each other — same filename, different vocabularies, and neither
-> record said so. A filename is an identity, so the vocabulary carries a **hash** rather than a
-> label: `15abd33de5af`. The hash also caught two people who prepared **"the same" corpus** and
-> built different vocabularies. **197 pretraining and 892 fine-tuning runs later, no
-> collision.**
+> A study is declared as a **grid**, languages × rates × seeds, never typed run by run; the
+> queue orders it **longest-budget-first**.
+>
+> Every run writes a record naming **everything that changes the answer**: data fingerprint,
+> vocabulary, settings.
+>
+> "What have we tried?" is a **query**: **1,089 runs later, no collisions, no archaeology.**
 
-*56 words · `mlm_api.results()` · `ft_api.results()`*
+*51 words · `mlm_api.results()` · `ft_api.results()` · report 09 §Week 4*
+
+*(18 Aug: rewritten from "An identity is everything that changes the answer" — Jeffrey's call
+that filenames are not the message for an AI-student audience; organizing the hyperparameter
+space and choosing what to run is. The hash mechanism survives as one clause, the collision
+count as the payoff.)*
 
 ### 10 · A result has to beat your own noise
 
-> Run the same recipe twice and it lands in two different places. That is the seed, not the change
-> you made. So we measured **our own noise first** and made every claim clear it by **2.27×** — at
-> three runs a side, no test can call anything significant. The spread is a property of **each
-> cell** — re-measured, never a constant we reused. **Two of our own claims did not clear it. We
-> retired them.**
+> Run the same recipe twice and it lands in two different places. That is the seed, not the
+> change you made.
+>
+> So we measured **our own noise first** and made every claim clear it by **2.27×**. At three
+> runs a side, no test can call anything significant.
+>
+> The spread is a property of **each cell**, never a constant we reused. **Two of our own
+> claims did not clear it. We retired them.**
 
-*75 words · `runs/claims_audit.json`*
+*72 words · `runs/claims_audit.json`*
 
 ### 11 · A factory that makes one thing is not a factory
 
 | | |
 |---|---|
-| **English is the ruler.** | *Why:* the one language where data was never the constraint. *Learned:* **more data stops helping past 64M tokens** — a fact Yoruba could never establish, having no more. |
-| **French, Indonesian, Mandarin are the control.** | *Why:* XLM-R knows these three well, killing the objection that it is just "unfamiliar languages". *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** | *Why:* one language is an anecdote; seventeen make a slope. *Learned:* the split falls exactly along coverage — **Wolof, uncovered yet cheap at 1.31**, is the exception an anecdote hides. |
-| **Five languages got the whole sweep.** | *Why:* "adding a language is one function call" is only true if the settings transfer too. *Learned:* they do not — **the rate four languages want destroys Igbo.** |
-| **None of us speaks any of them.** | So the spread is the evidence, not any one score. The factory made the spread affordable: **nine functions** are its whole interface, so adding a language is one call — **twelve pretrained in 48 minutes**. |
+| **English is the ruler.** *Why:* the one language where data was never the constraint. | *Learned:* **more data stops helping past 64M tokens** — so Yoruba's 69M-token corpus is not the bottleneck it looks like. |
+| **French, Indonesian, Mandarin are the control.** *Why:* the borrowed vocabulary knows these three, so they test mere unfamiliarity. | *Learned:* they pay **1.04, 1.01, 0.95** tokens where a language's own vocabulary pays one. **Yoruba pays 1.76** — second-highest of seventeen. |
+| **Twelve African languages are the gradient.** *Why:* one language is an anecdote; seventeen make a slope. | *Learned:* the cost tracks **vocabulary coverage**, not geography — **Wolof, uncovered yet cheap at 1.31**, proves it. |
+| **Nine functions**, one call per language — **twelve pretrained in 48 minutes**. |
 
-*Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
+*Four rows — three name why the language group is there and what it taught, and the last is
+the factory's payoff. The "None of us speaks any of them" line was Jeffrey's own cut on the
+printed board. · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why
+seventeen*
 
 ---
 
 ## The strip — the bottom row of panels
 
-### What we do not claim, and what we would do next
+### Ethics: what we do not claim, and what is next
 
-> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. The corpus is
-> scraped web text nobody consented to. The audit gate prints **9 claims: 6 supported, 2 not, 1
-> underpowered**. Next: a wall meter, a corpus audit, the evaluation we could not do.
+> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. And the
+> corpus is scraped web text nobody consented to.
+>
+> The factory is itself an ethics tool: **sweeping seeds avoids one lucky draw**, each language
+> at its own best.
+>
+> Our gate prints **9 claims: 6 supported, 2 not, 1 underpowered**. Next: a corpus audit, the
+> evaluation we could not do.
 
-*48 words · `runs/claims_audit.json` · report 09 §Ethics*
+*64 words · `runs/claims_audit.json` · report 09 §Ethics*
 
 ### Sources
 
-> **Models** · A. Conneau et al., "Unsupervised cross-lingual representation learning at scale"
-> (XLM-R), ACL 2020 · M. Marone et al., "mmBERT," arXiv:2509.06888 · Y. Liu et al., "RoBERTa,"
-> arXiv:1907.11692 · J. Devlin et al., "BERT" — its 80/10/10 masking, NAACL 2019 · K. Ogueji et
-> al., "Small data? No problem!" (AfriBERTa), EMNLP MRL 2021 ·
-> **Data** · D. I. Adelani et al., "SIB-200," EACL 2024 · D. I. Adelani et al., "MasakhaNER
-> 2.0," EMNLP 2022 · G. Penedo et al., "FineWeb2," arXiv:2506.20920 ·
-> **Method** · L. N. Smith, one-cycle schedules, arXiv:1803.09820 · J. Dodge et al., "Show
-> your work," EMNLP 2019 — no result without the search budget that produced it
+> A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL, 2020. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
+> 2025. · Y. Liu et al., "RoBERTa: A robustly optimized BERT pretraining approach,"
+> arXiv:1907.11692, 2019. · D. I. Adelani et al., "SIB-200," EACL, 2024. ·
+> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022. · G. Penedo et al.,
+> "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025.
 
-*Nineteen references in full in report 09 §References. The builder sets one entry a line, split
-on the middots; the three bold group names render as section lines. Dodge is here because it is
-the Search-seeds section's most load-bearing entry — the sentence closest to this board's thesis
-about statistics.*
+> All nineteen, in full, in report 09 §References.
+
+*Formatted as the top board formats its SOURCES, because the pair hangs as one document —
+Jeffrey's instruction, group heads removed on his option B. **Six entries** at 13 pt in full
+citation form, hanging-indented, one flowing block (a stack of per-reference boxes defeated the
+overflow gate twice). Page ranges and the Devlin, Ogueji, Smith and Dodge entries live in the
+report's nineteen — the panels still credit the masking scheme and the AfriBERTa preset by name,
+and each departure bought row E the height Jeffrey's paragraph air needed.*
 
 > **What moved off this block on 18 August.** The team names went to the header, where a reader
 > looks for them and where the assignment asks for them once. "Next" folded into the panel beside
@@ -315,10 +333,10 @@ expensive wall space. The pair of boards is what gets marked; this column is onl
 | How performance was explored | cells 1, 4, 5, 6, 8 |
 | Dataset EDA | cell 3's inventory and cell 11; the top board's panel 2 carries the corpus EDA |
 | Results / summary statistics | cells 1–11, every one a measured number |
-| Discussion / limitations | cells 5, 8, 10 and strip 2 |
-| **Ethical impact** | **strip 2**, with the full account in report 09 |
-| Next steps | strip 2, folded in beside the limits they answer |
-| Citations | **strip 3**, in full bibliographic form, with all 19 in report 09 |
+| Discussion / limitations | cells 5, 8, 10 and strip 1 |
+| **Ethical impact** | **strip 1**, with the full account in report 09 |
+| Next steps | strip 1, folded in beside the limits they answer |
+| Citations | **strip 2**, in full bibliographic form, with all 19 in report 09 |
 | **AI statement** | the footer, at 12 pt |
 
 ---

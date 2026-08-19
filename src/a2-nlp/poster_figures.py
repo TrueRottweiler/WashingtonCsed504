@@ -2615,7 +2615,7 @@ WHOLE_COHORT_STEP = 11_000
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
     '25-poster-transfer': (6.35, 2.65),
-    '26-poster-hardware': (6.35, 2.65),
+    '26-poster-hardware': (7.45, 3.14),
     '27-poster-cliffs': (6.35, 2.65),
     '28-poster-dashboard': (6.35, 2.65),
 }
@@ -2627,7 +2627,7 @@ POSTER_BOX = {
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
     '25-poster-transfer': (6.91, 2.51),
-    '26-poster-hardware': (5.06, 2.37),
+    '26-poster-hardware': (7.67, 2.85),
     '27-poster-cliffs': (7.31, 2.46),
     '28-poster-dashboard': (7.71, 2.89),
 }
@@ -2797,18 +2797,28 @@ def fig_poster_hardware():
     with _poster_rc():
         fig, ax = plt.subplots(figsize=_poster_figsize('26-poster-hardware'))
         y = list(range(len(bars) - 1, -1, -1))
-        ax.barh(y, bars, 0.62, color=colors, zorder=3)
+        ax.barh(y, bars, 0.52, color=colors, zorder=3)
         # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
         # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
         # computed from belongs beside the number rather than off in the tick label.
-        # The time is the claim and stays bold; the rate is its provenance and does not. One
-        # artist cannot mix weights, so the rate hangs off the time at a per-character offset --
-        # crude, but a digit at 11 pt bold is ~6.8 pt wide and the strings never collide.
+        # The rate reads best where it started: after the time. The longest bar's label goes
+        # ABOVE its end -- at an 18 h axis that bar spans the panel and has no room after it.
+        longest = max(bars)
         for yy, v, rk in zip(y, bars, rates_k):
             t = f'{v:.1f} h'
-            ax.text(v + 0.40, yy, t, va='center', color=INK, fontsize=11, fontweight='bold')
-            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.40, yy), va='center', color=INK2,
-                        fontsize=10, xytext=(len(t) * 6.8 + 4, -0.5), textcoords='offset points')
+            if v == longest:
+                # The time rides above the bar's end; the rate rides inside it, white on the
+                # fill -- the first draft anchored both at one point and they printed on top of
+                # each other.
+                ax.text(v - 0.15, yy + 0.42, t, ha='right', va='bottom', color=INK,
+                        fontsize=13, fontweight='bold')
+                ax.text(v - 0.25, yy, f'({rk:.0f}k tok/s)', ha='right', va='center',
+                        color='white', fontsize=11)
+                continue
+            ax.text(v + 0.25, yy, t, va='center', color=INK, fontsize=13, fontweight='bold')
+            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.25, yy), va='center', color=INK2,
+                        fontsize=11, xytext=(len(t) * 7.6 + 5, -0.5),
+                        textcoords='offset points')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2824,26 +2834,24 @@ def fig_poster_hardware():
         # And its heading carries the scope. The two numbers on a row are at different scales --
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
-        # Anchored in AXES fraction, not data. A fixed data x has to be re-chosen every time the
-        # figure is recalibrated to a new panel height -- the axis width changes, the value label
-        # keeps its point size, and the two collide again. This holds its column whatever the
-        # figure ends up being.
-        span = ax.get_yaxis_transform()
-        for yy, cost in zip(y, costs):
-            ax.text(0.87, yy, cost, transform=span, va='center', color=INK2, fontsize=12)
-        # "30d" invites the question Jeffrey asked: thirty days of what? Card-days -- the whole
-        # 148 GPU-hour project run end to end, around the clock, at that machine's rate. Say so
-        # where the numbers are, not in a caption two panels away.
-        ax.text(0.87, len(bars) - 0.30, 'the whole project\n(days run nonstop)', transform=span,
-                va='bottom', color=MUTED, fontsize=11)
-
+        # The cost column is gone -- Jeffrey: it held the right third of the panel while the
+        # bars used barely 40% of it, and its prices already live in the caption. The days-run-
+        # nonstop detail is report 09's.
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=13, color=INK)
-        ax.set_xlabel('hours for ONE run  (the 33.8M model)')
-        ax.set_xlim(0, 40.0)
-        ax.set_ylim(-0.65, len(bars) + 0.10)
-        ax.set_xticks([0, 8, 16])
-        ax.set_xticklabels(['0', '8 h', '16 h'])
+        # "ONE run" carries the panel's scope and gets the bold -- which takes three artists,
+        # because a single label holds a single weight. Offsets are in points off the center.
+        ax.set_xlabel(' ')
+        for seg, dx, bold, colour in (('hours for ', -122, False, INK2),
+                                      ('ONE run', -47, True, INK),
+                                      ('(the 33.8M model)', 26, False, INK2)):
+            ax.annotate(seg, xy=(0.5, -0.245), xycoords='axes fraction', ha='left',
+                        va='top', xytext=(dx, 0), textcoords='offset points',
+                        color=colour, fontsize=15, fontweight='bold' if bold else 'normal')
+        ax.set_xlim(0, 18.4)
+        ax.set_ylim(-0.72, len(bars) + 0.18)
+        ax.set_xticks([0, 4, 8, 12, 16])
+        ax.set_xticklabels(['0', '4 h', '8 h', '12 h', '16 h'])
         ax.grid(axis='y', visible=False)
         ax.tick_params(axis='y', length=0)
         # Two footnotes, because both are the kind of thing that makes a bar mean something
@@ -2908,10 +2916,12 @@ def fig_poster_cliffs():
         ax.text(62_000, floor + 0.11, f'all {len(all_cliffs)} cliffs',
                 color=C1, fontsize=13, va='center', ha='right')
 
+        # No larger than the axis labels -- they are annotations, not headings. Bold is what
+        # carries them.
         ax.text(60_000, 6.75, 'never learned', ha='right', va='center', color=C2,
-                fontsize=16, fontweight='bold')
+                fontsize=14, fontweight='bold')
         ax.text(1_500, 2.45, 'learned', ha='left', va='center', color=C1,
-                fontsize=16, fontweight='bold')
+                fontsize=14, fontweight='bold')
         ax.set_xlabel('optimizer steps')
         ax.set_ylabel('validation loss')
         ax.set_xlim(0, 62_500)
@@ -2980,27 +2990,25 @@ def fig_poster_dashboard():
         # --- the two cards --------------------------------------------------------------------
         for i, (label, util, watt) in enumerate((('cuda:0', 0.91, 298), ('cuda:1', 0.93, 301))):
             x = i * 51
-            ax.add_patch(plt.Rectangle((x, 57), 49, 11, facecolor=SURFACE, edgecolor=GRID,
+            # A step smaller than the queue's type, and a real gap between the label line and
+            # its bar -- they were touching, and chrome that touches reads as broken chrome.
+            ax.add_patch(plt.Rectangle((x, 55.5), 49, 12.5, facecolor=SURFACE, edgecolor=GRID,
                                        lw=1.0, zorder=1))
-            ax.text(x + 2, 65, label, color=INK, fontsize=7.7, fontweight='bold', va='center')
-            ax.text(x + 47, 65, f'{util:.0%}', color=INK, fontsize=7.7, fontweight='bold',
+            ax.text(x + 2, 65.4, label, color=INK, fontsize=7.0, fontweight='bold', va='center')
+            ax.text(x + 47, 65.4, f'{util:.0%}', color=INK, fontsize=7.0, fontweight='bold',
                     va='center', ha='right')
-            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45, 2.0, facecolor=GRID, lw=0, zorder=2))
-            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45 * util, 2.0, facecolor=C3, lw=0,
+            ax.add_patch(plt.Rectangle((x + 2, 60.2), 45, 2.2, facecolor=GRID, lw=0, zorder=2))
+            ax.add_patch(plt.Rectangle((x + 2, 60.2), 45 * util, 2.2, facecolor=C3, lw=0,
                                        zorder=3))
-            ax.text(x + 2, 59.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=6.6,
+            ax.text(x + 2, 57.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=6.4,
                     va='center')
 
-        # --- the callouts, boxed with their labels beneath ------------------------------------
-        # 73.9 to 78.5. Rows sit at 90.0 - 4.6i, so the fourth is at 76.2 and a box starting at
-        # 71.6 put its top edge through the words it was drawn around.
-        ax.add_patch(plt.Rectangle((1.2, 73.9), 97.6, 4.6, facecolor='none', edgecolor=C2,
-                                   lw=2.2, zorder=6))
-        ax.text(0, 53.0, 'an urgent sweep takes a LANE, not the road', color=C2,
-                fontsize=9.1, fontweight='bold', va='center')
+        # The orange callout box and its slogan line are gone -- Jeffrey: they cluttered
+        # rather than helped, and the sweep's own queue row already reads as the odd one out
+        # (the only row on card 1, its own colour). The caption carries the argument now.
 
         # --- and the chart, which is half the real screen --------------------------------------
-        sub = ax.inset_axes([0.0, 0.0, 1.0, 0.44])
+        sub = ax.inset_axes([0.0, 0.0, 1.0, 0.50])
         for (label, tag, colour), dy in zip(ladder, (0.0, 0.0, 0.30, 0.02, -0.28)):
             try:
                 curve = f.curve(tag)
