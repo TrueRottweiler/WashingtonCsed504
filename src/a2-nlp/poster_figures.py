@@ -2869,7 +2869,7 @@ def fig_poster_cliffs():
     thicket -- at 6.35 in, eighty-one noisy curves are a texture rather than a picture, and the
     thing the panel exists to show was inside it somewhere. So the curves are a sample chosen to
     span the cliff range, and the evidence that the range is real moved to the rug along the
-    bottom, which carries all 141 of them. A dozen lines show the shape; 141 ticks show the spread.
+    bottom, which carries every one of them. A dozen lines show the shape; the ticks the spread.
     """
     runs = [r for r in early_signal.load() if r['steps'] == 62500]
     live = [r for r in runs if not r['dead']]
@@ -2884,9 +2884,9 @@ def fig_poster_cliffs():
     blew = [r for r in dead if r['final'] >= 6.5][:2]
 
     # Every cliff, including the runs not drawn -- read from the COMMITTED record rather than
-    # recomputed here. Recomputing gives 143 against the record's 141, because runs/ has gained
-    # two runs since early_signal.py last wrote its summary. Both numbers are right about
-    # different days; a figure and the report beside it quoting different ones is not.
+    # recomputed here, so the figure and the report beside it cannot quote different totals.
+    # (The record was stale against its own directory from #67 until 18 August, when Patrick
+    # caught it; it is regenerated now, and test_board_numbers pins n_runs to mlm_api.)
     all_cliffs = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'),
                                 encoding='utf-8'))['cliff_steps']
 

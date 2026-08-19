@@ -192,7 +192,7 @@ dashboard panel.*
 
 > Yoruba, English and ten more, all on one axis. Every run that learns sits flat and then falls
 > off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**. So
-> "still flat at step k" is evidence of nothing. **35 of 195 never learned.**
+> "still flat at step k" is evidence of nothing. **35 of 197 never learned.**
 
 *49 words · `runs/early_signal.json`*
 
