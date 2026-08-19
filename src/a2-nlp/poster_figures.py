@@ -2801,9 +2801,14 @@ def fig_poster_hardware():
         # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
         # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
         # computed from belongs beside the number rather than off in the tick label.
+        # The time is the claim and stays bold; the rate is its provenance and does not. One
+        # artist cannot mix weights, so the rate hangs off the time at a per-character offset --
+        # crude, but a digit at 11 pt bold is ~6.8 pt wide and the strings never collide.
         for yy, v, rk in zip(y, bars, rates_k):
-            ax.text(v + 0.40, yy, f'{v:.1f} h ({rk:.0f}k tok/s)', va='center', color=INK,
-                    fontsize=11, fontweight='bold')
+            t = f'{v:.1f} h'
+            ax.text(v + 0.40, yy, t, va='center', color=INK, fontsize=11, fontweight='bold')
+            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.40, yy), va='center', color=INK2,
+                        fontsize=10, xytext=(len(t) * 6.8 + 4, -0.5), textcoords='offset points')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2826,8 +2831,11 @@ def fig_poster_hardware():
         span = ax.get_yaxis_transform()
         for yy, cost in zip(y, costs):
             ax.text(0.87, yy, cost, transform=span, va='center', color=INK2, fontsize=12)
-        ax.text(0.87, len(bars) - 0.30, 'the whole project', transform=span, va='bottom',
-                color=MUTED, fontsize=12)
+        # "30d" invites the question Jeffrey asked: thirty days of what? Card-days -- the whole
+        # 148 GPU-hour project run end to end, around the clock, at that machine's rate. Say so
+        # where the numbers are, not in a caption two panels away.
+        ax.text(0.87, len(bars) - 0.30, 'the whole project\n(days run nonstop)', transform=span,
+                va='bottom', color=MUTED, fontsize=11)
 
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=13, color=INK)
@@ -2861,7 +2869,7 @@ def fig_poster_cliffs():
     thicket -- at 6.35 in, eighty-one noisy curves are a texture rather than a picture, and the
     thing the panel exists to show was inside it somewhere. So the curves are a sample chosen to
     span the cliff range, and the evidence that the range is real moved to the rug along the
-    bottom, which carries all 141 of them. A dozen lines show the shape; 141 ticks show the spread.
+    bottom, which carries every one of them. A dozen lines show the shape; the ticks the spread.
     """
     runs = [r for r in early_signal.load() if r['steps'] == 62500]
     live = [r for r in runs if not r['dead']]
@@ -2876,9 +2884,9 @@ def fig_poster_cliffs():
     blew = [r for r in dead if r['final'] >= 6.5][:2]
 
     # Every cliff, including the runs not drawn -- read from the COMMITTED record rather than
-    # recomputed here. Recomputing gives 143 against the record's 141, because runs/ has gained
-    # two runs since early_signal.py last wrote its summary. Both numbers are right about
-    # different days; a figure and the report beside it quoting different ones is not.
+    # recomputed here, so the figure and the report beside it cannot quote different totals.
+    # (The record was stale against its own directory from #67 until 18 August, when Patrick
+    # caught it; it is regenerated now, and test_board_numbers pins n_runs to mlm_api.)
     all_cliffs = json.load(open(os.path.join(HERE, 'runs', 'early_signal.json'),
                                 encoding='utf-8'))['cliff_steps']
 

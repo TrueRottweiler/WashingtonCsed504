@@ -82,6 +82,39 @@ def dev_selected(slug, task, lang, steps):
 
 
 # ------------------------------------------------------------------------------------------
+class DerivedRecordsAreCurrent(unittest.TestCase):
+    """early_signal.json must agree with the directory it was derived from.
+
+    Patrick's find, and the gap in our own gates: check_provenance verifies a cited record
+    EXISTS, and nothing verified it was CURRENT. This one was stale against its own directory
+    from #67 to 18 August -- regenerated before the recovered records landed, so the record and
+    the records it derives from arrived together and disagreed on arrival. The board's AI
+    statement promises a gate that fails when a claim and a record disagree; for these counts,
+    this is that gate.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        import os as _os
+        with open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                'runs', 'early_signal.json'), encoding='utf-8') as fh:
+            cls.record = json.load(fh)
+
+    def test_n_runs_matches_the_directory(self):
+        self.assertEqual(self.record['n_runs'], len(mlm_api.results()),
+                         'early_signal.json was derived from a different run set than runs/ '
+                         'holds -- rerun early_signal.py')
+
+    def test_the_verdicts_match_a_fresh_load(self):
+        # The verdicts depend on which runs are in the directory: `achievable` is the best loss
+        # in each cell, so adding a run can flip verdicts on runs it has nothing to do with.
+        # A count check alone would miss that.
+        import early_signal
+        runs = early_signal.load()
+        self.assertEqual(self.record['n_dead'], sum(1 for r in runs if r['dead']))
+
+
 class TheInterfaceCount(unittest.TestCase):
     """The one number on the board that grows every time anybody writes a study.
 
