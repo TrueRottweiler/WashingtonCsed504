@@ -2844,7 +2844,7 @@ def fig_poster_hardware():
         ax.set_xlabel(' ')
         for seg, dx, bold, colour in (('hours for ', -122, False, INK2),
                                       ('ONE run', -47, True, INK),
-                                      (' (the 33.8M model)', 16, False, INK2)):
+                                      ('(the 33.8M model)', 26, False, INK2)):
             ax.annotate(seg, xy=(0.5, -0.245), xycoords='axes fraction', ha='left',
                         va='top', xytext=(dx, 0), textcoords='offset points',
                         color=colour, fontsize=15, fontweight='bold' if bold else 'normal')

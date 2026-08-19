@@ -2207,7 +2207,7 @@ def add_list_panel(slide, panel, box, *, name: str, row_break: bool = False) -> 
     # most of what the breaks cost.
     add_rich_text(slide, x, top + lead_h + 0.08, w, (y + h - 0.06) - (top + lead_h + 0.08),
                   text, FACTORY_PT["list_body"], color=INK,
-                  space_after=3.0 if row_break else 5.0,
+                  space_after=3.0 if row_break else 4.0,
                   line_spacing=1.02, name=f"{name}_List")
 
 

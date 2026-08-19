@@ -219,11 +219,11 @@ dashboard panel.*
 
 | | |
 |---|---|
-| **What has to fit is the model** — 12–16 bytes a parameter. | Our 98M model: **1.6 GB**. A 7B model: **84–112 GB** — no consumer card has it. |
-| **Everything above the floor is batch, and batch is optional.** | Accumulation runs a big step as smaller passes — the same update, **within 2%** of the cost. |
-| **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
+| **What must fit is the model** — about 12–16 bytes per parameter. | Our 98M needs **1.6 GB**; a 7B — a small chat assistant — needs **84–112 GB**, beyond any consumer card. |
+| **Everything above the floor is batch, and batch is optional.** | Accumulation runs one big step as smaller passes — **the same update**, within 2%. |
+| **So an 8 GB laptop trains the very step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s** — the same model. |
 | **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
-| **And Windows does not warn you.** | An oversized batch spills to system RAM: **28,027 → 5,075 tok/s**, no error. |
+| **And Windows does not warn you.** | An oversized batch silently spills into system RAM: **28,027 → 5,075 tok/s**, no error anywhere. |
 
 *0 words · report 09 §Memory · `runs/hardware.json`*
 
@@ -256,10 +256,9 @@ count as the payoff.)*
 
 | | |
 |---|---|
-| **English is the ruler.** *Why:* the one language where data was never the constraint. | *Learned:* **more data stops helping past 64M tokens** — which Yoruba, having no more, could never show. |
-| **French, Indonesian, Mandarin are the control.** *Why:* XLM-R knows all three well. | *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** *Why:* an anecdote needs a slope behind it. | *Learned:* the split falls along coverage — with **Wolof, uncovered yet cheap at 1.31**, the exception an anecdote hides. |
-| **Five languages got the whole sweep.** *Why:* "one call per language" is only true if the settings transfer. | *Learned:* they do not — **the rate four languages want destroys Igbo.** |
+| **English is the ruler.** *Why:* the one language where data was never the constraint. | *Learned:* **more data stops helping past 64M tokens** — so Yoruba's 69M-token corpus is not the bottleneck it looks like. |
+| **French, Indonesian, Mandarin are the control.** *Why:* the borrowed vocabulary knows these three, so they test mere unfamiliarity. | *Learned:* they pay **1.04, 1.01, 0.95** tokens where a language's own vocabulary pays one. **Yoruba pays 1.76** — second-highest of seventeen. |
+| **Twelve African languages are the gradient.** *Why:* one language is an anecdote; seventeen make a slope. | *Learned:* the cost tracks **vocabulary coverage**, not geography — **Wolof, uncovered yet cheap at 1.31**, proves it. |
 | **None of us speaks any of them.** So the spread is the evidence, not any one score. | **Nine functions**, one call per language — **twelve pretrained in 48 minutes**. |
 
 *Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
@@ -271,10 +270,11 @@ count as the payoff.)*
 ### Ethics: what we do not claim, and what is next
 
 > **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. The corpus is
-> scraped web text nobody consented to. The audit gate prints **9 claims: 6 supported, 2 not, 1
-> underpowered**. Next: a wall meter, a corpus audit, the evaluation we could not do.
+> scraped web text nobody consented to. The factory is itself an ethics tool: **sweeping seeds
+> keeps a claim off one lucky draw**, each language at its own best. Our gate prints **9 claims:
+> 6 supported, 2 not, 1 underpowered**. Next: a corpus audit, the evaluation we could not do.
 
-*48 words · `runs/claims_audit.json` · report 09 §Ethics*
+*66 words · `runs/claims_audit.json` · report 09 §Ethics*
 
 ### Sources
 
