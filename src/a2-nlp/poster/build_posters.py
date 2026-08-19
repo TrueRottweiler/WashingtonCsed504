@@ -2315,8 +2315,9 @@ def build_factory_poster_v3(content: dict, kind: str) -> tuple[Presentation, lis
     # The header, laid straight onto the band: the layout's own wide wordmark sits at y 1.52,
     # then title, thesis, names -- the same three lines as v2, with the band's 7.25 in to
     # breathe in rather than 8.50 to fill.
-    # Two lines at 72 pt is 174 pt; the box budgets for them (the gate said so).
-    add_text(slide, 1.50, 2.32, 21.0, 2.48,
+    # 21.79 in wide -- Jeffrey's hand edit on the promoted board: at that width the title sets
+    # on ONE line at 72 pt, which is what the shallower Second-Page band wants.
+    add_text(slide, 1.50, 2.32, 21.79, 2.48,
              content["title"].upper(), FACTORY_PT["title"], color=PAPER, font=TITLE_BLACK,
              bold=True, valign=MSO_ANCHOR.MIDDLE, name="Header_Title")
     add_text(slide, 1.53, 4.92, 21.0, 0.95, content["subtitle"], 19.0, color=PAPER,
