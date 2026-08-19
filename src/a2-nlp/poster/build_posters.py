@@ -1878,8 +1878,8 @@ SPAN3 = 20.98          # the full measure
 # Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
-_ROW = {'a': (8.75, 6.15), 'd': (15.05, 5.60), 'b': (20.83, 5.64),
-        'e': (26.65, 3.45), 'c': (30.22, 4.58)}
+_ROW = {'a': (8.70, 6.15), 'd': (15.00, 5.60), 'b': (20.75, 5.64),
+        'e': (26.54, 3.82), 'c': (30.51, 4.30)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -2043,7 +2043,7 @@ def add_chart_panel(slide, figures, panel, box, *, name: str, bleed: float = 0.0
     """
     x, y, w, h = box
     top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["panel_head"], name)
-    cap_h = 1.55
+    cap_h = 1.60
     fig_h = (y + h - 0.14) - cap_h - 0.16 - top
     # Only the FIGURE bleeds -- into the page margin on the left and the gutter on the right --
     # so the panel still reads as a column while its chart gets the width Jeffrey asked for.
@@ -2051,7 +2051,8 @@ def add_chart_panel(slide, figures, panel, box, *, name: str, bleed: float = 0.0
     figures.append(FigureSpec(_figure_source(panel.figure), x - bleed, top,
                               w + 2 * bleed, fig_h, name))
     add_rich_text(slide, x, top + fig_h + 0.16, w, cap_h, panel.body,
-                  FACTORY_PT["panel_cap"], color=INK, name=f"{name}_Caption")
+                  FACTORY_PT["panel_cap"], color=INK, space_after=6.0,
+                  name=f"{name}_Caption")
 
 
 def _figure_source(filename: str) -> Path:
@@ -2107,8 +2108,11 @@ def add_text_panel(slide, panel, box, *, name: str) -> None:
     """
     x, y, w, h = box
     top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["card_head"], name)
+    # 6 pt between paragraphs -- Jeffrey's hand edit on the printed board, alongside the
+    # sentence-per-paragraph breaks the build sheet now records as bare '>' lines.
     add_rich_text(slide, x, top, w, (y + h - 0.06) - top, panel.body,
-                  FACTORY_PT["card_body"], color=INK, name=f"{name}_Body")
+                  FACTORY_PT["card_body"], color=INK, space_after=6.0,
+                  name=f"{name}_Body")
 
 
 # The speedups table's three columns, as a fraction of one half-block's width. `change` takes most
@@ -2194,21 +2198,16 @@ def add_list_panel(slide, panel, box, *, name: str, row_break: bool = False) -> 
     if panel.body:
         add_rich_text(slide, x, top, w, lead_h, panel.body, FACTORY_PT["card_body"],
                       color=INK, name=f"{name}_Lead")
-    # row_break: the build sheet's two columns become two LINES -- the claim and its Why on
-    # the first, Learned: opening the second -- instead of one wrapped paragraph.
-    if row_break:
-        text = "\n".join("\n".join(c for c in cells if c.strip()) for cells in panel.table)
-    else:
-        text = "\n".join(" ".join(cells) for cells in panel.table)
-    # 1.02, not the default 1.08: at 17 pt a list of ten wrapped lines pays a point per line for
-    # leading it does not need -- the paragraph gap below each row is what separates the rows.
-    # And breaking rows into two paragraphs doubles the paragraph count, so the row gap that
-    # separated five rows would spend itself ten times: tighter after-space pays the panel back
-    # most of what the breaks cost.
+    # row_break once meant two lines per row; Jeffrey's hand edit on the printed board merged
+    # them back to one paragraph per language with more air between rows, and he has now seen
+    # both versions printed -- this records the later verdict.
+    text = "\n".join(" ".join(c for c in cells if c.strip()) for cells in panel.table)
+    # Jeffrey's hand-edit spacing, read off his printed-board file: 6 pt between list rows, and
+    # the languages panel a step airier at 8 pt with 1.1 leading.
     add_rich_text(slide, x, top + lead_h + 0.08, w, (y + h - 0.06) - (top + lead_h + 0.08),
                   text, FACTORY_PT["list_body"], color=INK,
-                  space_after=3.0 if row_break else 4.0,
-                  line_spacing=1.02, name=f"{name}_List")
+                  space_after=8.0 if row_break else 6.0,
+                  line_spacing=1.1 if row_break else 1.02, name=f"{name}_List")
 
 
 def add_refs_panel(slide, panel, box, *, name: str) -> None:

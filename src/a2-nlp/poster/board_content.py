@@ -160,9 +160,18 @@ def _blockquote(chunk: str) -> str:
     for line in lines:
         if line.startswith('> '):
             started, _ = True, out.append(line[2:].rstrip())
+        elif started and line.rstrip() == '>':
+            # A bare '>' inside the quote is a PARAGRAPH BREAK. Jeffrey hand-edited the printed
+            # board to one sentence per paragraph in the prose panels, and this is how the build
+            # sheet records that -- so the next build reproduces his file instead of undoing it.
+            out.append('\n')
         elif started and not line.startswith('>'):
             break
-    return ' '.join(out).strip()
+    text = ' '.join(out)
+    # collapse the join spaces around the break markers
+    while ' \n' in text or '\n ' in text:
+        text = text.replace(' \n', '\n').replace('\n ', '\n')
+    return text.strip()
 
 
 def _table(chunk: str) -> tuple[tuple[str, ...], ...]:

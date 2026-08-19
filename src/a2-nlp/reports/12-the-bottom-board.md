@@ -129,7 +129,7 @@ the wall, as ever.
 | **So fix the total number of tokens, and let epochs fall out.** | Every run is **1.024B tokens**: the 4M corpus is seen **256 times**, the 1,024M once. |
 | **Tokens ÷ tok/s = the wall clock.** | 1.024B tokens ÷ 443k tok/s ≈ **38 min** — the top bar of the chart above. |
 | **A truncated run is a different experiment.** | The schedule anneals to zero at the *planned* end — a stopped run is caught mid-schedule, not half as good. |
-| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth is **16 passes** — the name outlived the meaning. |
+| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth is **16 passes**. |
 
 *Six rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
 
@@ -190,8 +190,9 @@ dashboard panel.*
 **Figure:** `27-poster-cliffs.svg`
 
 > Yoruba, English and ten more, all on one axis. Every run that learns sits flat and then falls
-> off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**. So
-> "still flat at step k" is evidence of nothing. **35 of 197 never learned.**
+> off a cliff — and **no two fall at the same step**: earliest **2,200**, latest **48,500**.
+>
+> So "still flat at step k" is evidence of nothing. **35 of 197 never learned.**
 
 *49 words · `runs/early_signal.json`*
 
@@ -223,19 +224,21 @@ dashboard panel.*
 | **Everything above the floor is batch, and batch is optional.** | Accumulation runs one big step as smaller passes — **the same update**, within 2%. |
 | **So an 8 GB laptop trains the very step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s** — the same model. |
 | **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
-| **And Windows does not warn you.** | An oversized batch silently spills into system RAM: **28,027 → 5,075 tok/s**, no error anywhere. |
+| **And Windows does not warn you.** | An oversized batch silently spills into system RAM: **28,027 → 5,075 tok/s**. |
 
 *0 words · report 09 §Memory · `runs/hardware.json`*
 
 ### 9 · A hundred runs is a filing problem first
 
-> A study is declared as a **grid** — languages × rates × seeds — never typed run by run. The
-> queue orders it **longest-budget-first**. Every run writes a record naming **everything that
-> changes the answer** — settings, data fingerprint — after two runs differing only in
-> vocabulary silently overwrote each other. "What have we tried?" is a **query**: **1,089 runs
-> later, no collisions, no archaeology.**
+> A study is declared as a **grid**, languages × rates × seeds, never typed run by run; the
+> queue orders it **longest-budget-first**.
+>
+> Every run writes a record naming **everything that changes the answer**: data fingerprint,
+> vocabulary, settings.
+>
+> "What have we tried?" is a **query**: **1,089 runs later, no collisions, no archaeology.**
 
-*65 words · `mlm_api.results()` · `ft_api.results()` · report 09 §Week 4*
+*51 words · `mlm_api.results()` · `ft_api.results()` · report 09 §Week 4*
 
 *(18 Aug: rewritten from "An identity is everything that changes the answer" — Jeffrey's call
 that filenames are not the message for an AI-student audience; organizing the hyperparameter
@@ -244,13 +247,16 @@ count as the payoff.)*
 
 ### 10 · A result has to beat your own noise
 
-> Run the same recipe twice and it lands in two different places. That is the seed, not the change
-> you made. So we measured **our own noise first** and made every claim clear it by **2.27×** — at
-> three runs a side, no test can call anything significant. The spread is a property of **each
-> cell** — re-measured, never a constant we reused. **Two of our own claims did not clear it. We
-> retired them.**
+> Run the same recipe twice and it lands in two different places. That is the seed, not the
+> change you made.
+>
+> So we measured **our own noise first** and made every claim clear it by **2.27×**. At three
+> runs a side, no test can call anything significant.
+>
+> The spread is a property of **each cell**, never a constant we reused. **Two of our own
+> claims did not clear it. We retired them.**
 
-*75 words · `runs/claims_audit.json`*
+*72 words · `runs/claims_audit.json`*
 
 ### 11 · A factory that makes one thing is not a factory
 
@@ -259,7 +265,7 @@ count as the payoff.)*
 | **English is the ruler.** *Why:* the one language where data was never the constraint. | *Learned:* **more data stops helping past 64M tokens** — so Yoruba's 69M-token corpus is not the bottleneck it looks like. |
 | **French, Indonesian, Mandarin are the control.** *Why:* the borrowed vocabulary knows these three, so they test mere unfamiliarity. | *Learned:* they pay **1.04, 1.01, 0.95** tokens where a language's own vocabulary pays one. **Yoruba pays 1.76** — second-highest of seventeen. |
 | **Twelve African languages are the gradient.** *Why:* one language is an anecdote; seventeen make a slope. | *Learned:* the cost tracks **vocabulary coverage**, not geography — **Wolof, uncovered yet cheap at 1.31**, proves it. |
-| **None of us speaks any of them.** So the spread is the evidence, not any one score. | **Nine functions**, one call per language — **twelve pretrained in 48 minutes**. |
+| **Nine functions**, one call per language — **twelve pretrained in 48 minutes**. |
 
 *Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
 
@@ -269,22 +275,24 @@ count as the payoff.)*
 
 ### Ethics: what we do not claim, and what is next
 
-> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. The corpus is
-> scraped web text nobody consented to. The factory is itself an ethics tool: **sweeping seeds
-> keeps a claim off one lucky draw**, each language at its own best. Our gate prints **9 claims:
-> 6 supported, 2 not, 1 underpowered**. Next: a corpus audit, the evaluation we could not do.
+> **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. And the
+> corpus is scraped web text nobody consented to.
+>
+> The factory is itself an ethics tool: **sweeping seeds avoids one lucky draw**, each language
+> at its own best.
+>
+> Our gate prints **9 claims: 6 supported, 2 not, 1 underpowered**. Next: a corpus audit, the
+> evaluation we could not do.
 
-*66 words · `runs/claims_audit.json` · report 09 §Ethics*
+*64 words · `runs/claims_audit.json` · report 09 §Ethics*
 
 ### Sources
 
-> A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL, 2020,
-> pp. 8440–8451. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
+> A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL, 2020. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
 > 2025. · Y. Liu et al., "RoBERTa: A robustly optimized BERT pretraining approach,"
-> arXiv:1907.11692, 2019. · D. I. Adelani et al., "SIB-200," EACL, 2024, pp. 226–245. ·
-> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022, pp. 4488–4508. · G. Penedo et al.,
-> "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025. · L. N. Smith,
-> "A disciplined approach to neural network hyper-parameters," arXiv:1803.09820, 2018.
+> arXiv:1907.11692, 2019. · D. I. Adelani et al., "SIB-200," EACL, 2024. ·
+> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022. · G. Penedo et al.,
+> "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025.
 
 > All nineteen, in full, in report 09 §References.
 
