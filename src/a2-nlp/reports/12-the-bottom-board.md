@@ -278,15 +278,21 @@ count as the payoff.)*
 
 ### Sources
 
-> **Models** · Conneau et al. — XLM-R, ACL 2020 · Marone et al. — mmBERT, arXiv:2509.06888 ·
-> Liu et al. — RoBERTa, arXiv:1907.11692 · Devlin et al. — BERT, NAACL 2019 · Ogueji et al. —
-> AfriBERTa, EMNLP MRL 2021 ·
-> **Data** · Adelani et al. — SIB-200, EACL 2024 · Adelani et al. — MasakhaNER 2.0, EMNLP 2022 ·
-> Penedo et al. — FineWeb2, arXiv:2506.20920 ·
-> **Method** · Smith — one-cycle schedules, arXiv:1803.09820 · Dodge et al. — "Show your work,"
-> EMNLP 2019
+> A. Conneau et al., "Unsupervised cross-lingual representation learning at scale," ACL, 2020,
+> pp. 8440–8451. · M. Marone et al., "mmBERT: A modern multilingual encoder," arXiv:2509.06888,
+> 2025. · Y. Liu et al., "RoBERTa: A robustly optimized BERT pretraining approach,"
+> arXiv:1907.11692, 2019. · D. I. Adelani et al., "SIB-200," EACL, 2024, pp. 226–245. ·
+> D. I. Adelani et al., "MasakhaNER 2.0," EMNLP, 2022, pp. 4488–4508. · G. Penedo et al.,
+> "FineWeb2: One pipeline to scale them all," arXiv:2506.20920, 2025. · L. N. Smith,
+> "A disciplined approach to neural network hyper-parameters," arXiv:1803.09820, 2018.
 
 > All nineteen, in full, in report 09 §References.
+
+*Formatted as the top board formats its SOURCES, because the pair hangs as one document — that
+was Jeffrey's instruction, with the group heads removed on his option B. Seven entries fit at
+13 pt properly cited; Devlin, Ogueji and Dodge came off the board for the room and stay in the
+report's nineteen — the masking and the preset name still credit the first two in the panels,
+and Dodge's sentence lives where it is argued.*
 
 *Short form on purpose: at 14 pt a poster reference is a pointer, and the full citations are one
 § away. Dodge stays because "no result without the search budget that produced it" is the closest

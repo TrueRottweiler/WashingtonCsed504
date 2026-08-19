@@ -1878,7 +1878,7 @@ SPAN3 = 20.98          # the full measure
 # Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
-_ROW = {'a': (8.75, 5.95), 'd': (14.88, 5.75), 'b': (20.81, 5.66),
+_ROW = {'a': (8.75, 6.15), 'd': (15.05, 5.60), 'b': (20.83, 5.64),
         'e': (26.65, 3.45), 'c': (30.28, 4.50)}
 
 
@@ -1942,7 +1942,7 @@ FACTORY_PT = {
     "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
     "table_head": 28.0, "table_row": 11.0, "table_lead": 17.0,
     "card_head": 28.0, "card_body": 17.0,
-    "list_body": 17.0, "refs_body": 14.0, "footer": 12.0,
+    "list_body": 17.0, "refs_body": 13.0, "footer": 12.0,
 }
 
 

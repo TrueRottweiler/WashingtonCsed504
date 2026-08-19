@@ -2615,7 +2615,7 @@ WHOLE_COHORT_STEP = 11_000
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
     '25-poster-transfer': (6.35, 2.65),
-    '26-poster-hardware': (7.45, 2.94),
+    '26-poster-hardware': (7.45, 3.14),
     '27-poster-cliffs': (6.35, 2.65),
     '28-poster-dashboard': (6.35, 2.65),
 }
@@ -2627,7 +2627,7 @@ POSTER_BOX = {
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
     '25-poster-transfer': (6.91, 2.51),
-    '26-poster-hardware': (6.97, 2.51),
+    '26-poster-hardware': (7.67, 3.1),
     '27-poster-cliffs': (7.31, 2.46),
     '28-poster-dashboard': (7.71, 2.89),
 }
@@ -2785,12 +2785,9 @@ def fig_poster_hardware():
         # and it belongs there anyway, since the bar is computed FROM it. On ONE line: seven
         # two-line labels in the 2.3 in the plot area gets is 0.33 in a row against 0.33 in of
         # type, and on the proof they printed through each other.
-        # The rate sits UNDER the machine name -- Jeffrey's arrangement. Two-line ticks fit
-        # now because the chart's box grew to 2.94 in with row A; at 2.3 in they printed through
-        # each other, which is why this went through a one-line phase.
         rate_k = rec['poc']['tokens_per_s'] / 1000
         rates_k.append(rate_k)
-        labels.append(f'{name}\n{rate_k:.0f}k tok/s')
+        labels.append(name)
         costs.append(f'{price} · {days:.0f}d')
         # Colour carries what it costs you, and the row label says the same thing in words, so
         # nothing here is encoded in colour alone.
@@ -2800,15 +2797,28 @@ def fig_poster_hardware():
     with _poster_rc():
         fig, ax = plt.subplots(figsize=_poster_figsize('26-poster-hardware'))
         y = list(range(len(bars) - 1, -1, -1))
-        ax.barh(y, bars, 0.62, color=colors, zorder=3)
+        ax.barh(y, bars, 0.52, color=colors, zorder=3)
         # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
         # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
         # computed from belongs beside the number rather than off in the tick label.
-        # Just the bold time -- the rate lives under the machine name, so the fragile
-        # per-character offset that used to hang it off the value label went with it.
-        for yy, v in zip(y, bars):
-            ax.text(v + 0.40, yy, f'{v:.1f} h', va='center', color=INK,
-                    fontsize=13, fontweight='bold')
+        # The rate reads best where it started: after the time. The longest bar's label goes
+        # ABOVE its end -- at an 18 h axis that bar spans the panel and has no room after it.
+        longest = max(bars)
+        for yy, v, rk in zip(y, bars, rates_k):
+            t = f'{v:.1f} h'
+            if v == longest:
+                # The time rides above the bar's end; the rate rides inside it, white on the
+                # fill -- the first draft anchored both at one point and they printed on top of
+                # each other.
+                ax.text(v - 0.15, yy + 0.42, t, ha='right', va='bottom', color=INK,
+                        fontsize=13, fontweight='bold')
+                ax.text(v - 0.25, yy, f'({rk:.0f}k tok/s)', ha='right', va='center',
+                        color='white', fontsize=11)
+                continue
+            ax.text(v + 0.25, yy, t, va='center', color=INK, fontsize=13, fontweight='bold')
+            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.25, yy), va='center', color=INK2,
+                        fontsize=11, xytext=(len(t) * 7.6 + 5, -0.5),
+                        textcoords='offset points')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2824,28 +2834,16 @@ def fig_poster_hardware():
         # And its heading carries the scope. The two numbers on a row are at different scales --
         # the bar is ONE run, the price is 148 GPU-hours of work -- so the column that holds the
         # second one is the honest place to say which, rather than a note over the whole figure.
-        # Anchored in AXES fraction, not data. A fixed data x has to be re-chosen every time the
-        # figure is recalibrated to a new panel height -- the axis width changes, the value label
-        # keeps its point size, and the two collide again. This holds its column whatever the
-        # figure ends up being.
-        span = ax.get_yaxis_transform()
-        for yy, cost in zip(y, costs):
-            ax.text(0.87, yy, cost, transform=span, va='center', color=INK2, fontsize=12)
-        # "30d" invites the question Jeffrey asked: thirty days of what? Card-days -- the whole
-        # 148 GPU-hour project run end to end, around the clock, at that machine's rate. Say so
-        # where the numbers are, not in a caption two panels away.
-        ax.text(0.87, len(bars) - 0.30, 'the whole project\n(days run nonstop)', transform=span,
-                va='bottom', color=MUTED, fontsize=11)
-
+        # The cost column is gone -- Jeffrey: it held the right third of the panel while the
+        # bars used barely 40% of it, and its prices already live in the caption. The days-run-
+        # nonstop detail is report 09's.
         ax.set_yticks(y)
-        # 10.5 pt at tight leading: a row's pitch is ~26 pt at this height, and two lines of
-        # 12 pt with open leading collided with the neighbouring machine's name.
-        ax.set_yticklabels(labels, fontsize=10.5, color=INK, linespacing=0.95)
+        ax.set_yticklabels(labels, fontsize=13, color=INK)
         ax.set_xlabel('hours for ONE run  (the 33.8M model)')
-        ax.set_xlim(0, 40.0)
+        ax.set_xlim(0, 18.4)
         ax.set_ylim(-0.72, len(bars) + 0.18)
-        ax.set_xticks([0, 8, 16])
-        ax.set_xticklabels(['0', '8 h', '16 h'])
+        ax.set_xticks([0, 4, 8, 12, 16])
+        ax.set_xticklabels(['0', '4 h', '8 h', '12 h', '16 h'])
         ax.grid(axis='y', visible=False)
         ax.tick_params(axis='y', length=0)
         # Two footnotes, because both are the kind of thing that makes a bar mean something
