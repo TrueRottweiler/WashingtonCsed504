@@ -703,7 +703,8 @@ def add_figure_frame(
     )
 
 
-def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
+def add_footer(slide, content: dict, *, landscape: bool = False,
+               footer_y: float | None = None) -> None:
     if landscape:
         y = 23.36
         add_line(slide, 1.25, y, 34.75, y, UW_GOLD, 1)
@@ -736,7 +737,7 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
     else:
         # 34.84 and 12 pt, not 35.16 and 7.2. The footer carries the AI statement now, and a
         # compliance line set at 7.2 pt on a board two feet wide is not a compliance line.
-        y = 34.84
+        y = footer_y if footer_y is not None else 34.84
         add_line(slide, 1.50, y, 22.50, y, UW_GOLD, 1)
         add_text(
             slide,
@@ -2294,6 +2295,70 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
     return prs, figures
 
 
+def build_factory_poster_v3(content: dict, kind: str) -> tuple[Presentation, list[FigureSpec]]:
+    """The bottom board on the template's SECOND page -- the top poster's own header.
+
+    An A/B against build_factory_poster, at Jeffrey's request: the Second Page's purple band
+    ends at 7.25 in against the First Page's 8.50, which frees 1.25 in. All of it goes to air --
+    the same five rows at the same heights (every chart still lands 1:1 on its calibrated box),
+    with the inter-row gaps grown from 0.18 in to ~0.43. Same panels, same build sheet, same
+    figures; the only variables are the header and the breathing room.
+    """
+    prs, slide = open_template(PORTRAIT_TEMPLATE, 1)
+    # Same stray connectors as the First Page layout, plus the gold-bar picture at 5.11-6.15,
+    # which sits exactly where a three-line header needs its subtitle.
+    for sh in list(slide.slide_layout.shapes):
+        if sh.shape_type == MSO_SHAPE_TYPE.LINE or sh.name == "Picture 14":
+            sh._element.getparent().remove(sh._element)
+    figures: list[FigureSpec] = []
+
+    # The header, laid straight onto the band: the layout's own wide wordmark sits at y 1.52,
+    # then title, thesis, names -- the same three lines as v2, with the band's 7.25 in to
+    # breathe in rather than 8.50 to fill.
+    # Two lines at 72 pt is 174 pt; the box budgets for them (the gate said so).
+    add_text(slide, 1.50, 2.32, 21.0, 2.48,
+             content["title"].upper(), FACTORY_PT["title"], color=PAPER, font=TITLE_BLACK,
+             bold=True, valign=MSO_ANCHOR.MIDDLE, name="Header_Title")
+    add_text(slide, 1.53, 4.92, 21.0, 0.95, content["subtitle"], 19.0, color=PAPER,
+             font=SUBHEAD_FONT, name="Header_Subtitle")
+    add_text(slide, 1.53, 6.10, 21.0, 0.60,
+             content.get("author") or "CSED 504 · University of Washington · Summer 2026",
+             19.0, color=UW_GOLD, font=SUBHEAD_FONT, valign=MSO_ANCHOR.MIDDLE,
+             name="Header_Author")
+
+    # The same rows at the same heights, re-based on the shallower band with uniform ~0.43 in
+    # gaps -- computed from FACTORY_GEO so the two builders cannot drift apart in content.
+    y3 = {'row_a': 7.55, 'row_d': 14.14, 'row_b': 20.17, 'row_e': 26.25, 'row_c': 30.50}
+    panels = content["panels"]
+    for row, keys in FACTORY_PLAN.items():
+        for box, key in zip(FACTORY_GEO[row], keys):
+            x, _, w, h = box
+            box3 = (x, y3[row], w, h)
+            panel = panels.get(key)
+            if panel is None:
+                continue
+            name = f"Cell{key}"
+            kindof = FACTORY_KIND.get(key, "chart" if panel.figure else "text")
+            if kindof == "rail":
+                add_rail(slide, panel, box3, name=name)
+            elif kindof == "table":
+                add_table_panel(slide, panel, box3, name=name)
+            elif kindof == "list":
+                add_list_panel(slide, panel, box3, name=name)
+            elif kindof == "list2":
+                add_list_panel(slide, panel, box3, name=name, row_break=True)
+            elif kindof == "refs":
+                add_refs_panel(slide, panel, box3, name=name)
+            elif kindof == "chart":
+                add_chart_panel(slide, figures, panel, box3, name=name,
+                                bleed=0.55 if key == "1" else 0.0)
+            else:
+                add_text_panel(slide, panel, box3, name=name)
+
+    add_footer(slide, content, footer_y=34.95)
+    return prs, figures
+
+
 # Per kind, because the two halves of the poster are no longer the same shape. The top board is
 # nine findings of one shape and build_board's measured 3x3 is right for it; the bottom board is
 # five charts, a rail, three statements and a strip, and only build_factory_poster knows that.
@@ -2307,7 +2372,9 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
 VERSION = {"factory": "_v2", "yoruba": ""}
 
 BUILDERS = {
-    "factory": [("board", build_factory_poster)],
+    "factory": [("board", build_factory_poster),
+                # The Second-Page A/B -- delete or promote on Jeffrey's verdict.
+                ("board3", build_factory_poster_v3)],
     "yoruba": [
         # The board itself, set to report 12's measured grid. This is the poster.
         ("board", build_board),
@@ -2705,7 +2772,11 @@ def main() -> None:
         for design_name, builder in BUILDERS[which]:
             content = content_from_board(which)
             prs, figures = builder(content, which)
-            path = OUTPUTS / f"{design_name}-{kind}{VERSION[which]}.pptx"
+            # The v3 experiment keeps the family name rather than inheriting the design key.
+            if design_name == "board3":
+                path = OUTPUTS / "board-model-factory_v3.pptx"
+            else:
+                path = OUTPUTS / f"{design_name}-{kind}{VERSION[which]}.pptx"
             # Only what this run writes. The glob that used to sit above this loop deleted
             # every pptx, pdf and preview in the directory, including a saved earlier version
             # somebody had put there on purpose.
