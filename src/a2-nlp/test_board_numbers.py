@@ -110,7 +110,33 @@ class DerivedRecordsAreCurrent(unittest.TestCase):
         # The verdicts depend on which runs are in the directory: `achievable` is the best loss
         # in each cell, so adding a run can flip verdicts on runs it has nothing to do with.
         # A count check alone would miss that.
+        #
+        # But it depends on one more thing, and that one is not in the repository. 28 of the 197
+        # records carry no `corpus` field of their own, so mlm_api.results() recovers it with
+        # _corpus_from_tag, which resolves a tag against the corpora PREPARED ON THIS MACHINE --
+        # it globs data/*/stats.json, and data/ is untracked. Prepared, those 28 resolve and the
+        # count is 35. On a fresh clone they all come back None and collapse into shared cells --
+        # eleven of them into one (16M, afriberta) bucket spanning batchtest, collapsed-lr5e4,
+        # lrprobe, stabcheck and yor -- so they share an `achievable`, one run flips alive, and
+        # the count is 34.
+        #
+        # Neither number is wrong; the recount simply is not reproducible from the records alone.
+        # So skip where it cannot be computed rather than failing there. A gate that goes red on
+        # every clone teaches people to ignore it, which costs more than the check is worth --
+        # and this one is meant to catch a record drifting from its directory, not a reader
+        # arriving without a corpus. The sibling count check above needs none of this and still
+        # runs everywhere, so the guard stays half-live on a clone.
+        #
+        # The real fix is to write `corpus` into the records so it stops being re-derived from
+        # the filesystem. That is a change to the run records rather than to this test.
         import early_signal
+        unresolved = sum(1 for r in mlm_api.results() if not r.get('corpus'))
+        if unresolved:
+            self.skipTest(
+                f'{unresolved} records have no resolvable corpus on this machine, so the '
+                'dead/alive verdicts cannot be recomputed here -- `corpus` is re-derived from '
+                'data/*/stats.json, which is untracked. Prepare the corpora (QUICKSTART step 1) '
+                'to run this check.')
         runs = early_signal.load()
         self.assertEqual(self.record['n_dead'], sum(1 for r in runs if r['dead']))
 
