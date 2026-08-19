@@ -2627,7 +2627,7 @@ POSTER_BOX = {
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
     '25-poster-transfer': (6.91, 2.51),
-    '26-poster-hardware': (7.67, 3.1),
+    '26-poster-hardware': (7.67, 2.85),
     '27-poster-cliffs': (7.31, 2.46),
     '28-poster-dashboard': (7.71, 2.89),
 }
@@ -2839,7 +2839,15 @@ def fig_poster_hardware():
         # nonstop detail is report 09's.
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=13, color=INK)
-        ax.set_xlabel('hours for ONE run  (the 33.8M model)')
+        # "ONE run" carries the panel's scope and gets the bold -- which takes three artists,
+        # because a single label holds a single weight. Offsets are in points off the center.
+        ax.set_xlabel(' ')
+        for seg, dx, bold, colour in (('hours for ', -122, False, INK2),
+                                      ('ONE run', -47, True, INK),
+                                      (' (the 33.8M model)', 16, False, INK2)):
+            ax.annotate(seg, xy=(0.5, -0.245), xycoords='axes fraction', ha='left',
+                        va='top', xytext=(dx, 0), textcoords='offset points',
+                        color=colour, fontsize=15, fontweight='bold' if bold else 'normal')
         ax.set_xlim(0, 18.4)
         ax.set_ylim(-0.72, len(bars) + 0.18)
         ax.set_xticks([0, 4, 8, 12, 16])
@@ -2908,10 +2916,12 @@ def fig_poster_cliffs():
         ax.text(62_000, floor + 0.11, f'all {len(all_cliffs)} cliffs',
                 color=C1, fontsize=13, va='center', ha='right')
 
+        # No larger than the axis labels -- they are annotations, not headings. Bold is what
+        # carries them.
         ax.text(60_000, 6.75, 'never learned', ha='right', va='center', color=C2,
-                fontsize=16, fontweight='bold')
+                fontsize=14, fontweight='bold')
         ax.text(1_500, 2.45, 'learned', ha='left', va='center', color=C1,
-                fontsize=16, fontweight='bold')
+                fontsize=14, fontweight='bold')
         ax.set_xlabel('optimizer steps')
         ax.set_ylabel('validation loss')
         ax.set_xlim(0, 62_500)

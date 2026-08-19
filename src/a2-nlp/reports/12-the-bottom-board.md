@@ -125,11 +125,11 @@ the wall, as ever.
 
 | | |
 |---|---|
-| **Epochs were right in 502–504: the dataset was fixed.** | Here it *is* the experiment — "40 epochs" gives one arm **256×**. |
-| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens**: the 4M corpus seen **256×**, the 1,024M **once**. |
-| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k ≈ **38 min** — the chart's top bar. |
-| **A truncated run is a different experiment.** | The schedule anneals to zero at the *planned* end — halfway is mid-schedule. |
-| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth: **16 passes**. |
+| **Epochs were right in 502–504: the dataset was fixed.** | Here the dataset *is* the experiment — "40 epochs each" gives one arm **256× the compute** of another. |
+| **So fix the total number of tokens, and let epochs fall out.** | Every run is **1.024B tokens**: the 4M corpus is seen **256 times**, the 1,024M once. |
+| **Tokens ÷ tok/s = the wall clock.** | 1.024B tokens ÷ 443k tok/s ≈ **38 min** — the top bar of the chart above. |
+| **A truncated run is a different experiment.** | The schedule anneals to zero at the *planned* end — a stopped run is caught mid-schedule, not half as good. |
+| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth is **16 passes** — the name outlived the meaning. |
 
 *Six rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
 
@@ -219,8 +219,8 @@ dashboard panel.*
 
 | | |
 |---|---|
-| **What has to fit is the model** — 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B: **84–112 GB** — no consumer card. |
-| **Everything above the floor is batch, and batch is optional.** | Accumulation runs a big step as smaller passes — same update, **within 2%**. |
+| **What has to fit is the model** — 12–16 bytes a parameter. | Our 98M model: **1.6 GB**. A 7B model: **84–112 GB** — no consumer card has it. |
+| **Everything above the floor is batch, and batch is optional.** | Accumulation runs a big step as smaller passes — the same update, **within 2%** of the cost. |
 | **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
 | **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
 | **And Windows does not warn you.** | An oversized batch spills to system RAM: **28,027 → 5,075 tok/s**, no error. |
@@ -256,11 +256,11 @@ count as the payoff.)*
 
 | | |
 |---|---|
-| **English is the ruler.** | *Why:* the one language where data was never the constraint. *Learned:* **more data stops helping past 64M tokens** — which Yoruba, having no more, could never show. |
-| **French, Indonesian, Mandarin are the control.** | *Why:* XLM-R knows these three well. *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** | *Why:* an anecdote needs a slope behind it. *Learned:* the split falls along coverage — **Wolof, uncovered yet cheap at 1.31**, the exception anecdotes hide. |
-| **Five languages got the whole sweep.** | *Why:* "one call per language" is only true if settings transfer. *Learned:* they do not — **the rate four languages want destroys Igbo.** |
-| **None of us speaks any of them.** | So the spread is the evidence — **nine functions**, one call per language, **twelve in 48 minutes**. |
+| **English is the ruler.** *Why:* the one language where data was never the constraint. | *Learned:* **more data stops helping past 64M tokens** — which Yoruba, having no more, could never show. |
+| **French, Indonesian, Mandarin are the control.** *Why:* XLM-R knows all three well. | *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
+| **Twelve African languages are the gradient.** *Why:* an anecdote needs a slope behind it. | *Learned:* the split falls along coverage — with **Wolof, uncovered yet cheap at 1.31**, the exception an anecdote hides. |
+| **Five languages got the whole sweep.** *Why:* "one call per language" is only true if the settings transfer. | *Learned:* they do not — **the rate four languages want destroys Igbo.** |
+| **None of us speaks any of them.** So the spread is the evidence, not any one score. | **Nine functions**, one call per language — **twelve pretrained in 48 minutes**. |
 
 *Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
 
@@ -268,7 +268,7 @@ count as the payoff.)*
 
 ## The strip — the bottom row of panels
 
-### What we do not claim, and what we would do next
+### Ethics: what we do not claim, and what is next
 
 > **Nobody on this team reads Yoruba** — every judgement here is a benchmark number. The corpus is
 > scraped web text nobody consented to. The audit gate prints **9 claims: 6 supported, 2 not, 1

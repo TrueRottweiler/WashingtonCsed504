@@ -1879,7 +1879,7 @@ SPAN3 = 20.98          # the full measure
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
 _ROW = {'a': (8.75, 6.15), 'd': (15.05, 5.60), 'b': (20.83, 5.64),
-        'e': (26.65, 3.45), 'c': (30.28, 4.50)}
+        'e': (26.65, 3.45), 'c': (30.22, 4.58)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -1924,7 +1924,7 @@ FACTORY_PLAN = {
 # What kind of block each panel is. A chart panel gets a figure; a rail is the purple stat block;
 # a table is the speedups grid; everything else is a heading and prose. Only the two that cannot
 # be told apart from the panel itself are listed -- a figure is a chart, and no figure is prose.
-FACTORY_KIND = {"2": "list", "3": "rail", "4": "table", "8": "list", "11": "list", "strip2": "refs"}
+FACTORY_KIND = {"2": "list", "3": "rail", "4": "table", "8": "list", "11": "list2", "strip2": "refs"}
 
 # Type. The top board sets section headers at 40 pt, but its headers are single words -- ABSTRACT,
 # RESULTS -- and ours are whole statements. At 6.35 in a 40 pt sentence wraps to three lines and
@@ -2175,7 +2175,7 @@ def add_table_panel(slide, panel, box, *, name: str) -> None:
                               color=INK, name=f"{name}_R{b}{r}C{c}")
 
 
-def add_list_panel(slide, panel, box, *, name: str) -> None:
+def add_list_panel(slide, panel, box, *, name: str, row_break: bool = False) -> None:
     """A heading, a lead sentence, and the panel's table rows set as a list.
 
     Two panels want this shape and neither was working as prose. The memory panel is five
@@ -2194,53 +2194,44 @@ def add_list_panel(slide, panel, box, *, name: str) -> None:
     if panel.body:
         add_rich_text(slide, x, top, w, lead_h, panel.body, FACTORY_PT["card_body"],
                       color=INK, name=f"{name}_Lead")
-    text = "\n".join(" ".join(cells) for cells in panel.table)
+    # row_break: the build sheet's two columns become two LINES -- the claim and its Why on
+    # the first, Learned: opening the second -- instead of one wrapped paragraph.
+    if row_break:
+        text = "\n".join("\n".join(c for c in cells if c.strip()) for cells in panel.table)
+    else:
+        text = "\n".join(" ".join(cells) for cells in panel.table)
     # 1.02, not the default 1.08: at 17 pt a list of ten wrapped lines pays a point per line for
     # leading it does not need -- the paragraph gap below each row is what separates the rows.
+    # And breaking rows into two paragraphs doubles the paragraph count, so the row gap that
+    # separated five rows would spend itself ten times: tighter after-space pays the panel back
+    # most of what the breaks cost.
     add_rich_text(slide, x, top + lead_h + 0.08, w, (y + h - 0.06) - (top + lead_h + 0.08),
-                  text, FACTORY_PT["list_body"], color=INK, space_after=5.0,
+                  text, FACTORY_PT["list_body"], color=INK,
+                  space_after=3.0 if row_break else 5.0,
                   line_spacing=1.02, name=f"{name}_List")
 
 
 def add_refs_panel(slide, panel, box, *, name: str) -> None:
-    """The reference list, one entry a line, split on the middots the build sheet writes.
+    """The reference list as ONE flowing block, hanging-indented, one citation per paragraph.
 
-    Set smaller than the prose panels on purpose: a reference is looked up rather than read at
-    distance, and six of them at 18 pt would need the height of a chart. 12.5 pt is the size the
-    top board sets its own SOURCES block at, which is the point of matching their grid.
+    It was a stack of per-reference boxes, each individually sized by a character-count
+    estimator -- and the gate measures boxes, so the STACK ran off the panel twice without a
+    single box overflowing. One box means one honest measurement, and the estimator retires.
+
+    The hanging indent is raw pPr XML (marL positive, indent negative) because python-pptx does
+    not surface paragraph indents; a wrapped citation returns under its own first character,
+    which is how the top board's references read.
     """
     x, y, w, h = box
-    # 26 pt, not the panel 32: "Sources" is one word over a dense block, and the half inch the
-    # two-line heading box reserves is exactly what ten references need.
     top = _panel_head(slide, x, y, w, panel.title, 26.0, name)
-    # A bold-only entry -- **Models**, **Data**, **Method** -- is a group line. It renders as a
-    # small purple section head, the same device the speedups table uses for its group rows, so
-    # the two reference-dense panels on the board read the same way.
-    entries = []
-    for e in (e.strip() for e in panel.body.split(" · ")):
-        if not e:
-            continue
-        bare = e.strip("*")
-        if e.startswith("**") and e.endswith("**") and len(bare.split()) <= 2:
-            entries.append(("group", bare.upper()))
-        else:
-            entries.append(("ref", e))
-    yy = top
-    for kind, text in entries:
-        if kind == "group":
-            add_text(slide, x, yy + 0.04, w, 0.24, text, FACTORY_PT["refs_body"],
-                     color=UW_PURPLE, font=SUBHEAD_FONT, bold=True, name=f"{name}_Grp")
-            yy += 0.30
-        else:
-            # ceil at ~52 chars a line, not round at 62: the gate measured a reference three
-            # lines tall that the rounder had budgeted at two, and an estimator that errs low
-            # is an overflow generator. Generous is cheap here; the panel has slack.
-            lines = max(1, math.ceil(len(text.replace("*", "")) / 45))
-            hh = 0.21 * lines + 0.04
-            add_rich_text(slide, x, yy, w, hh, text, FACTORY_PT["refs_body"], color=INK,
-                          name=f"{name}_Ref")
-            yy += hh + 0.03
-
+    entries = "\n".join(e.strip() for e in panel.body.split(" · ") if e.strip())
+    shape = add_rich_text(slide, x, top, w, (y + h - 0.06) - top, entries,
+                          FACTORY_PT["refs_body"], color=INK, space_after=6.0,
+                          name=f"{name}_Refs")
+    for paragraph in shape.text_frame.paragraphs:
+        pPr = paragraph._p.get_or_add_pPr()
+        pPr.set("marL", "182880")     # 0.20 in
+        pPr.set("indent", "-182880")
 
 def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[FigureSpec]]:
     """The bottom board, v2. Five charts at column width, a rail, a table, six blocks of prose.
@@ -2290,6 +2281,8 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
                 add_table_panel(slide, panel, box, name=name)
             elif kindof == "list":
                 add_list_panel(slide, panel, box, name=name)
+            elif kindof == "list2":
+                add_list_panel(slide, panel, box, name=name, row_break=True)
             elif kindof == "refs":
                 add_refs_panel(slide, panel, box, name=name)
             elif kindof == "chart":
