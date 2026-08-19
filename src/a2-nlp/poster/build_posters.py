@@ -462,16 +462,19 @@ def add_header(
         add_text(
             slide,
             1.53,
-            6.48,
+            7.12,
             19.0,
-            0.42,
+            0.60,
             # The rubric asks for team member names, so this comes off the board's author line
             # rather than being a generic string. It said "A2-NLP Project Team" for a fortnight.
+            # Same FACE as the subtitle, not just the same size -- 19 pt of Open Sans against
+            # 19 pt of Uni Sans read as two different sizes, which was Jeffrey's exact note.
             content.get("author")
             or "CSED 504 · University of Washington · Summer 2026",
             author_pt,
+            valign=MSO_ANCHOR.MIDDLE,
             color=UW_GOLD,
-            font=BODY_FONT,
+            font=SUBHEAD_FONT,
             name="Header_Author",
         )
 
@@ -731,9 +734,9 @@ def add_footer(slide, content: dict, *, landscape: bool = False) -> None:
             name="Footer_Tag",
         )
     else:
-        # 34.50 and 12 pt, not 35.16 and 7.2. The footer carries the AI statement now, and a
+        # 34.84 and 12 pt, not 35.16 and 7.2. The footer carries the AI statement now, and a
         # compliance line set at 7.2 pt on a board two feet wide is not a compliance line.
-        y = 34.50
+        y = 34.84
         add_line(slide, 1.50, y, 22.50, y, UW_GOLD, 1)
         add_text(
             slide,
@@ -1875,8 +1878,8 @@ SPAN3 = 20.98          # the full measure
 # Row A starts at 8.80, not 8.40. The template master paints its purple band to 8.24, and a
 # heading landing 0.16 in under it reads as touching -- a band and a column of type want a margin
 # between them, not a clearance.
-_ROW = {'a': (8.80, 5.80), 'd': (14.80, 5.60), 'b': (20.60, 5.80),
-        'e': (26.60, 3.55), 'c': (30.30, 4.05)}
+_ROW = {'a': (8.75, 5.95), 'd': (14.88, 5.75), 'b': (20.81, 5.66),
+        'e': (26.65, 3.45), 'c': (30.28, 4.50)}
 
 
 def _across(row, w=COL_W, n=3):
@@ -1893,9 +1896,15 @@ def _split(row):
     return ((COL_X[0], y, SPAN2, h), (COL_X[2], y, COL_W, h))
 
 
+def _split_r(row):
+    """The mirror: one column first, then the remaining two as a span."""
+    y, h = _ROW[row]
+    return ((COL_X[0], y, COL_W, h), (COL_X[1], y, SPAN2, h))
+
+
 FACTORY_GEO = {
     "row_a": _across('a'),
-    "row_d": _split('d'),
+    "row_d": _split_r('d'),
     "row_b": _across('b'),
     "row_e": _across('e'),
     "row_c": _split('c'),
@@ -1906,7 +1915,7 @@ FACTORY_GEO = {
 # being able to break, and this is the one place that changes when a panel moves.
 FACTORY_PLAN = {
     "row_a": ("1", "8", "3"),                        # hardware · memory · the rail
-    "row_d": ("4", "2"),                             # what we made faster · budgeting
+    "row_d": ("2", "4"),                             # budgeting · what we made faster
     "row_b": ("5", "6", "7"),                        # early stopping · transfer · dashboard
     "row_e": ("9", "10", "strip1"),                  # identity · noise · limits
     "row_c": ("11", "strip2"),                        # the languages at two columns · sources
@@ -1926,14 +1935,14 @@ FACTORY_KIND = {"2": "list", "3": "rail", "4": "table", "8": "list", "11": "list
 # 32 pt is slower to read than the same words set in a heavier face, and these are sentences.
 FACTORY_PT = {
     "title": 72.0,
-    # One body size on the board. The chart captions were 16 and the prose panels 18, which
-    # reads at arm's length as two different documents -- and neither number was chosen, each was
-    # fitted to its own panel.
-    "panel_head": 32.0, "panel_cap": 17.0,
+    # One body size on the board: 17 pt, Jeffrey's number, everywhere prose or a list row
+    # appears. Heads at 28 rather than 32 -- the 32/13 pairing put a canyon between a heading
+    # and its own text, and the four points a heading gives up pay for the body's four.
+    "panel_head": 28.0, "panel_cap": 17.0,
     "rail_head": 26.0, "rail_value": 30.0, "rail_label": 15.0,
-    "table_head": 32.0, "table_row": 11.0, "table_lead": 17.0,
-    "card_head": 32.0, "card_body": 17.0,
-    "list_body": 13.0, "refs_body": 10.0, "footer": 12.0,
+    "table_head": 28.0, "table_row": 11.0, "table_lead": 17.0,
+    "card_head": 28.0, "card_body": 17.0,
+    "list_body": 17.0, "refs_body": 14.0, "footer": 12.0,
 }
 
 
@@ -2010,9 +2019,8 @@ def _panel_head(slide, x, y, w, text, pt, name, *, rule=True) -> float:
     separating that a border was doing, and gives the chart back the 0.6 in the border and its
     padding were taking out of a 6.35 in column.
     """
-    # 1.12, measured: two lines at 32 pt is 77.3 pt and 0.98 in is 70.6. Every heading on the
-    # board wraps to two, so the second line is the size to budget rather than the exception.
-    head_h = 1.12 if pt >= 30 else 0.62
+    # Two lines at 28 pt is 68 pt; the box budgets for two because most headings take two.
+    head_h = 0.98 if pt >= 26 else 0.62
     # Bottom-anchored. The box is sized for two lines because most headings take two, and a
     # one-line heading set from the top left half an inch of nothing between itself and its own
     # rule -- which reads as a panel whose heading has come adrift from its content.
@@ -2023,7 +2031,7 @@ def _panel_head(slide, x, y, w, text, pt, name, *, rule=True) -> float:
     return y + head_h + 0.18
 
 
-def add_chart_panel(slide, figures, panel, box, *, name: str) -> None:
+def add_chart_panel(slide, figures, panel, box, *, name: str, bleed: float = 0.0) -> None:
     """Heading, rule, chart, caption. The chart is drawn at exactly the size it lands.
 
     The caption is the panel's argument now. At 6.35 in a chart holds axis labels and value labels
@@ -2037,7 +2045,11 @@ def add_chart_panel(slide, figures, panel, box, *, name: str) -> None:
     top = _panel_head(slide, x, y, w, panel.title, FACTORY_PT["panel_head"], name)
     cap_h = 1.55
     fig_h = (y + h - 0.14) - cap_h - 0.16 - top
-    figures.append(FigureSpec(_figure_source(panel.figure), x, top, w, fig_h, name))
+    # Only the FIGURE bleeds -- into the page margin on the left and the gutter on the right --
+    # so the panel still reads as a column while its chart gets the width Jeffrey asked for.
+    # The heading and caption hold the column.
+    figures.append(FigureSpec(_figure_source(panel.figure), x - bleed, top,
+                              w + 2 * bleed, fig_h, name))
     add_rich_text(slide, x, top + fig_h + 0.16, w, cap_h, panel.body,
                   FACTORY_PT["panel_cap"], color=INK, name=f"{name}_Caption")
 
@@ -2183,9 +2195,11 @@ def add_list_panel(slide, panel, box, *, name: str) -> None:
         add_rich_text(slide, x, top, w, lead_h, panel.body, FACTORY_PT["card_body"],
                       color=INK, name=f"{name}_Lead")
     text = "\n".join(" ".join(cells) for cells in panel.table)
+    # 1.02, not the default 1.08: at 17 pt a list of ten wrapped lines pays a point per line for
+    # leading it does not need -- the paragraph gap below each row is what separates the rows.
     add_rich_text(slide, x, top + lead_h + 0.08, w, (y + h - 0.06) - (top + lead_h + 0.08),
                   text, FACTORY_PT["list_body"], color=INK, space_after=5.0,
-                  name=f"{name}_List")
+                  line_spacing=1.02, name=f"{name}_List")
 
 
 def add_refs_panel(slide, panel, box, *, name: str) -> None:
@@ -2214,15 +2228,15 @@ def add_refs_panel(slide, panel, box, *, name: str) -> None:
     yy = top
     for kind, text in entries:
         if kind == "group":
-            add_text(slide, x, yy + 0.03, w, 0.20, text, FACTORY_PT["refs_body"] - 1.0,
+            add_text(slide, x, yy + 0.04, w, 0.24, text, FACTORY_PT["refs_body"],
                      color=UW_PURPLE, font=SUBHEAD_FONT, bold=True, name=f"{name}_Grp")
-            yy += 0.24
+            yy += 0.30
         else:
             # ceil at ~52 chars a line, not round at 62: the gate measured a reference three
             # lines tall that the rounder had budgeted at two, and an estimator that errs low
             # is an overflow generator. Generous is cheap here; the panel has slack.
-            lines = max(1, math.ceil(len(text.replace("*", "")) / 62))
-            hh = 0.15 * lines + 0.04
+            lines = max(1, math.ceil(len(text.replace("*", "")) / 45))
+            hh = 0.21 * lines + 0.04
             add_rich_text(slide, x, yy, w, hh, text, FACTORY_PT["refs_body"], color=INK,
                           name=f"{name}_Ref")
             yy += hh + 0.03
@@ -2247,8 +2261,11 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
     # Names at 4.42 and the tagline at 5.05: on a research poster the team goes directly
     # under the title, which is where a reader looks for it. They were below the tagline and
     # above a gold rule the template draws, in the smallest type in the band.
+    # The author line takes the subtitle's own face and size and centers in the space between
+    # the template's gold bar and the bottom of the band -- Jeffrey's arrangement, again: it had
+    # drifted to a smaller face hugging the bar.
     add_header(slide, content, title_pt=FACTORY_PT["title"], title_caps=True,
-               title_font=TITLE_BLACK, subtitle_pt=19.0, author_pt=14.0)
+               title_font=TITLE_BLACK, subtitle_pt=19.0, author_pt=19.0)
     # Compressed from 1.70 in: the body starts at 8.30 to sit level with the top board's first
     # section, and this box is what was in the way.
     # The gold box carries GOALS now, not the takeaway. Jeffrey moved the 501/502/503/504 thesis
@@ -2276,7 +2293,8 @@ def build_factory_poster(content: dict, kind: str) -> tuple[Presentation, list[F
             elif kindof == "refs":
                 add_refs_panel(slide, panel, box, name=name)
             elif kindof == "chart":
-                add_chart_panel(slide, figures, panel, box, name=name)
+                add_chart_panel(slide, figures, panel, box, name=name,
+                                bleed=0.55 if key == "1" else 0.0)
             else:
                 add_text_panel(slide, panel, box, name=name)
 

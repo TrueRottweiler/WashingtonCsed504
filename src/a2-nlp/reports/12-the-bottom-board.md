@@ -125,12 +125,11 @@ the wall, as ever.
 
 | | |
 |---|---|
-| **In 502–504 epochs were correct — the dataset was fixed. Here it is the experiment.** | Our ladder spans 4M to 1,024M tokens: "40 epochs each" hands the big arm **256× the compute**. |
-| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens of updates** — 62,500 steps was never chosen, it is 1.024B ÷ a 16,384-token batch. |
-| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k tok/s ≈ **38 min** — the hardware chart's top bar, and how a promise gets measured. |
-| **Fixed compute makes the ladder readable.** | The 4M corpus is seen **256 times**; the 1,024M corpus, **exactly once**. Identical compute — only the data moves. |
-| **And a truncated run is not a cheaper run.** | The schedule anneals to zero at the *planned* end — a run stopped halfway is mid-schedule, a different experiment. |
-| **Our own records carried the bug.** | A field named `epoch` reads **125** where the truth is **16 passes** — it kept the name and lost the meaning. |
+| **Epochs were right in 502–504: the dataset was fixed.** | Here it *is* the experiment — "40 epochs" gives one arm **256×**. |
+| **So fix tokens, and let epochs fall out.** | Every run is **1.024B tokens**: the 4M corpus seen **256×**, the 1,024M **once**. |
+| **Tokens ÷ tok/s = the wall clock.** | 1.024B ÷ 443k ≈ **38 min** — the chart's top bar. |
+| **A truncated run is a different experiment.** | The schedule anneals to zero at the *planned* end — halfway is mid-schedule. |
+| **Our own records carried the bug.** | The `epoch` field reads **125**; the truth: **16 passes**. |
 
 *Six rows, no prose · report 09 §Week 1 · `runs/hardware.json`*
 
@@ -218,28 +217,30 @@ dashboard panel.*
 
 ### 8 · When memory is a wall, and when it is only a speed limit
 
-> What has to **fit** is the model. Everything above that is a choice.
-
 | | |
 |---|---|
-| **The floor is the model** — weights, gradients, optimizer state: 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B model: **84–112 GB**, which no consumer card has. *(arithmetic)* |
-| **Everything above it is batch, and batch is optional.** | Accumulation runs a 16,384-token step as smaller passes — same update, **within 2%** of the cost. |
+| **What has to fit is the model** — 12–16 bytes a parameter. | Our 98M: **1.6 GB**. A 7B: **84–112 GB** — no consumer card. |
+| **Everything above the floor is batch, and batch is optional.** | Accumulation runs a big step as smaller passes — same update, **within 2%**. |
 | **So an 8 GB laptop trains the step a 96 GB card trains.** | A 10 GB run folds into **6.1 GB at 28,027 tok/s**. |
-| **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100's price buys its **speed**, not capacity. |
-| **More memory does not buy speed.** | Batch 2048 uses **89.7 GB** and is *slower* than 128. |
-| **And Windows does not warn you.** | An oversized batch spills to system RAM: **5,075 tok/s, no error**. |
+| **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
+| **And Windows does not warn you.** | An oversized batch spills to system RAM: **28,027 → 5,075 tok/s**, no error. |
 
-*13 words · report 09 §Memory · `runs/hardware.json`*
+*0 words · report 09 §Memory · `runs/hardware.json`*
 
-### 9 · An identity is everything that changes the answer
+### 9 · A hundred runs is a filing problem first
 
-> Two runs silently overwrote each other — same filename, different vocabularies, and neither
-> record said so. A filename is an identity, so the vocabulary carries a **hash** rather than a
-> label: `15abd33de5af`. The hash also caught two people who prepared **"the same" corpus** and
-> built different vocabularies. **197 pretraining and 892 fine-tuning runs later, no
-> collision.**
+> A study is declared as a **grid** — languages × rates × seeds — never typed run by run. The
+> queue orders it **longest-budget-first**. Every run writes a record naming **everything that
+> changes the answer** — settings, data fingerprint — after two runs differing only in
+> vocabulary silently overwrote each other. "What have we tried?" is a **query**: **1,089 runs
+> later, no collisions, no archaeology.**
 
-*56 words · `mlm_api.results()` · `ft_api.results()`*
+*65 words · `mlm_api.results()` · `ft_api.results()` · report 09 §Week 4*
+
+*(18 Aug: rewritten from "An identity is everything that changes the answer" — Jeffrey's call
+that filenames are not the message for an AI-student audience; organizing the hyperparameter
+space and choosing what to run is. The hash mechanism survives as one clause, the collision
+count as the payoff.)*
 
 ### 10 · A result has to beat your own noise
 
@@ -255,11 +256,11 @@ dashboard panel.*
 
 | | |
 |---|---|
-| **English is the ruler.** | *Why:* the one language where data was never the constraint. *Learned:* **more data stops helping past 64M tokens** — a fact Yoruba could never establish, having no more. |
-| **French, Indonesian, Mandarin are the control.** | *Why:* XLM-R knows these three well, killing the objection that it is just "unfamiliar languages". *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
-| **Twelve African languages are the gradient.** | *Why:* one language is an anecdote; seventeen make a slope. *Learned:* the split falls exactly along coverage — **Wolof, uncovered yet cheap at 1.31**, is the exception an anecdote hides. |
-| **Five languages got the whole sweep.** | *Why:* "adding a language is one function call" is only true if the settings transfer too. *Learned:* they do not — **the rate four languages want destroys Igbo.** |
-| **None of us speaks any of them.** | So the spread is the evidence, not any one score. The factory made the spread affordable: **nine functions** are its whole interface, so adding a language is one call — **twelve pretrained in 48 minutes**. |
+| **English is the ruler.** | *Why:* the one language where data was never the constraint. *Learned:* **more data stops helping past 64M tokens** — which Yoruba, having no more, could never show. |
+| **French, Indonesian, Mandarin are the control.** | *Why:* XLM-R knows these three well. *Learned:* they cost **1.04, 1.01, 0.95** — the penalty tracks *coverage*, not "African". |
+| **Twelve African languages are the gradient.** | *Why:* an anecdote needs a slope behind it. *Learned:* the split falls along coverage — **Wolof, uncovered yet cheap at 1.31**, the exception anecdotes hide. |
+| **Five languages got the whole sweep.** | *Why:* "one call per language" is only true if settings transfer. *Learned:* they do not — **the rate four languages want destroys Igbo.** |
+| **None of us speaks any of them.** | So the spread is the evidence — **nine functions**, one call per language, **twelve in 48 minutes**. |
 
 *Five rows, no prose — each names why the language is there and what it taught · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why seventeen*
 
@@ -277,19 +278,19 @@ dashboard panel.*
 
 ### Sources
 
-> **Models** · A. Conneau et al., "Unsupervised cross-lingual representation learning at scale"
-> (XLM-R), ACL 2020 · M. Marone et al., "mmBERT," arXiv:2509.06888 · Y. Liu et al., "RoBERTa,"
-> arXiv:1907.11692 · J. Devlin et al., "BERT" — its 80/10/10 masking, NAACL 2019 · K. Ogueji et
-> al., "Small data? No problem!" (AfriBERTa), EMNLP MRL 2021 ·
-> **Data** · D. I. Adelani et al., "SIB-200," EACL 2024 · D. I. Adelani et al., "MasakhaNER
-> 2.0," EMNLP 2022 · G. Penedo et al., "FineWeb2," arXiv:2506.20920 ·
-> **Method** · L. N. Smith, one-cycle schedules, arXiv:1803.09820 · J. Dodge et al., "Show
-> your work," EMNLP 2019 — no result without the search budget that produced it
+> **Models** · Conneau et al. — XLM-R, ACL 2020 · Marone et al. — mmBERT, arXiv:2509.06888 ·
+> Liu et al. — RoBERTa, arXiv:1907.11692 · Devlin et al. — BERT, NAACL 2019 · Ogueji et al. —
+> AfriBERTa, EMNLP MRL 2021 ·
+> **Data** · Adelani et al. — SIB-200, EACL 2024 · Adelani et al. — MasakhaNER 2.0, EMNLP 2022 ·
+> Penedo et al. — FineWeb2, arXiv:2506.20920 ·
+> **Method** · Smith — one-cycle schedules, arXiv:1803.09820 · Dodge et al. — "Show your work,"
+> EMNLP 2019
 
-*Nineteen references in full in report 09 §References. The builder sets one entry a line, split
-on the middots; the three bold group names render as section lines. Dodge is here because it is
-the Search-seeds section's most load-bearing entry — the sentence closest to this board's thesis
-about statistics.*
+> All nineteen, in full, in report 09 §References.
+
+*Short form on purpose: at 14 pt a poster reference is a pointer, and the full citations are one
+§ away. Dodge stays because "no result without the search budget that produced it" is the closest
+thing this board has to a thesis about statistics — the gloss moved to the report.*
 
 > **What moved off this block on 18 August.** The team names went to the header, where a reader
 > looks for them and where the assignment asks for them once. "Next" folded into the panel beside

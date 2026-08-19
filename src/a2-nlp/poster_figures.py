@@ -2615,7 +2615,7 @@ WHOLE_COHORT_STEP = 11_000
 # height less the heading and caption the same function reserves.
 POSTER_BOX = {
     '25-poster-transfer': (6.35, 2.65),
-    '26-poster-hardware': (6.35, 2.65),
+    '26-poster-hardware': (7.45, 2.94),
     '27-poster-cliffs': (6.35, 2.65),
     '28-poster-dashboard': (6.35, 2.65),
 }
@@ -2627,7 +2627,7 @@ POSTER_BOX = {
 # the result here. Re-run it after adding anything outside a figure's axes.
 POSTER_FIGSIZE = {
     '25-poster-transfer': (6.91, 2.51),
-    '26-poster-hardware': (5.06, 2.37),
+    '26-poster-hardware': (6.97, 2.51),
     '27-poster-cliffs': (7.31, 2.46),
     '28-poster-dashboard': (7.71, 2.89),
 }
@@ -2785,9 +2785,12 @@ def fig_poster_hardware():
         # and it belongs there anyway, since the bar is computed FROM it. On ONE line: seven
         # two-line labels in the 2.3 in the plot area gets is 0.33 in a row against 0.33 in of
         # type, and on the proof they printed through each other.
+        # The rate sits UNDER the machine name -- Jeffrey's arrangement. Two-line ticks fit
+        # now because the chart's box grew to 2.94 in with row A; at 2.3 in they printed through
+        # each other, which is why this went through a one-line phase.
         rate_k = rec['poc']['tokens_per_s'] / 1000
         rates_k.append(rate_k)
-        labels.append(name)
+        labels.append(f'{name}\n{rate_k:.0f}k tok/s')
         costs.append(f'{price} · {days:.0f}d')
         # Colour carries what it costs you, and the row label says the same thing in words, so
         # nothing here is encoded in colour alone.
@@ -2801,14 +2804,11 @@ def fig_poster_hardware():
         # The rate goes after the time, in the same label, which is where Jeffrey asked for it:
         # a row reads 0.6 h (443k tok/s). The bar's length IS the hours, so the throughput it was
         # computed from belongs beside the number rather than off in the tick label.
-        # The time is the claim and stays bold; the rate is its provenance and does not. One
-        # artist cannot mix weights, so the rate hangs off the time at a per-character offset --
-        # crude, but a digit at 11 pt bold is ~6.8 pt wide and the strings never collide.
-        for yy, v, rk in zip(y, bars, rates_k):
-            t = f'{v:.1f} h'
-            ax.text(v + 0.40, yy, t, va='center', color=INK, fontsize=11, fontweight='bold')
-            ax.annotate(f'({rk:.0f}k tok/s)', xy=(v + 0.40, yy), va='center', color=INK2,
-                        fontsize=10, xytext=(len(t) * 6.8 + 4, -0.5), textcoords='offset points')
+        # Just the bold time -- the rate lives under the machine name, so the fragile
+        # per-character offset that used to hang it off the value label went with it.
+        for yy, v in zip(y, bars):
+            ax.text(v + 0.40, yy, f'{v:.1f} h', va='center', color=INK,
+                    fontsize=13, fontweight='bold')
 
         # The callout. Rows 3, 4 and 5 of seven -- laptop, laptop on battery, free T4 -- and the
         # order of those three is the panel's one actionable sentence.
@@ -2838,10 +2838,12 @@ def fig_poster_hardware():
                 va='bottom', color=MUTED, fontsize=11)
 
         ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=13, color=INK)
+        # 10.5 pt at tight leading: a row's pitch is ~26 pt at this height, and two lines of
+        # 12 pt with open leading collided with the neighbouring machine's name.
+        ax.set_yticklabels(labels, fontsize=10.5, color=INK, linespacing=0.95)
         ax.set_xlabel('hours for ONE run  (the 33.8M model)')
         ax.set_xlim(0, 40.0)
-        ax.set_ylim(-0.65, len(bars) + 0.10)
+        ax.set_ylim(-0.72, len(bars) + 0.18)
         ax.set_xticks([0, 8, 16])
         ax.set_xticklabels(['0', '8 h', '16 h'])
         ax.grid(axis='y', visible=False)
@@ -2980,27 +2982,25 @@ def fig_poster_dashboard():
         # --- the two cards --------------------------------------------------------------------
         for i, (label, util, watt) in enumerate((('cuda:0', 0.91, 298), ('cuda:1', 0.93, 301))):
             x = i * 51
-            ax.add_patch(plt.Rectangle((x, 57), 49, 11, facecolor=SURFACE, edgecolor=GRID,
+            # A step smaller than the queue's type, and a real gap between the label line and
+            # its bar -- they were touching, and chrome that touches reads as broken chrome.
+            ax.add_patch(plt.Rectangle((x, 55.5), 49, 12.5, facecolor=SURFACE, edgecolor=GRID,
                                        lw=1.0, zorder=1))
-            ax.text(x + 2, 65, label, color=INK, fontsize=7.7, fontweight='bold', va='center')
-            ax.text(x + 47, 65, f'{util:.0%}', color=INK, fontsize=7.7, fontweight='bold',
+            ax.text(x + 2, 65.4, label, color=INK, fontsize=7.0, fontweight='bold', va='center')
+            ax.text(x + 47, 65.4, f'{util:.0%}', color=INK, fontsize=7.0, fontweight='bold',
                     va='center', ha='right')
-            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45, 2.0, facecolor=GRID, lw=0, zorder=2))
-            ax.add_patch(plt.Rectangle((x + 2, 61.4), 45 * util, 2.0, facecolor=C3, lw=0,
+            ax.add_patch(plt.Rectangle((x + 2, 60.2), 45, 2.2, facecolor=GRID, lw=0, zorder=2))
+            ax.add_patch(plt.Rectangle((x + 2, 60.2), 45 * util, 2.2, facecolor=C3, lw=0,
                                        zorder=3))
-            ax.text(x + 2, 59.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=6.6,
+            ax.text(x + 2, 57.2, f'{watt} / 300 W · 91 GB free', color=MUTED, fontsize=6.4,
                     va='center')
 
-        # --- the callouts, boxed with their labels beneath ------------------------------------
-        # 73.9 to 78.5. Rows sit at 90.0 - 4.6i, so the fourth is at 76.2 and a box starting at
-        # 71.6 put its top edge through the words it was drawn around.
-        ax.add_patch(plt.Rectangle((1.2, 73.9), 97.6, 4.6, facecolor='none', edgecolor=C2,
-                                   lw=2.2, zorder=6))
-        ax.text(0, 53.0, 'an urgent sweep takes a LANE, not the road', color=C2,
-                fontsize=9.1, fontweight='bold', va='center')
+        # The orange callout box and its slogan line are gone -- Jeffrey: they cluttered
+        # rather than helped, and the sweep's own queue row already reads as the odd one out
+        # (the only row on card 1, its own colour). The caption carries the argument now.
 
         # --- and the chart, which is half the real screen --------------------------------------
-        sub = ax.inset_axes([0.0, 0.0, 1.0, 0.44])
+        sub = ax.inset_axes([0.0, 0.0, 1.0, 0.50])
         for (label, tag, colour), dy in zip(ladder, (0.0, 0.0, 0.30, 0.02, -0.28)):
             try:
                 curve = f.curve(tag)
