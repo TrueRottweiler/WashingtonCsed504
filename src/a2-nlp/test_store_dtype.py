@@ -13,7 +13,16 @@ import tempfile
 import unittest
 
 import numpy as np
-import torch
+
+# Patrick's guard, on his suggestion: without torch this module cannot import, and unittest
+# discover reported the failure as an ERROR rather than a skip -- a red suite on any clone
+# without a GPU stack, for a reason that is not a defect. SkipTest at import time makes
+# discover report what is actually true: skipped here, for this reason.
+try:
+    import torch
+except ImportError as exc:
+    raise unittest.SkipTest(f'torch is not installed on this machine ({exc}); '
+                            'these tests exercise the torch data path') from None
 
 import text_data as T
 import text_prepare as P

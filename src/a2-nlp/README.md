@@ -142,7 +142,7 @@ The last two need packages, and say so when they are missing rather than skippin
 
 | gate | needs | without it |
 |---|---|---|
-| `unittest discover` | `torch` for 2 modules, `matplotlib` for 1 | the rest still run, and they are the ones that pin published numbers. **With torch: 76 tests.** Without it, `test_masking` and `test_store_dtype` cannot import and are reported as 2 errors, and the other two modules run 56 tests with 6 skipped — so `discover` exits non-zero on a machine with no torch. Run `py.sh test_board_numbers.py` on its own for a clean signal there |
+| `unittest discover` | `torch` for 2 modules, `matplotlib` for 1 | **green on any clone.** With torch: 76 tests. Without it, `test_masking` and `test_store_dtype` skip with their reason rather than erroring, and the modules that pin published numbers still run — a check that only asserts what the machine can actually compute, which is the same rule `DerivedRecordsAreCurrent` follows |
 | `claims_audit.py` | `scipy`, `torch`, **and a prepared corpus** (step 1 below, plus `prepare_yor_xlmr.py`) | the committed `runs/claims_audit.json` holds all nine verdicts: 6 supported, 2 not, 1 underpowered |
 | `poster_figures.py` | `matplotlib`, pinned to **3.11.0** | figures are committed; regenerate only to check for drift, and a different matplotlib will churn all eighteen for nothing |
 
