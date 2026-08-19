@@ -225,6 +225,7 @@ And the downstream half, plus the analysis and reporting layer:
 | `study_*.py` | one console study per question, each writing `runs/<name>.json` — label quantity, tokenizer seeds, the vocabulary swap, the NER control sweep, clipping, LR transfer |
 | `poster_figures.py` | all figures, generated from `mlm_api.results()` / `ft_api.results()` so no chart can drift from its records |
 | [`poster/`](poster/) | turns a board markdown file into printable PowerPoint + PDF ([README](poster/README.md)) |
+| [`poster/final/`](poster/final/) | **the two boards as submitted** — PPTX and PDF each, provenance stated ([README](poster/final/README.md)) |
 | `claims_audit.py` | states the null for each comparative claim and computes what would refute it |
 | `check_links.py`, `check_boards.py` | the markdown gates — dangling links, figures claimed twice |
 | `test_*.py` | the test suite, no GPU needed; `test_board_numbers.py` pins every published number to its record |
