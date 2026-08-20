@@ -3,8 +3,9 @@
 *A2-NLP · August 2026 · the first downstream runs, and what it took before any of them could be
 trusted*
 
-Ninety-two pretraining runs exist in `runs/`. Until this week, zero downstream runs did — and the
-group's claim is a downstream score. Every finding in
+Ninety-two pretraining runs existed in `runs/` when this was written — 197 by submission; §10
+says to recompute that count rather than quote it. Until this week, zero downstream runs existed
+at all — and the group's claim is a downstream score. Every finding in
 [report 04](04-the-language-gradient.md) and [report 05](05-when-data-stops-mattering.md) lives in
 loss-space, on a project that has twice caught validation loss failing to predict fine-tuned
 quality.
@@ -58,8 +59,10 @@ run's result.
 
 ## 2. XLM-R never learned SIB-200 — at the budget it was given
 
-The study quotes XLM-R at **0.127** macro-F1 on Yoruba topic classification against mmBERT's
-0.537. [Report 05](05-when-data-stops-mattering.md) already flagged it as *"almost certainly a
+The study quotes XLM-R at **0.127** macro-F1 (per-class F1 averaged so all seven classes count
+equally) on Yoruba topic classification, against 0.537 for mmBERT — a 246M-parameter multilingual
+encoder trained on 3 trillion tokens across 1,800 languages, Yoruba included (Marone et al.,
+arXiv:2509.06888). [Report 05](05-when-data-stops-mattering.md) already flagged it as *"almost certainly a
 fine-tuning failure"* on the grounds that the same model scores 0.843 on Yoruba entity
 recognition, and a model with no usable Yoruba cannot do that. Re-run through the extracted
 harness, it is worse than a failure.
@@ -86,8 +89,9 @@ score of 0.057 to three decimal places.
 
 An earlier version of this paragraph added that the cell mean "sits below the untrained control's
 0.107." It does not — 0.1098 against 0.1073, which is *above* by 0.0025, and the sentence
-contradicted the two numbers inside it. Nor is that difference anything: Welch p = 0.95, exact
-permutation p = 0.82. The two are indistinguishable, which is the honest and slightly duller
+contradicted the two numbers inside it. Nor is that difference anything: Welch's t-test says
+p = 0.95, and an exact permutation test — shuffling which scores belong to which arm and asking
+how often the gap appears by accident — says p = 0.82. The two are indistinguishable, which is the honest and slightly duller
 version of the same point.
 
 The withdrawal does not depend on the sign, and that is worth being clear about rather than
@@ -101,7 +105,8 @@ This is not a property of the harness. mmBERT, through the identical code path, 
 
 ### The confidence interval does not catch this
 
-The project's stated practice is to lean on pooled bootstrap CIs. On this failure mode they are
+The project's stated practice is to lean on pooled bootstrap CIs — confidence intervals built by
+resampling the 204 test items with replacement and re-scoring. On this failure mode they are
 worse than useless:
 
 | cell | 95% CI | width |
@@ -232,7 +237,8 @@ The same fact stated as capacity survives, and is what the poster should say ins
 §2 established that XLM-R's number was not a result. It did not establish why, and the mechanism
 it proposed was wrong.
 
-The sweep that settled it: five learning rates extending *downward* from 2e-5, two step budgets,
+The sweep that settled it: five learning rates spanning 5e-6 to 5e-5 around the original 2e-5,
+two step budgets,
 five seeds each — 50 fine-tuning runs, reported as **the fraction of seeds clearing the
 uniform-random bar** rather than as a mean, because a mean over collapsed seeds averages a broken
 optimizer with a working one and reports the result as a property of the model.
@@ -253,9 +259,9 @@ count nobody had chosen for it.
 
 `FT_STEPS = 352` came from `POC_v4_factory.ipynb`'s 8-epoch loop, preserved so the extraction
 would be behavior-preserving (§1). It was never selected for this question, and it produced the
-study's central downstream conclusion. **This is the sixth or seventh instance of the project's
-recurring failure mode — a result produced by a fixed arbitrary constant rather than by the thing
-under study — and the most consequential one so far.**
+study's central downstream conclusion. **This is the project's recurring failure mode again — a
+result produced by a fixed arbitrary constant rather than by the thing under study — and the most
+consequential instance so far.**
 
 Two details worth keeping. **lr 5e-5 is dead at both budgets**: all ten seeds land on 0.057, the
 exact majority-class score, a deterministic collapse rather than a noisy one. And the
@@ -283,7 +289,7 @@ trains, the floor moves:
 | random init | lr 5e-5 | 0.403 | [0.351, 0.446] | — |
 
 **XLM-R does not separate from a randomly initialised encoder.** Same lower CI bound to three
-decimals, means 0.004 apart, two orders of magnitude below the 0.06 floor that 204 test items
+decimals, means 0.004 apart — an order of magnitude below the 0.06 floor that 204 test items
 resolve. mmBERT clears the same control by 0.170 with disjoint intervals.
 
 So the sweep's "XLM-R converges at 1056 steps" was the *classifier head* learning from 701 labels,
@@ -375,7 +381,7 @@ run on NER at all, which after §6 is a gap rather than a detail.
 | 65% of the context window is spent on fragments | **Withdraw.** Nothing is truncated, and a 14.5-point change in truncation is worth 0.003 F1; use the 77-vs-44-words framing. |
 | MLM loss does not predict downstream quality | **Hold, one leg weaker.** The surviving support is the 2M-token cell where loss improved 5.72 → 4.57 while F1 fell 0.489 → 0.451. |
 | XLM-R and mmBERT both score ~0.84 on Yoruba NER | **Hold.** 0.841 and 0.851 under NFC, overlapping CIs. |
-| The from-scratch model loses NER by 0.145 | **Withdraw — it loses by 0.053.** Measured under NFC in [report 08](08-what-the-tokenizer-costs.md) §2: 0.7877 against 0.8410 and 0.8507. The prediction on this row held exactly — both baselines moved by ≤0.003 and the from-scratch row, the only one whose tokenizer fertility changed, moved by 0.092. |
+| The from-scratch model loses NER by 0.145 | **Withdraw — the final gap is 0.026.** Measured under NFC in [report 08](08-what-the-tokenizer-costs.md) §2 it first read 0.053 (0.7877 against 0.8410 and 0.8507); with every arm's learning rate swept it closes to 0.837 against 0.851 and 0.863. The prediction on this row held exactly — both baselines moved by ≤0.003 under NFC and the from-scratch row, the only one whose tokenizer fertility (tokens per word) changed, moved by 0.092. |
 
 ---
 

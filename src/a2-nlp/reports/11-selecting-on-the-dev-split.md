@@ -51,7 +51,8 @@ explains the last two rates.
 ## 3. The table
 
 **SIB-200 Yoruba topic classification, 1,056 steps, dev-selected, five seeds on test.**
-Chance is 1/7 = 0.143.
+Scores are macro-F1 — per-class F1 averaged so all seven classes count equally. Chance is
+1/7 = 0.143.
 
 | | macro-F1 | sd | 95% CI | lr | per-seed |
 |---|---|---|---|---|---|

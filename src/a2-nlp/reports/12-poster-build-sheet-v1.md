@@ -1,8 +1,15 @@
-# Build sheet: the bottom board
+# Build sheet: the bottom board — SUPERSEDED, kept as history
+
+> **This is the v1 sheet and nothing prints from it.** It describes the nine-cell board we
+> designed before measuring the template, and it is kept because the reports refer back to its
+> numbering and because the distance between this plan and what actually printed is itself part
+> of the story. The live build sheet is [12-the-bottom-board.md](12-the-bottom-board.md), and the
+> printed pair is in [`poster/final/`](../poster/final/). Numbers below were right when written
+> and have not been maintained since.
 
 *What goes in each cell, what it says, and which figure to drop in. Report 09 is the long form.
 This is the board — nine cells and a strip. One is not a subset of the other, so this sheet is the
-translation, and it is the thing to print and keep beside you while laying out.*
+translation.*
 
 Each week below is written to be **read by a student who has taken one or two ML courses and has
 never run a hundred models**. That is the audience the board is for. Where a cell states a number,

@@ -3,7 +3,7 @@
 *A2-NLP · August 2026 · the swap experiment, the downstream rows, and a comparison that gave two opposite answers*
 
 Every earlier report measures that the tokenizer penalty **exists**. Report 04 found Yoruba pays
-1.65× under XLM-R's vocabulary; report 07 found that holds across seventeen corpora and separates
+1.65× under XLM-R's vocabulary; report 07 found that holds across seventeen languages and separates
 languages XLM-R covers from languages it does not. None of them measures what the penalty
 **costs**.
 
@@ -33,6 +33,13 @@ vocabulary wins by **0.144 bits per character**, 1.6× the spread.
 Both numbers come from the same three runs. The difference is entirely which axis was held
 fixed, and the first pass held the wrong one.
 
+> **Superseded at six seeds.** Three a side was not enough. Six pre-registered seeds a side
+> shrank the matched-compute gap to **0.059** (p = 0.37 — not resolvable) while the *spreads*
+> separated cleanly: 0.145 for the borrowed vocabulary against 0.037 for the fitted one,
+> p = 0.0098, and the two arms interleave. What the swap actually measures is that a badly
+> fitting vocabulary costs *certainty* rather than mean quality — **a lottery, not a tax** — and
+> that is the version on the board. [Report 09](09-the-bottom-report.md) Week 6 has the story.
+
 ### Why matched steps is the wrong axis here
 
 A 250k output projection is not a detail. At hidden size 512 the language-model head is 128M
@@ -59,7 +66,9 @@ one purpose that then silently determined an answer somewhere else:
 | `FT_STEPS = 352` | reproducing an extraction | the project's central downstream conclusion |
 | **matched steps** | **the obvious way to hold compute fixed** | **that the tokenizer penalty was zero** |
 
-Five, then. The common shape is that none was a bug — each was defensible where it was written,
+That is five by this table's count — six or seven if the Unicode normalization and the
+control-at-352 from report 06 are counted as entries of their own, which is how that report
+counts them. The common shape is that none was a bug — each was defensible where it was written,
 and each stopped being defensible somewhere else without anyone noticing it had moved.
 
 ### What the swap does not settle
@@ -138,7 +147,7 @@ depends on reading an interval overlap, which is the weaker form of the argument
 
 Report 06 recorded the from-scratch NER gap as **0.145** and predicted this row was the only one
 the Unicode fix could move, because the from-scratch tokenizer was the only one whose fertility
-changed (by 47%). Under NFC it became 0.053, exactly where predicted. Sweeping every model's
+(tokens per word) changed, by 47%. Under NFC it became 0.053, exactly where predicted. Sweeping every model's
 learning rate takes it to **0.014 against XLM-R** — overlapping intervals, though the baselines
 are still ahead.
 
@@ -177,7 +186,9 @@ boundary problem recurred there too, on the untrained control, and the count is 
 
 ### The two tasks disagree, and the control explains why
 
-Our model wins topic classification by 0.059 and loses entity recognition by 0.053. The floors
+Our model wins topic classification by 0.059 and loses entity recognition by 0.053 — the
+defaults-pass margins; fully swept and dev-selected they read +0.106 and −0.026, and the
+disagreement between the tasks survives every correction. The floors
 say why: **the untrained control scores 0.414 on NER and 0.403 on SIB-200 — but 0.414 out of
 0.851 is 49% of the achievable score, against 0.403 out of 0.632, or 64%.**
 
@@ -216,7 +227,7 @@ on top is largely more of the same surface knowledge, which is why they are ahea
 on the task that needs semantics.
 
 This is the SIB-200/NER divergence the project spent a fortnight treating as an anomaly. It was
-not an anomaly and it was not a bug. It is what the tasks measure.
+not an anomaly and not a bug — it is what the two tasks measure.
 
 ---
 
@@ -224,7 +235,7 @@ not an anomaly and it was not a bug. It is what the tasks measure.
 
 | claim | status |
 |---|---|
-| A language-specific vocabulary is worth building for an under-served language | **Hold, now measured.** 0.144 bits/char at matched compute, 1.6× the seed spread. Previously only the fertility ratio was measured. |
+| A language-specific vocabulary is worth building for an under-served language | **Hold — but the cost moved when it was re-measured.** Three seeds a side said 0.144 bits/char at matched compute; six pre-registered seeds a side say **0.059** (p = 0.37, not resolvable) while the *spreads* separate at p = 0.0098 (0.145 against 0.037). The measured cost of the borrowed vocabulary is variance, not mean — a lottery, not a tax. |
 | The tokenizer penalty is 1.65× for Yoruba | **Hold.** Reproduced three independent ways: fertility on the pretraining corpus, on two evaluation sets, and as a 1.75× token-count ratio in the swap corpus. |
 | From-scratch pretraining beats multilingual transfer for Yoruba | **Hold on topic classification**, and strengthened under dev-split selection: 0.688 vs 0.582, a margin of 0.106 that clears the 0.06 floor, though the intervals still overlap by 0.004 ([report 11](11-selecting-on-the-dev-split.md)). **Does not hold on entity recognition** (0.837 vs 0.863), though the gap is 0.026 rather than the 0.145 first recorded. The task decides. |
 | XLM-R is a usable Yoruba baseline | **Withdrawn** in report 06, and now explained: under symmetric dev-split selection its pretraining is worth **−0.024** against the same architecture untrained — below it, not above ([report 11](11-selecting-on-the-dev-split.md)). The +0.039 first recorded here compared its best of five against a control run once. |
@@ -237,8 +248,10 @@ not an anomaly and it was not a bug. It is what the tasks measure.
 
 Every downstream row is now three seeds at each model's own best learning rate, and three of the
 five sweeps had to be extended because they peaked at their own boundary. The two untrained
-controls are still single-rate: they are floors rather than competitors, but a swept floor could
-be higher than the one quoted, and neither has been swept.
+controls were still single-rate when this was written; both have since been swept — the SIB-200
+control lands at 0.429 under dev-split selection ([report 11](11-selecting-on-the-dev-split.md))
+and the NER control at 0.626 over twelve rates — and, exactly as this paragraph worried, both
+floors had been quoted too low.
 
 The swap is one language and one model size, at one compute budget. It says the penalty costs
 something on Yoruba at 33.8M parameters and forty minutes. It does not say the cost scales, or

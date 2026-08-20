@@ -13,11 +13,11 @@ projection.
 | 05 | [When more data stops helping](05-when-data-stops-mattering.md) | The English ladder — 256× of data at fixed compute — plus the Yoruba rungs that check whether its threshold transfers. Where the data axis saturates and whether the bigger model ever catches up. |
 | 06 | [When a number is not a result](06-when-a-number-is-not-a-result.md) | The downstream runs. A tokenizer comparison run on the wrong Unicode normalization, a step budget inherited from an old notebook that decided the answer, an untrained control quoted at the wrong budget — and what survives of the study's downstream claims. |
 | 07 | [Two results, and a third that was nearly wrong](07-the-night-of-diagnostics.md) | Tighter clipping fixes the 86M instability; the tokenizer gradient holds across seventeen corpora; from-scratch quality does not track XLM-R coverage. And how a fixed sample size nearly produced a fourth result that was not there. |
-| 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched compute, 0.144 bits/char. At matched *steps*, nothing — and why that reading was wrong. Plus the downstream rows, where a 33.8M from-scratch model comes out ahead of mmBERT on topic classification. |
+| 08 | [What the tokenizer actually costs](08-what-the-tokenizer-costs.md) | The swap experiment: does a badly-fitting vocabulary cost anything? At matched *steps*, nothing. At matched compute, 0.144 bits/char — and at six seeds, the answer that sticks: the cost is variance, not mean. Plus the downstream rows, where a 33.8M from-scratch model comes out ahead of mmBERT on topic classification. |
 | **09** | **[The bottom report](09-the-bottom-report.md)** | **Start here if you are not on this project.** The whole study explained for someone who has taken one ML course: the problem, what we built, what it cost in hardware and electricity, what we found, and the times a setting nobody questioned decided a result, and what the factory could work out about its own training runs from nothing but their stored curves. The long form of the bottom board — [report 12](12-the-bottom-board.md) is the board itself. |
 | **10** | **[The next night](10-the-next-night.md)** | Three questions about the factory rather than about Yoruba, all answerable with checkpoints we already have: does validation loss predict downstream usefulness (19 models, never checked), does a tuned learning rate transfer to a new language (our "one function call" claim, untested), and how many of ten new languages need manual intervention. ~19 GPU-hours, one night. |
 | **11** | **[Selecting on the dev split](11-selecting-on-the-dev-split.md)** | SIB-200 ships a 99-item validation split and this project had never used it — every learning rate it quoted was picked on the 204 test items it then reported. Nine rates, five arms, selected on dev. The from-scratch margin over mmBERT grows to 0.106 and clears the floor; XLM-R drops *below* an untrained model of its own architecture; and the practice turns out to have inflated exactly one row — the one whose conclusion rested on it. **Supersedes the SIB-200 tables in 06 and 08.** |
-| **12** | **[The bottom board](12-the-bottom-board.md)** | **The poster**, not an investigation — the translation from written panels to a physical board: what goes in each cell, at what point size, which figure it carries, and what has to be true before it can be printed. Also carries the **Provenance** appendix: every number on the board, traced to the `runs/` record that holds it. [Report 09](09-the-bottom-report.md) is the long form of the same nine questions; this is the thing you print. [v1](12-poster-build-sheet-v1.md) is kept because the first eight cells were laid out against it. |
+| **12** | **[The bottom board](12-the-bottom-board.md)** | **The poster**, not an investigation — the translation from written panels to a physical board: what goes in each cell, at what point size, which figure it carries, and what has to be true before it can be printed. Also carries the **Provenance** appendix: every number on the board, traced to the `runs/` record that holds it. [Report 09](09-the-bottom-report.md) is the long form of the same story; this is the thing you print. [v1](12-poster-build-sheet-v1.md) is kept because the first eight cells were laid out against it. |
 | **13** | **[The top board](13-the-top-board.md)** | **The other poster.** Report 09 is the bottom board and says the top one "carries it properly" — this is that document: fourteen panels on the experiment rather than the factory. The question, why data scarcity is not the answer, the tokenizer thesis across seventeen languages, the from-scratch model ahead of mmBERT, XLM-R below its own untrained control, the decisive labelled-data experiment coming back between its two outcomes, and the swap that supplies the only causal downstream evidence. Every number recomputed from `runs/` on 11 August. |
 
 ## Where the symmetric learning-rate sweeps live
@@ -71,18 +71,24 @@ trailer, and a closed PR is not somewhere anyone thinks to look.
   until the training budget is large enough to use it (0.075 at low compute, 1.5× the spread).
   Convenient, since text is what they've run out of — and [report 05](05-when-data-stops-mattering.md)
   shows the text they lack would have bought almost nothing anyway.
-- **The factory made the same work 2.07× faster** — 1.33× from batch size, the rest from using the
-  second card at all — and the full study fits in 7.6 GPU-hours against a ~20 hour budget.
+- **The factory made the same work 2.07× faster** — 1.31× measured from the batch size (the sweep
+  predicted 1.33×), the rest from using the second card at all — and the full study fits in 7.6
+  GPU-hours against a ~20 hour budget.
 - **Yoruba is under-served, not hard.** At matched data and compute, a from-scratch Yoruba model
-  gains 4.114 nats of context against English's 3.906 — measured after subtracting each corpus's
+  gains 4.114 nats of context against English's 3.906 (a *nat* is the loss's own unit —
+  cross-entropy in natural-log rather than base-2 units) — measured after subtracting each corpus's
   unigram entropy, since raw loss across two vocabularies compares nothing. Nothing about the
   language resists modeling.
 - **A multilingual vocabulary is not inherently worse.** XLM-R costs English 1.04×, Indonesian
-  1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×**. The
+  1.00×, and Mandarin 0.95× — better than a dedicated 16k BPE. It costs Yoruba **1.65×** (1.76
+  when re-measured on the full corpus rather than a 400-document sample —
+  [report 07](07-the-night-of-diagnostics.md) §3). The
   penalty appears only where the language is under-represented, which is the group's thesis with
   a control arm attached.
 - **Past 64M tokens, more English text buys nothing measurable.** Sixteen times more data moves
-  validation loss by −0.080 against a measured seed spread of 0.185. Where saturation *begins* is
+  validation loss by −0.080 against a measured seed spread of 0.185 (the ladder-pooled figure;
+  the per-cell table later in this file quotes 0.149, and −0.080 is noise against either). Where
+  saturation *begins* is
   not resolvable at three seeds. In Yoruba the effect arrives earlier still — its 16M → 64M gain
   is +0.053, 0.4× its own spread — so inside the 69.1M that exists, more Yoruba text is already
   buying nothing. The study cannot rest on "there is too little Yoruba text"; it has to rest on
@@ -162,6 +168,12 @@ differs.
 its output projection is fifteen times wider. Same three runs, opposite conclusions, and only one
 of the two axes is the question anyone has.
 
+> **Superseded at six seeds.** The 0.144 above was three seeds a side. Six pre-registered seeds a
+> side shrank the mean penalty to **0.059** (p = 0.37 — not resolvable) while the *spread*
+> separated cleanly: 0.145 against 0.037, p = 0.0098. The borrowed vocabulary's measured cost is
+> variance, not mean — **a lottery, not a tax**. That is the version on the board;
+> [report 09](09-the-bottom-report.md) Week 6 has the story.
+
 ## Downstream: the small model wins the semantic task
 
 At 1,056 steps, the budget where models actually train:
@@ -227,7 +239,7 @@ Clipping gradients at **0.5** instead of 1.0, on the 86M model, at 62,500 steps.
 | 16M | 4.207 ±1.290 *(3)* | 4.347 ±1.620 *(3)* | no — exact p = 0.90 |
 | 64M | 3.824 ±1.363 *(3)* | 2.829 ±0.520 *(3)* | no — exact p = 0.30, and 0.10 is the floor |
 | 256M | 2.755 ±0.123 *(3)* | 2.481 ±0.026 *(3)* | no — exact p = 0.10, sitting *on* the floor |
-| 1024M | **2.825 ±0.256** *(11 trained of 15)* | **2.530 ±0.104** *(12 of 15)* | **yes** — exact p = 0.0010 |
+| 1024M | **2.825 ±0.256** *(11 trained of 15)* | **2.530 ±0.104** *(12 of 15)* | **yes** — exact p = 0.0003 |
 
 Two things about that table are worth more than the result in it.
 
@@ -253,9 +265,9 @@ Split into the two questions it was hiding:
 
 | question | verdict |
 |---|---|
-| does clipping **prevent** divergence? | **no** — 4 of 15 against 3 of 15, Fisher p = 1.00 |
+| does clipping **prevent** divergence? | **no** — 4 of 15 against 3 of 15 diverged (Fisher's exact test, which asks whether two failure counts differ: p = 1.00) |
 | does it improve runs that **do** train? | **yes** — 2.825 → 2.530, exact p = 0.0003 |
-| does it tighten their **spread**? | **yes** — 0.256 → 0.104, F = 6.03, p = 0.0065 |
+| does it tighten their **spread**? | **yes** — 0.256 → 0.104 (an F-test compares two spreads: F = 6.03, p = 0.0065) |
 
 So clipping is worth doing and the reason is not the one we gave. It does not stop the large model
 from falling over — it makes the runs that survive both better and more alike. And the evidence
@@ -275,7 +287,9 @@ A *lower* learning rate does the opposite of helping: every seed lands at 5.6 wi
   settled.** [Report 06](06-when-a-number-is-not-a-result.md) originally called it a degenerate
   fine-tune; the sweep since shows it was **undertrained** — 2 of 25 seeds clear uniform random at
   352 steps, 18 of 25 at 1056. But at 1056 steps XLM-R reaches 0.408 against a random-init control
-  of **0.403**, intervals overlapping, so there is still no working XLM-R baseline. The headline
+  of **0.403**, intervals overlapping, so there is still no working XLM-R baseline. (Those are the
+  best-on-test sweep numbers; under [report 11](11-selecting-on-the-dev-split.md)'s dev-split
+  selection the same story reads 0.358 against 0.382 — the conclusion is unchanged.) The headline
   contrast stays withdrawn, and not for want of a better learning rate.
 - **The AfriBERTa ladder rows in `runs/` are collapsed runs**, kept as evidence for the finding
   above. They are not results and the ladder needs re-running at the corrected settings.
@@ -284,11 +298,12 @@ A *lower* learning rate does the opposite of helping: every seed lands at 5.6 wi
   carrying it across budgets is what made XLM-R's 0.408 look like a recovered baseline. On
   SIB-200 the usable range between that floor and the best mmBERT cell is 0.171, which at the
   0.06 resolution of 204 test items is under three distinguishable levels — so *which* pretraining
-  grid cell fine-tunes best is still not answerable. **MasakhaNER has no control at all yet**, so
-  0.841 against 0.851 should not be read as a gap over anything.
+  grid cell fine-tunes best is still not answerable. (This bullet originally ended "MasakhaNER has
+  no control at all yet." It does now — swept over twelve rates, it peaks at 0.626, and the
+  downstream table above uses it. The lesson stands; the gap it warned about is closed.)
 
 ## Reproducing
 
-All three reports are generated from artifacts in `runs/` and `data/`, which the factory writes.
+These reports are generated from artifacts in `runs/` and `data/`, which the factory writes.
 See the parent [README](../README.md) for how to run the pipeline, and `explain_model.py`,
 `store_bench.py`, and `results_factory_mlm.ipynb` for the tools that produced the figures.

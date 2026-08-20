@@ -6,9 +6,9 @@ three are answerable with hardware we already own and checkpoints we already tra
 
 > **This is a plan, and the plan has since been executed. Read it as history, not as status.**
 > Leon flagged on 12 August that it still reads like a to-do list; it is not one. Study 1 ran and is
-> `runs/downstream_correlation.json` — the result is in [report 09](09-the-bottom-report.md), Week 6
-> and the note on the two cut findings. Study 2 ran as the sixty-run grid and is
-> `runs/lr_transfer.json`, written up in Panel 8 along with the luck-versus-skill analysis it turned
+> `runs/downstream_correlation.json` — the result is in [report 09](09-the-bottom-report.md), in
+> the note on the two cut findings and in Week 8's in-depth. Study 2 ran as the sixty-run grid and is
+> `runs/lr_transfer.json`, written up in Week 8 along with the luck-versus-skill analysis it turned
 > into. Study 3 was not run. **For what is true now, go to [report 09](09-the-bottom-report.md),
 > [11](11-selecting-on-the-dev-split.md), [12](12-the-bottom-board.md) and
 > [13](13-the-top-board.md)** — the four current documents. The counts below (107 checkpoints, 90 GB)
@@ -56,7 +56,8 @@ the very curve we are drawing, so an ambiguous tag is dropped rather than guesse
 
 **What we expect:** a tight negative correlation. **What would be more interesting:** it breaking
 down among the runs that never learned, where every model is bad in the same way while their
-losses still differ by nats. Panel 13 gives a reason to suspect exactly that.
+losses still differ by nats (the natural-log units the loss is measured in). The early-stopping analysis (panel 13 of the August draft; now
+Week 9 of report 09) gives a reason to suspect exactly that.
 
 ---
 
@@ -81,7 +82,7 @@ adding a language really is one call and the poster can say so with evidence. If
 new language costs a sweep and we should put *that* on the board instead. Right now we are
 asserting the first without having checked.
 
-**Confound to fix while we are here.** Panel 13 found the plateau ends at 7,200 steps for the
+**Confound to fix while we are here.** That same early-stopping analysis found the plateau ends at 7,200 steps for the
 33.8M model and 30,000 for the 98M — but learning rate and model size are perfectly confounded
 across all 105 of our runs, so we cannot say which moves it. This grid breaks that confound for
 free, since it varies the rate at a fixed size.
@@ -121,12 +122,12 @@ Study 1 alone is 2.3 hours and could run this evening.
 **Nothing about Yoruba specifically.** The repetition-ceiling work in `scaling_law.py` — how far
 re-reading a small corpus substitutes for having more of it — is a genuinely open question and our
 runs already gesture at an answer, but it is a question about a *language's* data constraints and
-it belongs upstairs. It is written up in panel 13's sibling analysis and left for Patrick and Leon
+it belongs upstairs. It is written up beside the early-stopping analysis and left for Patrick and Leon
 to take or leave.
 
 ## Order, and why it changed
 
-Study 1 moved to the front after panel 13. That analysis found we cannot tell a doomed run from a
+Study 1 moved to the front after the early-stopping analysis. It found we cannot tell a doomed run from a
 good one early, which means the pretraining loss curve carries less information than we assumed —
 and Study 1 asks whether the *final* loss carries as much as we assumed either. Those are the same
 doubt at two points in the pipeline, and the second one is cheaper to resolve.

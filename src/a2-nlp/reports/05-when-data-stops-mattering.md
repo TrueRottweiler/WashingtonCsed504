@@ -37,8 +37,8 @@ Corpus: 1,096,781,996 tokens of FineWeb-Edu, tokenized with the committed `eng-b
 **The 33.8M column is now three seeds at every rung** — the values above are means with their
 spreads. The 86M column is one draw per rung at gradient clipping 1.0, and §4 shows that column
 is bimodal rather than noisy. [Report 07](07-the-night-of-diagnostics.md) §1 supersedes it
-entirely: clipping at 0.5 moves that column by up to 1.8 nats, and its table should be read
-instead of this one.
+entirely: clipping at 0.5 moves that column by up to 1.8 nats (nats — the natural-log units the
+loss itself is measured in), and its table should be read instead of this one.
 
 ---
 
@@ -120,11 +120,11 @@ it made, are gone — what replaced them is stranger and more useful.
 
 | data | 86M mean | 86M sd | 33.8M mean | gap | 86M, 1 seed (earlier) |
 |---|---|---|---|---|---|
-| 4M | 6.7196 | *(1 seed)* | 3.2836 | 3.44 | 6.720 |
-| 16M | 4.2071 | 1.290 | 2.5444 | 1.66 | 3.200 |
-| 64M | 3.8241 | 1.364 | 2.2819 | 1.54 | 3.278 |
-| 256M | **2.7547** | **0.123** | 2.3869 | **0.37** | 2.896 |
-| 1024M | **4.3649** | **2.699** | 2.1930 | **2.17** | 2.575 |
+| 4M | 6.7196 | *(1 seed)* | 3.621 | 3.10 | 6.720 |
+| 16M | 4.2071 | 1.290 | 2.544 | 1.66 | 3.200 |
+| 64M | 3.8241 | 1.364 | 2.282 | 1.54 | 3.278 |
+| 256M | **2.7547** | **0.123** | 2.387 | **0.37** | 2.896 |
+| 1024M | **4.3649** | **2.699** | 2.362 | **2.00** | 2.575 |
 
 **The variance is not a constant, and it is not monotonic.** At 256M the 86M model is as
 reproducible as the small one — sd 0.123 — and posts its best result, within 0.37 of a model less
@@ -134,7 +134,7 @@ and one that barely left the plateau.
 
 **Withdrawn.** The earlier draft said the gap "closes monotonically, 0.839 → 0.686 → 0.382" and
 that the 86M model was "the only one still improving". On seeded means the gap goes
-**1.54 → 0.37 → 2.17**, and the 2.575 reported at 1024M was a lucky draw from a distribution whose
+**1.54 → 0.37 → 2.00**, and the 2.575 reported at 1024M was a lucky draw from a distribution whose
 mean is 4.365. Neither claim survives; both were single draws read as a trend.
 
 **What can be said.** The 86M model is not incapable — 2.7547 ± 0.123 at 256M is a real result
@@ -218,20 +218,23 @@ rates were measured before committing to the run rather than estimated after it.
 ## What this does not settle
 
 The saturation threshold is one model size and one compute budget. It has now been measured in
-two languages rather than assumed from one, and they agree to within half the seed spread — but
-the step that shows the curve going flat (64M → 256M) exists only in English, and no amount of
-work will make it exist in Yoruba.
+two languages rather than assumed from one — and they do not agree in shape: §3 shows Yoruba
+stops responding a step earlier than English. The step that shows the curve going flat
+(64M → 256M) exists only in English, and no amount of work will make it exist in Yoruba.
 
 **The seed spread is a property of the cell, not a constant.** Measured at 1.024B updates:
-**0.149** for 33.8M English (three repeated cells), **0.103** for 33.8M Yoruba (one), and
+**0.149** for 33.8M English (three repeated cells; §2's ladder-wide pooling, which includes the
+noisy 4M cell, gives 0.185 — different pools, both real, and the −0.080 headline is noise against
+either), **0.103** for 33.8M Yoruba (one), and
 **1.369** for the 86M preset — where §4 shows a standard deviation is the wrong summary. The 0.049
 this project quoted everywhere came from 33.8M Yoruba at 196.6M updates — a different corpus at a
 fifth the compute — and using it as a universal threshold understated the noise by 2–3× on the
 33.8M ladders and by 27× on the 86M column. The results notebook now measures it per cell rather
 than holding a number.
 
-Still unseeded: the 4M and 1024M English cells, the 4M and 16M Yoruba cells, and the 256M and
-1024M cells of the entire 86M column.
+Still unseeded: the 4M and 16M Yoruba cells. (Earlier versions of this list also named the 4M
+and 1024M English cells and the 86M column's upper rungs; those have since been seeded, and the
+tables above already use the seeded means.)
 
 No fine-tuning here — this is pretraining loss only, and the group's headline comparison is a
 downstream task score. A model that wins on validation loss has not thereby been shown to win on
