@@ -10,7 +10,7 @@ see.
 
 ## 1. The task it was trained on
 
-The model plays one game, hundreds of thousands of times: **15% of the words in a passage are
+The model plays one game, over a million times: **15% of the words in a passage are
 hidden, and it has to guess them from the words around them.** That's it. No labels, no human
 annotation, no translation pairs — just Yoruba text with holes punched in it.
 
@@ -173,6 +173,11 @@ This is a plausible partial explanation for the gap we measured between the two 
 Topic classification can be solved from word-frequency cues that survive sloppy translation.
 Entity recognition needs precise word identity, which inconsistent spelling and MT noise erode.
 
+*(A later, better-tuned measurement shrank the gap this paragraph is explaining: with every arm's
+learning rate properly swept, the from-scratch model reads 0.688 on topic classification and
+0.837 on entity recognition — see [report 11](11-selecting-on-the-dev-split.md). So most of the
+gap was untuned fine-tuning, not corpus noise. The corpus observations above stand on their own.)*
+
 ---
 
 ## 5. So what did we actually build?
@@ -183,11 +188,18 @@ GPU, from 32 million tokens of web text.
 
 That representation is then reused: the fine-tuning stage keeps the model's learned innards and
 bolts a small classifier on top, which is why 701 labeled examples are enough to reach 0.527 on
-topic classification. The pretraining did the expensive part.
+topic classification (0.688 once the fine-tuning rate was properly chosen —
+[report 11](11-selecting-on-the-dev-split.md)). The pretraining did the expensive part.
 
 **The number that proves it was worth doing** is the untrained control. Same architecture, same
 fine-tuning, random weights: 0.100 on topic classification and 0.346 on entity recognition. Every
 point above those lines is what the guessing game bought.
+
+*(Those control numbers are the default-settings first pass, like everything in this note. Sweep
+the controls' own learning rates and they climb to 0.429 and 0.626 — even random weights
+fine-tune much better at the right rate — so the honest "what pretraining bought" is the smaller
+gap above those swept floors. It stays clearly positive on both tasks; report 11 has the final
+table.)*
 
 ---
 

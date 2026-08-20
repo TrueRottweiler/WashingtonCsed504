@@ -37,8 +37,10 @@ Before any GPU question there is a data question. We streamed the entire Yoruba 
 FineWeb-2, the group's main source. It **ran out in seven seconds**: 259,864,169 characters over
 79,999 documents. That is everything.
 
-At 3.73 characters per token that is **69.1 million tokens**. For comparison, WikiText-103 — one
-unremarkable English benchmark already on disk from Part 1 — holds 123.8 million.
+At 3.73 characters per token that is 69.6 million tokens — **69.1 million** once half a million
+are held out for validation, which is the number the rest of this project quotes. For comparison,
+WikiText-103 — one unremarkable English benchmark already on disk from Part 1 — holds 123.8
+million.
 
 ```
 All Yoruba (FineWeb-2)   ████████████████████████████                     69.1M tokens
@@ -81,6 +83,15 @@ harder task it **does not** reach the big models. Topic classification was flatt
 Pretraining bought **+0.43** on topic classification and **+0.35** on entity recognition over
 random weights, so the small model is genuinely learning Yoruba, not exploiting an easy task.
 
+> **Later measurement, stronger than this one.** Every number in this table is the first pass, at
+> default fine-tuning settings. When every arm was given the same nine-rate sweep and selected on
+> the validation split, the picture sharpened rather than reversed: ours **0.688** against
+> mmBERT's 0.582 on topic classification — ahead, not merely matching — and XLM-R at 0.358, below
+> its own untrained architecture. The controls climb too once *they* are swept (0.429 and 0.626),
+> so the honest "what pretraining bought" is smaller than this table suggests but still real.
+> [Report 11](11-selecting-on-the-dev-split.md) is the version to quote; this table is kept as
+> the honest first reading.
+
 > ### ⚠ The anomaly worth chasing
 >
 > XLM-R scores **0.127 on topic classification but 0.843 on entity recognition.** A model with no
@@ -91,6 +102,11 @@ random weights, so the small model is genuinely learning Yoruba, not exploiting 
 > This matters because the group's headline contrast ("XLM-R fails on languages it never saw")
 > leans on exactly this number. Re-run it with more seeds and a higher learning rate before it
 > goes in the poster.
+>
+> *Since done — [report 11](11-selecting-on-the-dev-split.md) re-ran every arm with the same
+> nine-rate sweep. The instability was real: one XLM-R seed in five still collapses below chance.
+> But even its best honest number (0.434, discarding the failed seed) stays within noise of its
+> own untrained architecture, so the group's contrast held — for a better-measured reason.*
 
 ---
 
@@ -174,8 +190,8 @@ Factory, both cards    card 0  ████████████████�
                        card 1  █████████████████████████████████████░░  93%      12.2 min
 ```
 
-**2.07× less waiting** for identical work. Of that, 1.33× came from the batch size and the rest
-from the idle card. A scheduling fix found by watching the run — longest jobs first, so neither
+**2.07× less waiting** for identical work. Of that, the batch size contributed 1.31× as measured
+in the A/B (the sweep had predicted 1.33×) and the rest came from the idle card. A scheduling fix found by watching the run — longest jobs first, so neither
 card is left holding the tail — should bring it to about 9.9 minutes.
 
 ---
@@ -246,6 +262,10 @@ budget of roughly 20. It fits, with room left for the seed repeats the study nee
 ---
 
 ## 9. Where to go next
+
+*(Written in early August. All four items have since been done: the XLM-R re-run and the seeds
+are reports 06 and 11, the scarcity finding is on both boards, and compute-bound-not-data-bound
+became report 05.)*
 
 - **Re-run XLM-R's topic-classification numbers with more seeds.** The 0.127 is probably a
   training failure, and the group's headline contrast depends on it.

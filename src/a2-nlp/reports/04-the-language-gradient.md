@@ -64,6 +64,10 @@ sees:
 | English | 260M | 60.6M | 4.26 |
 | Indonesian | 260M | 55.2M | 4.67 |
 
+*Token counts are the train split — each corpus additionally holds out 500k tokens for
+validation. The chars/token column is measured over the full corpus, which is why the columns
+disagree in the third digit if you divide them.*
+
 Mandarin yields **three times** the training tokens from the same characters, because a Han
 character carries roughly a morpheme where a Latin character carries a phoneme.
 
@@ -118,6 +122,11 @@ room for Han characters and 16k does not.
 
 The penalty appears only where the language is under-represented. Yoruba pays **65% more tokens
 for the same text**, which is 65% of its context window spent on fragments.
+
+> *Measured again later on the full corpora rather than a 400-document sample, these ratios move
+> a little — Yoruba's penalty reads **1.76**, Indonesian 1.01 — and the fixed sample size itself
+> nearly manufactured a result that was not there. [Report 07](07-the-night-of-diagnostics.md)
+> §2–§3 has both stories. The ordering and the argument here are unchanged.*
 
 That is the group's thesis with a control arm attached. Their claim — that a language-specific
 vocabulary is worth building — is true for Yoruba and would be false if they had run the same
@@ -180,7 +189,7 @@ Mandarin came last while reading **a third as much text as Indonesian**. Its pos
 is substantially a units artifact and should not be read as "Mandarin is harder to model." Matching
 on characters instead would invert the comparison and introduce the mirror-image problem — the
 model would see three times the tokens for Mandarin. There is no budget that is neutral across
-scripts; there is only the choice, stated.
+scripts — the best anyone can do is state the choice, which §2 does.
 
 One further asymmetry worth naming: 50M tokens is 72% of every Yoruba token in FineWeb-2, and a
 rounding error against available English. Both models are equally trained here, but only one of
@@ -211,4 +220,7 @@ stays at 69M. The streaming path exists so that experiment is now possible; it h
 
 Nor does anything here test the model-size axis honestly. The 86M preset lost to the 33.8M one at
 every rung of the Yoruba ladder, which reads as undertraining rather than a verdict on capacity —
-the crossover, if there is one, is somewhere past the budgets used in this note.
+the crossover, if there is one, is somewhere past the budgets used in this note. (Later work
+sharpened this reading twice: the failures are mid-training divergence, not slow learning —
+[report 05](05-when-data-stops-mattering.md) §4 — and tighter gradient clipping largely rescues
+the runs that survive — [report 07](07-the-night-of-diagnostics.md) §1.)

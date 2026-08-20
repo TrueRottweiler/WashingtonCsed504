@@ -21,10 +21,10 @@ Only one thing changes from the baseline in each.
 | lower rate | **1.5e-4** | 1.0 | 5.624 | 0.049 | 5.585, 5.608, 5.679 |
 | tighter clip | 3e-4 | **0.5** | **2.829** | **0.520** | 2.493, 2.567, 3.428 |
 
-**Clipping at 0.5 is the fix.** It moves the mean by a full nat, cuts the seed spread by more than
-half, and its worst seed (3.428) beats the baseline's median. For scale, the 33.8M model reaches
-2.217 at this cell — so the 86M model goes from losing by 1.6 to losing by 0.6, on a single
-changed hyperparameter.
+**Clipping at 0.5 is the fix.** It moves the mean by a full nat (a *nat* — the natural-log unit
+the loss is measured in), cuts the seed spread by more than half, and its worst seed (3.428)
+beats the baseline's median. For scale, the 33.8M model's mean at this cell is 2.282 — so the 86M
+model goes from losing by 1.5 to losing by 0.5, on a single changed hyperparameter.
 
 **A lower peak rate is not the fix, and its failure is instructive.** Every seed at 1.5e-4 landed
 at 5.6 with a seed spread of 0.049 — beautifully reproducible and completely useless. It prevents
@@ -65,9 +65,10 @@ unpredictable, and clipping is what makes it a measurement rather than a coin fl
 > The 1024M cell has since been run at fifteen seeds against thirteen, and the picture is not a
 > spread narrowing. It is two piles — runs train to about 2.5 or diverge to 7.469 — and the
 > ±2.699 above is mostly a record of how many seeds in that draw fell over. Clipping does **not**
-> prevent that (4 of 15 against 3 of 15, Fisher p = 1.00). What it does do, among runs that
-> train, is improve them (2.825 → 2.530, exact p = 0.0003) and tighten them (sd 0.256 → 0.104,
-> F = 6.03, p = 0.0065) — both real, both far smaller than thirty-eight.
+> prevent that (4 of 15 against 3 of 15 diverged; Fisher's exact test, which asks whether two
+> failure counts differ, says p = 1.00). What it does do, among runs that train, is improve them
+> (2.825 → 2.530, exact p = 0.0003) and tighten them (sd 0.256 → 0.104; an F-test compares two
+> spreads, and this one separates at p = 0.0065) — both real, both far smaller than thirty-eight.
 >
 > The conclusion of this section survives and its arithmetic does not. See the reports
 > [README](README.md#the-86m-model-was-unpredictable-not-incapable) for the current table.
@@ -104,12 +105,13 @@ because its seed spread is 1.369. That stands for the runs it describes. It also
 are seeds that "never break through the plateau", which was already corrected once — the failure
 is mid-training divergence — and can now be corrected again with a cause: the gradient norm.
 
-The 86M ladder is worth re-running at clip 0.5 before anything is concluded from it. That has not
-been done.
+The 86M ladder has since been re-run at clip 0.5 — that is the table above, added after this
+paragraph was first written — and the fifteen-seed note in §1 is the current word on what
+survives of it.
 
 ---
 
-## 2. The tokenizer gradient holds across seventeen corpora
+## 2. The tokenizer gradient holds across seventeen languages
 
 The study's contrast rested on two languages either side. This is the same measurement — a
 language's own 16k BPE against XLM-R's 250k vocabulary — across everything now prepared.
@@ -142,8 +144,9 @@ language, and it is near the top of a gradient rather than an isolated number.
 ## 3. The nearly-wrong result
 
 The first version of §2 reported **perfect separation** — every uncovered language above every
-covered one, Mann-Whitney U of 70 out of 70, p ≈ 5×10⁻⁵. It was measured on the first 400
-documents of each corpus, which is what the tooling had always used.
+covered one — a Mann-Whitney U of 70 out of 70, a rank test saying every uncovered value sat
+above every covered one, p ≈ 5×10⁻⁵. It was measured on the first 400 documents of each corpus,
+which is what the tooling had always used.
 
 The boundary was Xhosa at 1.3871 against Wolof at 1.3934: a gap of **0.0063**, or half a percent.
 That is small enough to be worth checking, so it was:
@@ -162,10 +165,11 @@ languages.
 The measurement now uses every committed sample document, and §2 reports a gradient with one
 exception instead of a clean split. The weaker claim is the true one.
 
-This is the third time in this project that a result has been produced by a fixed arbitrary
-constant rather than by the thing under study — after the 0.049 seed spread applied to
-experiments it did not describe, and the `epoch` field that counted logging intervals. It is worth
-naming as a pattern rather than three separate mistakes.
+This is the same failure mode this project keeps meeting — a result produced by a fixed
+arbitrary constant rather than by the thing under study — after the 0.049 seed spread applied to
+experiments it did not describe, and the `epoch` field that counted logging intervals.
+[Report 08](08-what-the-tokenizer-costs.md) §1 keeps the running tally. It is worth naming as a
+pattern rather than as separate mistakes.
 
 ---
 
@@ -206,8 +210,9 @@ Wolof (4.8M tokens) and Luganda (20.1M) never had the full 50M, so their models 
 passes over much less text. Both are excluded from §4's comparison and both are included in §2,
 where corpus size does not enter.
 
-§1 tests one cell. Whether clip 0.5 helps at every rung, or whether it merely moves the point at
-which divergence starts, needs the ladder re-run.
+Whether clip 0.5 merely moves the point at which divergence starts is still open in one sense:
+the fifteen-seed study says it does not change how often runs fall over at all, only how well and
+how consistently the survivors train.
 
 Nothing here is downstream. These are pretraining measurements, and the group's headline is a
 fine-tuning score.

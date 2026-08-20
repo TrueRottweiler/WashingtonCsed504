@@ -21,6 +21,10 @@ week order, the order the traps arrive; the board is arranged by importance inst
 | body | **18 pt** |
 | photo caption | 12 pt |
 
+*Those are the template's own measurements — what the page ships with, kept for reference. The
+board deliberately departs from three of them: body **17 pt**, section headings **28 pt**, title
+**72 pt**. The paragraphs below say why; a layout pass should follow those, not this table.*
+
 **The grid this board uses — final, 18 August.** The **top board's own three columns**: x =
 1.50 / 8.75 / 16.13, each **6.35 in**, 0.90 gutters. Five rows: hardware chart + memory + the
 rail · budgeting + the speedups table (two columns) · three charts · three prose panels ·
@@ -141,8 +145,8 @@ because the parser reads a cell's first blockquote as its lead and this must not
 call — budgeting a run, the unit and the rate that turns it into a promise, was essential to the
 whole term, and the report's strongest section had no panel. The pipeline chart was the board's
 weakest: one ratio its caption already stated, surviving verbatim as speedups row 4 (53 s vs
-85 min — 96×). Figure 23 stays in the repository; the queue-vs-notebook argument lives on in the
-dashboard panel.*
+85 min — 96×). Figure 23 is retired with the pipeline panel — deleted, not kept; the
+queue-vs-notebook argument lives on in the dashboard panel.*
 
 ### 3 · The factory, in numbers
 
@@ -186,7 +190,7 @@ dashboard panel.*
 | 19 · use the second card | **91% / 93%** busy at 300 W | yes |
 | 20 · longest-budget-first queue | **2.55×** projected, 2.07 seen | yes |
 
-*50 words · report 09 §Optimization*
+*50 words · report 09 §Week 2, "The year, in twenty changes"*
 
 ### 5 · You cannot judge a run early
 
@@ -229,7 +233,8 @@ dashboard panel.*
 | **Nobody on the chart beside this needed 80 GB.** | 96, 80, 24, 16, 8 GB — all ran the same step. The A100 sells **speed**, not room. |
 | **And Windows does not warn you.** | An oversized batch silently spills into system RAM: **28,027 → 5,075 tok/s**. |
 
-*Five rows, no prose · report 09 §Memory · `runs/hardware.json`*
+*Five rows, no prose · report 09 §Week 1's in-depth (the accumulation and memory-wall
+discussion) · `runs/hardware.json`*
 
 ### 9 · A hundred runs is a filing problem first
 
@@ -272,12 +277,18 @@ count as the payoff.)*
 
 *Four rows — three name why the language group is there and what it taught, and the last is
 the factory's payoff. The "None of us speaks any of them" line was Jeffrey's own cut on the
-printed board. · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09 §Why
-seventeen*
+printed board. The top board's learnability table shows ten languages, not twelve — Wolof and
+Luganda pretrained but sat out that comparison for want of the full 50M tokens; report 07 §4
+records the exclusion. · `runs/gradient_table.json` · `runs/gradient_languages.json` · report 09
+§"The problem, in two halves"*
 
 ---
 
-## The strip — the bottom row of panels
+## The strip — Ethics and Sources
+
+*("The strip" survives from the nine-cell layout as the name for the two compliance panels; on
+the five-row wall they are not one row — Ethics sits in the prose row beside cells 9 and 10,
+Sources in the last row beside the languages panel.)*
 
 ### Ethics: what we do not claim, and what is next
 
@@ -350,7 +361,9 @@ puts each machine's project cost in its own row label, and states the one thing 
 on: **an 8 GB laptop GPU beats the free tier, even unplugged.** Both draw from the same reduced
 records, so they cannot disagree about a number.
 
-**A Colab A100 comes within a fifth of one Blackwell card** — 46 minutes a run against 37. The L4
+**A Colab A100 comes within a fifth of one Blackwell card** — 46 minutes a run against 37 (cell
+2 rounds the same run to ≈38 via the 443k rate; different sittings of one measurement, not a
+disagreement). The L4
 is **4.9× slower, 30 days of card time, $112**. The free T4 is the floor of what somebody with no
 budget gets — **8.3×, 53 days, and the 98M model fits there too**. The laptop a student most
 likely already owns runs **4.3 h / 10.2 h per run, 56× its own CPU, and beats the free T4 on both
