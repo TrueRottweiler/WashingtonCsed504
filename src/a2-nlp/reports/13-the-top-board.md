@@ -20,7 +20,11 @@ figure is not regenerable from the records, it says so in the panel.
 24 × 36 in portrait, three columns at x = 1.50 / 8.75 / 16.13 in, each **6.35 in** wide; body type
 **18 pt**. Three rows of 6.70 in with 0.25 in gutters, then a 4.45 in strip across the foot. The
 full derivation is in [report 12](12-the-bottom-board.md#format--measured-from-the-template-not-assumed)
-and is not repeated here — **both boards print at the same size and must not drift apart.**
+and is not repeated here — **both boards print at the same sheet size, on the same column grid,
+and those must not drift apart.** Body type is the one thing they no longer share: this board sets
+18 pt, and the bottom board dropped to **17 pt** in the 18 August readability pass so its heads
+could come down to 28 without opening a canyon above the text. That was a deliberate departure,
+recorded in report 12; do not "correct" one board to the other's number.
 
 **The word budget is a hard limit, not a target.** A cell with a figure has about 1.9 in of column
 left, which is **~55 words at 18 pt**; a cell without a figure gets about **110**; a strip block
@@ -51,8 +55,10 @@ whole of the layout decision — unlike the bottom board, no cell here is carryi
 Author line, in the header band: *Patrick Kwok · Jeffrey Stall · Leon Wan · CSED 504 · the lower
 board is the machinery this experiment ran on.*
 
-Both boards carry all three names in full, and the role split is named once, on the bottom
-board's strip. **Neither board carries "A2-NLP"** — it is our internal project code and means
+Both boards carry all three names in full. **Neither names who did what** — the role split is
+written up in the repository, not on either board, and a pointer here to a split on the bottom
+board's strip was wrong: that strip carries Ethics and Sources and nothing else.
+**Neither board carries "A2-NLP"** — it is our internal project code and means
 nothing to a reader; the course number is the identifier that does.
 
 **Goals**, set as one line in the header band under the author line. These are the proposal's six,
@@ -62,12 +68,12 @@ in its own order, and they are the one rubric item neither board carried until 1
 > pretraining budget on two tasks · **separate labelled-data quantity from task type**, the
 > proposal's decisive experiment · locate where from-scratch overtakes transfer · test whether it
 > generalises across languages · does MLM loss predict downstream quality? **All six closed;
-> goal 6 is answered no.**
+> goal 6 is answered for one task of two.**
 
 **Citations**, set as the footer line across the foot of the board. Report 09 §References holds
 all nineteen and says "the poster should carry a shortened version of this"; this is that
 version, restricted to what *this* board actually leans on. The AI statement is **not** repeated
-here — it is written once, properly, on the bottom board's strip, and the two boards hang
+here — it is written once, properly, in the bottom board's footer, and the two boards hang
 together:
 
 > **Built with** PyTorch and HuggingFace `transformers`, `tokenizers` and `datasets`, plus NumPy;
@@ -184,14 +190,14 @@ is the causal evidence and what it actually buys you.
 
 ### 9 · So what does a bad vocabulary actually cost?
 
-**Big number:** `F = 15.1` / `spread, not mean` · **Figure:** `17-tokenizer-lottery-column.svg`
+**Big number:** `0.145 vs 0.037` / `spread, not mean` · **Figure:** `17-tokenizer-lottery-column.svg`
 
-> We reported for two days that a bad vocabulary costs 0.144 bits per character. Six
-> **pre-registered** seeds a side say otherwise: the gap falls to 0.059 (*p* = 0.374) and the arms
-> interleave. **The spreads separate instead** — 0.145 against 0.037, *F* = 15.1. A vocabulary
-> that does not fit **decides how much of a gamble the run is.**
+> We reported for two days that a bad vocabulary costs **0.144 bits per character** — bits, not
+> cell 8's macro-F1. Six **pre-registered** seeds a side say otherwise: the gap falls to 0.059
+> (*p* = 0.374) and the arms interleave. **The spreads separate instead** — 0.145 against 0.037,
+> *F* = 15.1. A vocabulary that does not fit **decides how much of a gamble the run is.**
 
-*59 words · `runs/tokenizer_seeds.json`*
+*65 words · `runs/tokenizer_seeds.json`*
 
 ---
 
@@ -202,13 +208,13 @@ is the causal evidence and what it actually buys you.
 **Big number:** `5 constants` / `one on purpose`
 
 > The recurring failure mode: *a constant chosen for one context silently deciding a result in
-> another.* A seed spread of 0.049, applied to experiments it did not describe. Fertility measured
-> on the first 400 documents — a separation that reverses at 800. An untrained floor printed for a
+> another.* A seed spread of 0.049, applied to experiments it did not describe. Tokens per word
+> measured on the first 400 documents — a separation that reverses at 800. An untrained floor printed for a
 > fortnight at 0.4140, one cell of a sweep. And **`FT_STEPS = 352`, inherited to preserve
 > behaviour, which decided this study's central downstream conclusion** — the best of them,
 > because keeping it was correct.
 
-*81 words · report 13 Panel 12*
+*83 words · report 13 Panel 12*
 
 ### What we do not claim
 
@@ -230,7 +236,7 @@ is the causal evidence and what it actually buys you.
 > one language; cell 3 shows the penalty tracking coverage across seventeen, but never through to
 > a task. **The experiment that closes it is cell 8 repeated across the coverage gradient** — the
 > swap in four or five languages spanning 1.15 to 1.59, with the untrained floor measured in each.
-> If the downstream gap tracks the fertility ratio, the argument becomes quantitative.
+> If the downstream gap tracks the tokens-per-word ratio, the argument becomes quantitative.
 
 *76 words · report 13 Panel 14*
 
@@ -244,9 +250,9 @@ requirement across both boards spends wall space twice, and the brief warns that
 
 | required | where it is |
 |---|---|
-| Team member names | header band, both boards · role split on the bottom strip |
+| Team member names | header band, both boards, all three in full · no role split on either board |
 | Problem / motivation | title block + **cell 1** |
-| Goals | **header band**, all six, added 17 Aug · full audit in report 13 §Goals |
+| Goals | **header band**, all six, added 17 Aug · full audit in the title block above |
 | Tool stack | **bottom board cells 2–5** — that board is the tool stack |
 | Pre-existing vs from scratch | **cells 1 and 5** |
 | How performance was explored | **cells 5–9**: dev-split selection, five seeds, floors, exact tests |
@@ -255,7 +261,8 @@ requirement across both boards spends wall space twice, and the brief warns that
 | Discussion / limitations | **cells 6–9** and **strip 2** |
 | Ethical impact | **strip 2** here and on the bottom board — the one item deliberately said twice |
 | Next steps | **strip 3** |
-| Citations + AI statement | **bottom board strip 3**, with all 19 references in report 09 |
+| Citations | **bottom board strip 2**, in full bibliographic form, all 19 in report 09 |
+| AI statement | **the bottom board's footer**, at 12 pt — not repeated here |
 
 **Two of these were genuinely missing before this pass, and neither was visible from the panels.**
 Goals were on no board at all — the proposal's six had been closed one at a time in the state file
@@ -358,8 +365,9 @@ which XLM-R also covers.
 Two honesty notes that travel with this panel. **Wolof at 1.31 sits inside the covered range**, so
 this is a gradient with one exception rather than a clean split — six of seven uncovered languages
 are above every covered one. And an earlier version of this result claimed *perfect* separation at
-p ≈ 5×10⁻⁵; that was an artifact of measuring fertility on the first 400 documents, and it reverses
-at 800. Panel 12 is about that class of mistake.
+p ≈ 5×10⁻⁵; that was an artifact of measuring fertility — the tokens-per-word ratio above, and the
+field's name for it — on the first 400 documents, and it reverses at 800. Panel 12 is about that
+class of mistake.
 
 *Regenerable here from `runs/gradient_table.json`. One trap: the file has 18 rows for 17 languages
 — `eng` and `eng_1b` are the same language at two corpus sizes — and averaging the raw rows gives
